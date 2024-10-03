@@ -209,6 +209,7 @@ func (db *DB) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64
 	if err != nil {
 		return nil, err
 	}
+	ctx = x.AttachNamespace(ctx, 0)
 
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
@@ -225,11 +226,17 @@ func (db *DB) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64
 	if err != nil {
 		return nil, err
 	}
-	p := &pb.Proposal{Mutations: &pb.Mutations{
+
+	m := &pb.Mutations{
 		GroupId: 1,
 		StartTs: startTs,
 		Edges:   edges,
-	}}
+	}
+	m.Edges, err = query.ExpandEdges(ctx, m)
+	if err != nil {
+		return nil, fmt.Errorf("error expanding edges: %w", err)
+	}
+	p := &pb.Proposal{Mutations: m}
 	if err := worker.ApplyMutations(ctx, p); err != nil {
 		return nil, err
 	}

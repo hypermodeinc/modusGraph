@@ -29,7 +29,7 @@ func TestRestart(t *testing.T) {
 				{
 					Namespace:   0,
 					Subject:     "_:aman",
-					Predicate:   "0-name",
+					Predicate:   "name",
 					ObjectValue: &api.Value{Val: &api.Value_StrVal{StrVal: "A"}},
 				},
 			},
@@ -95,7 +95,7 @@ func TestBasicVector(t *testing.T) {
 	uids, err := dg.Mutate(context.Background(), []*api.Mutation{{
 		Set: []*api.NQuad{{
 			Subject:   "_:vector",
-			Predicate: "0-project_description_v",
+			Predicate: "project_description_v",
 			ObjectValue: &api.Value{
 				Val: &api.Value_Vfloat32Val{Vfloat32Val: vectBytes},
 			},

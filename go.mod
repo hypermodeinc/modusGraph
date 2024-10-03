@@ -5,7 +5,7 @@ go 1.22.6
 require (
 	github.com/dgraph-io/badger/v4 v4.3.0
 	github.com/dgraph-io/dgo/v240 v240.0.0
-	github.com/dgraph-io/dgraph/v24 v24.0.3-0.20241003112202-7d04098b36f5
+	github.com/dgraph-io/dgraph/v24 v24.0.3-0.20241003201633-eb5a558e9c77
 	github.com/dgraph-io/ristretto v1.0.0
 	github.com/stretchr/testify v1.9.0
 )
