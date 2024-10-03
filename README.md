@@ -1,4 +1,2 @@
-dblite
+ModusDB
 ======
-
-A lightweight Dgraph database.
