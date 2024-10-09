@@ -3,9 +3,9 @@ module github.com/hypermodeinc/modusdb
 go 1.22.6
 
 require (
-	github.com/dgraph-io/badger/v4 v4.3.0
+	github.com/dgraph-io/badger/v4 v4.3.1
 	github.com/dgraph-io/dgo/v240 v240.0.0
-	github.com/dgraph-io/dgraph/v24 v24.0.3-0.20241003201633-eb5a558e9c77
+	github.com/dgraph-io/dgraph/v24 v24.0.4
 	github.com/dgraph-io/ristretto v1.0.0
 	github.com/stretchr/testify v1.9.0
 )
@@ -75,7 +75,7 @@ require (
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.17.9 // indirect
+	github.com/klauspost/compress v1.17.10 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
