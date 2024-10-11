@@ -59,6 +59,7 @@ func New(conf Config) (*DB, error) {
 	x.WorkerConfig.Badger = badger.DefaultOptions("").FromSuperFlag(worker.BadgerDefaults)
 	x.Config.MaxRetries = 10
 	x.Config.Limit = z.NewSuperFlag("max-pending-queries=100000")
+	x.Config.LimitNormalizeNode = conf.limitNormalizeNode
 
 	// initialize each package
 	edgraph.Init()
@@ -236,10 +237,16 @@ func (db *DB) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64
 	if err != nil {
 		return nil, fmt.Errorf("error expanding edges: %w", err)
 	}
-	p := &pb.Proposal{Mutations: m}
+
+	for _, edge := range m.Edges {
+		worker.InitTablet(edge.Attr)
+	}
+
+	p := &pb.Proposal{Mutations: m, StartTs: startTs}
 	if err := worker.ApplyMutations(ctx, p); err != nil {
 		return nil, err
 	}
+
 	return newUids, worker.ApplyCommited(ctx, &pb.OracleDelta{
 		Txns: []*pb.TxnStatus{{StartTs: startTs, CommitTs: commitTs}},
 	})
@@ -271,6 +278,13 @@ func (db *DB) reset() error {
 		if err := worker.ApplyInitialSchema(); err != nil {
 			return fmt.Errorf("error applying initial schema: %w", err)
 		}
+	}
+
+	if err := schema.LoadFromDb(context.Background()); err != nil {
+		return fmt.Errorf("error loading schema: %w", err)
+	}
+	for _, pred := range schema.State().Predicates() {
+		worker.InitTablet(pred)
 	}
 
 	db.z = z

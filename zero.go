@@ -24,6 +24,11 @@ const (
 	zeroStateKey = "0-dgraph.modusdb.zero"
 )
 
+func (db *DB) LeaseUIDs(numUIDs uint64) (pb.AssignedIds, error) {
+	num := &pb.Num{Val: numUIDs, Type: pb.Num_UID}
+	return db.z.nextUIDs(num)
+}
+
 type zero struct {
 	minLeasedUID uint64
 	maxLeasedUID uint64
@@ -150,8 +155,6 @@ func writeZeroState(maxUID, maxTs uint64) error {
 		return fmt.Errorf("error committing zero state: %w", err)
 	}
 
-	// worker.State.Dispose()
-
 	return nil
 }
 
@@ -160,7 +163,7 @@ func (z *zero) leaseTs() error {
 		return nil
 	}
 
-	z.maxLeasedTs += leaseTsAtATime
+	z.maxLeasedTs += z.minLeasedTs + leaseTsAtATime
 	if err := writeZeroState(z.maxLeasedUID, z.maxLeasedTs); err != nil {
 		return fmt.Errorf("error leasing UIDs: %w", err)
 	}
@@ -173,7 +176,7 @@ func (z *zero) leaseUIDs() error {
 		return nil
 	}
 
-	z.maxLeasedUID += leaseUIDAtATime
+	z.maxLeasedUID += z.minLeasedUID + leaseUIDAtATime
 	if err := writeZeroState(z.maxLeasedUID, z.maxLeasedTs); err != nil {
 		return fmt.Errorf("error leasing timestamps: %w", err)
 	}

@@ -16,14 +16,14 @@ import (
 func TestRestart(t *testing.T) {
 	dataDir := t.TempDir()
 
-	dg, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(dataDir))
+	db, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(dataDir))
 	require.NoError(t, err)
-	defer func() { dg.Close() }()
+	defer func() { db.Close() }()
 
-	require.NoError(t, dg.DropAll(context.Background()))
-	require.NoError(t, dg.AlterSchema(context.Background(), "name: string @index(term) ."))
+	require.NoError(t, db.DropAll(context.Background()))
+	require.NoError(t, db.AlterSchema(context.Background(), "name: string @index(term) ."))
 
-	_, err = dg.Mutate(context.Background(), []*api.Mutation{
+	_, err = db.Mutate(context.Background(), []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -42,25 +42,27 @@ func TestRestart(t *testing.T) {
 				name
 			}
 		}`
-	qresp, err := dg.Query(context.Background(), query)
+	qresp, err := db.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
 
-	dg.Close()
-	dg, err = modusdb.New(modusdb.NewDefaultConfig().WithDataDir(dataDir))
+	db.Close()
+	db, err = modusdb.New(modusdb.NewDefaultConfig().WithDataDir(dataDir))
 	require.NoError(t, err)
-	qresp, err = dg.Query(context.Background(), query)
+	qresp, err = db.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
+
+	require.NoError(t, db.DropAll(context.Background()))
 }
 
 func TestSchemaQuery(t *testing.T) {
-	dg, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(t.TempDir()))
+	db, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(t.TempDir()))
 	require.NoError(t, err)
-	defer dg.Close()
+	defer db.Close()
 
-	require.NoError(t, dg.DropAll(context.Background()))
-	require.NoError(t, dg.AlterSchema(context.Background(), `
+	require.NoError(t, db.DropAll(context.Background()))
+	require.NoError(t, db.AlterSchema(context.Background(), `
 		name: string @index(exact) .
 		age: int .
 		married: bool .
@@ -68,7 +70,7 @@ func TestSchemaQuery(t *testing.T) {
 		dob: datetime .
 	`))
 
-	resp, err := dg.Query(context.Background(), `schema(pred: [name, age]) {type}`)
+	resp, err := db.Query(context.Background(), `schema(pred: [name, age]) {type}`)
 	require.NoError(t, err)
 
 	require.JSONEq(t,
@@ -84,15 +86,15 @@ func TestBasicVector(t *testing.T) {
 	}
 	vectBytes := buf.Bytes()
 
-	dg, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(t.TempDir()))
+	db, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(t.TempDir()))
 	require.NoError(t, err)
-	defer dg.Close()
+	defer db.Close()
 
-	require.NoError(t, dg.DropAll(context.Background()))
-	require.NoError(t, dg.AlterSchema(context.Background(),
+	require.NoError(t, db.DropAll(context.Background()))
+	require.NoError(t, db.AlterSchema(context.Background(),
 		`project_description_v: float32vector @index(hnsw(exponent: "5", metric: "euclidean")) .`))
 
-	uids, err := dg.Mutate(context.Background(), []*api.Mutation{{
+	uids, err := db.Mutate(context.Background(), []*api.Mutation{{
 		Set: []*api.NQuad{{
 			Subject:   "_:vector",
 			Predicate: "project_description_v",
@@ -108,7 +110,7 @@ func TestBasicVector(t *testing.T) {
 		t.Fatalf("Expected non-zero uid")
 	}
 
-	resp, err := dg.Query(context.Background(), fmt.Sprintf(`query {
+	resp, err := db.Query(context.Background(), fmt.Sprintf(`query {
 			q (func: uid(%v)) {
 				project_description_v
 			}
