@@ -261,7 +261,7 @@ func (db *DB) Query(ctx context.Context, query string) (*api.Response, error) {
 		return nil, ErrDBClosed
 	}
 
-	return (&edgraph.Server{}).Query(ctx, &api.Request{
+	return (&edgraph.Server{}).QueryNoGrpc(ctx, &api.Request{
 		ReadOnly: true,
 		Query:    query,
 		StartTs:  db.z.readTs(),
