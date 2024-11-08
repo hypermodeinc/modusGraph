@@ -34,28 +34,24 @@ var (
 // DB is an instance of modusdb.
 // For now, we only support one instance of modusdb per process.
 type DB struct {
-	mutex  sync.RWMutex
-	isOpen bool
-	dir    string
+	mutex   sync.RWMutex
+	isOpen  bool
+	dataDir string
 
 	z *zero
 }
 
 // New returns a new modusdb instance.
-func New(conf Config) (*DB, error) {
-
-	if err := conf.validate(); err != nil {
-		return nil, err
-	}
+func New(conf Config, dataDir string) (*DB, error) {
 
 	// Ensure that we do not create another instance of modusdb in the same data directory
 	dataDirSingletonsMu.Lock()
 	defer dataDirSingletonsMu.Unlock()
 
-	dirSingleton := dataDirSingletons[conf.dataDir]
+	dirSingleton := dataDirSingletons[dataDir]
 	if dirSingleton == nil {
 		dirSingleton = new(atomic.Bool)
-		dataDirSingletons[conf.dataDir] = dirSingleton
+		dataDirSingletons[dataDir] = dirSingleton
 	}
 
 	if !dirSingleton.CompareAndSwap(false, true) {
@@ -63,9 +59,9 @@ func New(conf Config) (*DB, error) {
 	}
 
 	// setup data directories
-	worker.Config.PostingDir = path.Join(conf.dataDir, "p")
-	worker.Config.WALDir = path.Join(conf.dataDir, "w")
-	x.WorkerConfig.TmpDir = path.Join(conf.dataDir, "t")
+	worker.Config.PostingDir = path.Join(dataDir, "p")
+	worker.Config.WALDir = path.Join(dataDir, "w")
+	x.WorkerConfig.TmpDir = path.Join(dataDir, "t")
 
 	// TODO: optimize these and more options
 	x.WorkerConfig.Badger = badger.DefaultOptions("").FromSuperFlag(worker.BadgerDefaults)
@@ -80,7 +76,7 @@ func New(conf Config) (*DB, error) {
 	schema.Init(worker.State.Pstore)
 	posting.Init(worker.State.Pstore, 0) // TODO: set cache size
 
-	db := &DB{isOpen: true, dir: conf.dataDir}
+	db := &DB{isOpen: true, dataDir: dataDir}
 	if err := db.reset(); err != nil {
 		return nil, fmt.Errorf("error resetting db: %w", err)
 	}
@@ -102,11 +98,11 @@ func (db *DB) Close() {
 	dataDirSingletonsMu.Lock()
 	defer dataDirSingletonsMu.Unlock()
 
-	if lock, exists := dataDirSingletons[db.dir]; exists {
+	if lock, exists := dataDirSingletons[db.dataDir]; exists {
 		if !lock.CompareAndSwap(true, false) {
 			panic("modusdb instance was not properly closed")
 		}
-		delete(dataDirSingletons, db.dir)
+		delete(dataDirSingletons, db.dataDir)
 	} else {
 		panic("modusdb instance was not properly closed")
 	}
