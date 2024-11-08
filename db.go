@@ -23,9 +23,10 @@ import (
 
 var (
 	// This ensures that we only have one instance of modusdb in this process.
-	singeton atomic.Bool
+	dataDirSingletons   = make(map[string]*atomic.Bool)
+	dataDirSingletonsMu sync.Mutex
 
-	ErrSingletonOnly = errors.New("only one modusdb instance is supported")
+	ErrSingletonOnly = errors.New("only one modusdb instance is supported per directory")
 	ErrEmptyDataDir  = errors.New("data directory is required")
 	ErrDBClosed      = errors.New("modusdb instance is closed")
 )
@@ -35,19 +36,30 @@ var (
 type DB struct {
 	mutex  sync.RWMutex
 	isOpen bool
+	dir    string
 
 	z *zero
 }
 
 // New returns a new modusdb instance.
 func New(conf Config) (*DB, error) {
-	// Ensure that we do not create another instance of modusdb in the same process
-	if !singeton.CompareAndSwap(false, true) {
-		return nil, ErrSingletonOnly
-	}
 
 	if err := conf.validate(); err != nil {
 		return nil, err
+	}
+
+	// Ensure that we do not create another instance of modusdb in the same data directory
+	dataDirSingletonsMu.Lock()
+	defer dataDirSingletonsMu.Unlock()
+
+	dirSingleton := dataDirSingletons[conf.dataDir]
+	if dirSingleton == nil {
+		dirSingleton = new(atomic.Bool)
+		dataDirSingletons[conf.dataDir] = dirSingleton
+	}
+
+	if !dirSingleton.CompareAndSwap(false, true) {
+		return nil, ErrSingletonOnly
 	}
 
 	// setup data directories
@@ -68,7 +80,7 @@ func New(conf Config) (*DB, error) {
 	schema.Init(worker.State.Pstore)
 	posting.Init(worker.State.Pstore, 0) // TODO: set cache size
 
-	db := &DB{isOpen: true}
+	db := &DB{isOpen: true, dir: conf.dataDir}
 	if err := db.reset(); err != nil {
 		return nil, fmt.Errorf("error resetting db: %w", err)
 	}
@@ -86,8 +98,17 @@ func (db *DB) Close() {
 		return
 	}
 
-	if !singeton.CompareAndSwap(true, false) {
-		panic("modusdb instance was not properly opened")
+	// reset the singleton
+	dataDirSingletonsMu.Lock()
+	defer dataDirSingletonsMu.Unlock()
+
+	if lock, exists := dataDirSingletons[db.dir]; exists {
+		if !lock.CompareAndSwap(true, false) {
+			panic("modusdb instance was not properly closed")
+		}
+		delete(dataDirSingletons, db.dir)
+	} else {
+		panic("modusdb instance was not properly closed")
 	}
 
 	db.isOpen = false
