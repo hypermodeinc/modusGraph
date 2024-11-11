@@ -56,6 +56,140 @@ func TestRestart(t *testing.T) {
 	require.NoError(t, db.DropAll(context.Background()))
 }
 
+func TestMultipleStartOnSameDir(t *testing.T) {
+	dataDir := t.TempDir()
+
+	db, err := modusdb.New(modusdb.NewDefaultConfig(), dataDir)
+	require.NoError(t, err)
+	defer func() { db.Close() }()
+
+	require.NoError(t, db.DropAll(context.Background()))
+	require.NoError(t, db.AlterSchema(context.Background(), "name: string @index(term) ."))
+
+	_, err = db.Mutate(context.Background(), []*api.Mutation{
+		{
+			Set: []*api.NQuad{
+				{
+					Namespace:   0,
+					Subject:     "_:aman",
+					Predicate:   "name",
+					ObjectValue: &api.Value{Val: &api.Value_StrVal{StrVal: "A"}},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	query := `{
+			me(func: has(name)) {
+				name
+			}
+		}`
+	qresp, err := db.Query(context.Background(), query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
+
+	db.Close()
+	db, err = modusdb.New(modusdb.NewDefaultConfig(), dataDir)
+	require.NoError(t, err)
+	qresp, err = db.Query(context.Background(), query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
+
+	require.NoError(t, db.DropAll(context.Background()))
+
+	db.Close()
+	db, err = modusdb.New(modusdb.NewDefaultConfig(), dataDir)
+	require.NoError(t, err)
+	qresp, err = db.Query(context.Background(), query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[]}`, string(qresp.GetJson()))
+}
+
+func TestMultipleDBsSameDir(t *testing.T) {
+	dataDir := t.TempDir()
+
+	db1, err := modusdb.New(modusdb.NewDefaultConfig(), dataDir)
+	require.NoError(t, err)
+	defer func() { db1.Close() }()
+
+	_, err = modusdb.New(modusdb.NewDefaultConfig(), dataDir)
+	require.Error(t, err)
+	require.Equal(t, modusdb.ErrSingletonOnly, err)
+}
+
+func TestMultipleDBsDifferentDir(t *testing.T) {
+	dataDir := t.TempDir()
+	dataDir2 := t.TempDir()
+
+	db1, err := modusdb.New(modusdb.NewDefaultConfig(), dataDir)
+	require.NoError(t, err)
+	defer func() { db1.Close() }()
+
+	db2, err := modusdb.New(modusdb.NewDefaultConfig(), dataDir2)
+	require.NoError(t, err)
+	defer func() { db2.Close() }()
+
+	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+		{
+			Set: []*api.NQuad{
+				{
+					Namespace:   0,
+					Subject:     "_:aman",
+					Predicate:   "name",
+					ObjectValue: &api.Value{Val: &api.Value_StrVal{StrVal: "A"}},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	query := `{
+			me(func: has(name)) {
+				name
+			}
+		}`
+	qresp, err := db1.Query(context.Background(), query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
+
+	qresp, err = db2.Query(context.Background(), query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[]}`, string(qresp.GetJson()))
+
+	// drop db1
+	require.NoError(t, db1.DropAll(context.Background()))
+
+	qresp, err = db1.Query(context.Background(), query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[]}`, string(qresp.GetJson()))
+
+	_, err = db2.Mutate(context.Background(), []*api.Mutation{
+		{
+			Set: []*api.NQuad{
+				{
+					Namespace:   0,
+					Subject:     "_:aman",
+					Predicate:   "name",
+					ObjectValue: &api.Value{Val: &api.Value_StrVal{StrVal: "A"}},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	qresp, err = db2.Query(context.Background(), query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
+
+	qresp, err = db1.Query(context.Background(), query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[]}`, string(qresp.GetJson()))
+
+	// drop db2
+	require.NoError(t, db2.DropAll(context.Background()))
+}
+
 func TestSchemaQuery(t *testing.T) {
 	db, err := modusdb.New(modusdb.NewDefaultConfig(), t.TempDir())
 	require.NoError(t, err)
