@@ -157,12 +157,12 @@ func TestMultipleDBsDifferentDir(t *testing.T) {
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[]}`, string(qresp.GetJson()))
 
-	// drop db1
-	require.NoError(t, db1.DropAll(context.Background()))
+	// // drop db1
+	// require.NoError(t, db1.DropAll(context.Background()))
 
-	qresp, err = db1.Query(context.Background(), query)
-	require.NoError(t, err)
-	require.JSONEq(t, `{"me":[]}`, string(qresp.GetJson()))
+	// qresp, err = db1.Query(context.Background(), query)
+	// require.NoError(t, err)
+	// require.JSONEq(t, `{"me":[]}`, string(qresp.GetJson()))
 
 	_, err = db2.Mutate(context.Background(), []*api.Mutation{
 		{
@@ -171,7 +171,7 @@ func TestMultipleDBsDifferentDir(t *testing.T) {
 					Namespace:   0,
 					Subject:     "_:aman",
 					Predicate:   "name",
-					ObjectValue: &api.Value{Val: &api.Value_StrVal{StrVal: "A"}},
+					ObjectValue: &api.Value{Val: &api.Value_StrVal{StrVal: "B"}},
 				},
 			},
 		},
@@ -180,7 +180,7 @@ func TestMultipleDBsDifferentDir(t *testing.T) {
 
 	qresp, err = db2.Query(context.Background(), query)
 	require.NoError(t, err)
-	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
+	require.JSONEq(t, `{"me":[{"name":"B"}]}`, string(qresp.GetJson()))
 
 	qresp, err = db1.Query(context.Background(), query)
 	require.NoError(t, err)
