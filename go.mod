@@ -6,7 +6,7 @@ require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/dgraph-io/badger/v4 v4.3.1
 	github.com/dgraph-io/dgo/v240 v240.0.0
-	github.com/dgraph-io/dgraph/v24 v24.0.4-test.0.20241017132253-b6c6176683a7
+	github.com/dgraph-io/dgraph/v24 v24.0.3-0.20241111015302-0789e950c74c
 	github.com/dgraph-io/ristretto v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
