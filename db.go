@@ -38,6 +38,8 @@ type DB struct {
 	isOpen  bool
 	dataDir string
 
+	ss worker.ServerState
+
 	z *zero
 }
 
@@ -71,12 +73,14 @@ func New(conf Config, dataDir string) (*DB, error) {
 
 	// initialize each package
 	edgraph.Init()
-	worker.State.InitStorage()
-	worker.InitForLite(worker.State.Pstore)
-	schema.Init(worker.State.Pstore)
-	posting.Init(worker.State.Pstore, 0) // TODO: set cache size
+	var s worker.ServerState
+	s.InitStorage()
+	// worker.State.InitStorage()
+	worker.InitForLite(s.Pstore)
+	schema.Init(s.Pstore)
+	posting.Init(s.Pstore, 0) // TODO: set cache size
 
-	db := &DB{isOpen: true, dataDir: dataDir}
+	db := &DB{isOpen: true, dataDir: dataDir, ss: s}
 	if err := db.reset(); err != nil {
 		return nil, fmt.Errorf("error resetting db: %w", err)
 	}
@@ -110,7 +114,7 @@ func (db *DB) Close() {
 	db.isOpen = false
 	x.UpdateHealthStatus(false)
 	posting.Cleanup()
-	worker.State.Dispose()
+	db.ss.Dispose()
 }
 
 // DropAll drops all the data and schema in the modusdb instance.
@@ -175,7 +179,7 @@ func (db *DB) AlterSchema(ctx context.Context, sch string) error {
 		worker.InitTablet(pred.Predicate)
 	}
 
-	startTs, err := db.z.nextTs()
+	startTs, err := db.nextTs()
 	if err != nil {
 		return err
 	}
@@ -211,7 +215,7 @@ func (db *DB) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64
 	}
 	if len(newUids) > 0 {
 		num := &pb.Num{Val: uint64(len(newUids)), Type: pb.Num_UID}
-		res, err := db.z.nextUIDs(num)
+		res, err := db.nextUIDs(num)
 		if err != nil {
 			return nil, err
 		}
@@ -236,11 +240,11 @@ func (db *DB) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64
 		return nil, ErrDBClosed
 	}
 
-	startTs, err := db.z.nextTs()
+	startTs, err := db.nextTs()
 	if err != nil {
 		return nil, err
 	}
-	commitTs, err := db.z.nextTs()
+	commitTs, err := db.nextTs()
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +290,7 @@ func (db *DB) Query(ctx context.Context, query string) (*api.Response, error) {
 }
 
 func (db *DB) reset() error {
-	z, restart, err := newZero()
+	restart, err := db.newZero()
 	if err != nil {
 		return fmt.Errorf("error initializing zero: %w", err)
 	}
@@ -304,6 +308,5 @@ func (db *DB) reset() error {
 		worker.InitTablet(pred)
 	}
 
-	db.z = z
 	return nil
 }

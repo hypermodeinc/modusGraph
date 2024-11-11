@@ -26,7 +26,7 @@ const (
 
 func (db *DB) LeaseUIDs(numUIDs uint64) (pb.AssignedIds, error) {
 	num := &pb.Num{Val: numUIDs, Type: pb.Num_UID}
-	return db.z.nextUIDs(num)
+	return db.nextUIDs(num)
 }
 
 type zero struct {
@@ -37,47 +37,47 @@ type zero struct {
 	maxLeasedTs uint64
 }
 
-func newZero() (*zero, bool, error) {
-	zs, err := readZeroState()
+func (db *DB) newZero() (bool, error) {
+	zs, err := db.readZeroState()
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
 	restart := zs != nil
 
-	z := &zero{}
+	db.z = &zero{}
 	if zs == nil {
-		z.minLeasedUID = initialUID
-		z.maxLeasedUID = initialUID
-		z.minLeasedTs = initialTs
-		z.maxLeasedTs = initialTs
+		db.z.minLeasedUID = initialUID
+		db.z.maxLeasedUID = initialUID
+		db.z.minLeasedTs = initialTs
+		db.z.maxLeasedTs = initialTs
 	} else {
-		z.minLeasedUID = zs.MaxUID
-		z.maxLeasedUID = zs.MaxUID
-		z.minLeasedTs = zs.MaxTxnTs
-		z.maxLeasedTs = zs.MaxTxnTs
+		db.z.minLeasedUID = zs.MaxUID
+		db.z.maxLeasedUID = zs.MaxUID
+		db.z.minLeasedTs = zs.MaxTxnTs
+		db.z.maxLeasedTs = zs.MaxTxnTs
 	}
-	posting.Oracle().ProcessDelta(&pb.OracleDelta{MaxAssigned: z.minLeasedTs - 1})
-	worker.SetMaxUID(z.minLeasedUID - 1)
+	posting.Oracle().ProcessDelta(&pb.OracleDelta{MaxAssigned: db.z.minLeasedTs - 1})
+	worker.SetMaxUID(db.z.minLeasedUID - 1)
 
-	if err := z.leaseUIDs(); err != nil {
-		return nil, false, err
+	if err := db.leaseUIDs(); err != nil {
+		return false, err
 	}
-	if err := z.leaseTs(); err != nil {
-		return nil, false, err
+	if err := db.leaseTs(); err != nil {
+		return false, err
 	}
 
-	return z, restart, nil
+	return restart, nil
 }
 
-func (z *zero) nextTs() (uint64, error) {
-	if z.minLeasedTs >= z.maxLeasedTs {
-		if err := z.leaseTs(); err != nil {
+func (db *DB) nextTs() (uint64, error) {
+	if db.z.minLeasedTs >= db.z.maxLeasedTs {
+		if err := db.leaseTs(); err != nil {
 			return 0, fmt.Errorf("error leasing timestamps: %w", err)
 		}
 	}
 
-	ts := z.minLeasedTs
-	z.minLeasedTs += 1
+	ts := db.z.minLeasedTs
+	db.z.minLeasedTs += 1
 	posting.Oracle().ProcessDelta(&pb.OracleDelta{MaxAssigned: ts})
 	return ts, nil
 }
@@ -86,33 +86,33 @@ func (z *zero) readTs() uint64 {
 	return z.minLeasedTs - 1
 }
 
-func (z *zero) nextUIDs(num *pb.Num) (pb.AssignedIds, error) {
+func (db *DB) nextUIDs(num *pb.Num) (pb.AssignedIds, error) {
 	var resp pb.AssignedIds
 	if num.Bump {
-		if z.minLeasedUID >= num.Val {
-			resp = pb.AssignedIds{StartId: z.minLeasedUID, EndId: z.minLeasedUID}
-			z.minLeasedUID += 1
+		if db.z.minLeasedUID >= num.Val {
+			resp = pb.AssignedIds{StartId: db.z.minLeasedUID, EndId: db.z.minLeasedUID}
+			db.z.minLeasedUID += 1
 		} else {
-			resp = pb.AssignedIds{StartId: z.minLeasedUID, EndId: num.Val}
-			z.minLeasedUID = num.Val + 1
+			resp = pb.AssignedIds{StartId: db.z.minLeasedUID, EndId: num.Val}
+			db.z.minLeasedUID = num.Val + 1
 		}
 	} else {
-		resp = pb.AssignedIds{StartId: z.minLeasedUID, EndId: z.minLeasedUID + num.Val - 1}
-		z.minLeasedUID += num.Val
+		resp = pb.AssignedIds{StartId: db.z.minLeasedUID, EndId: db.z.minLeasedUID + num.Val - 1}
+		db.z.minLeasedUID += num.Val
 	}
 
-	for z.minLeasedUID >= z.maxLeasedUID {
-		if err := z.leaseUIDs(); err != nil {
+	for db.z.minLeasedUID >= db.z.maxLeasedUID {
+		if err := db.leaseUIDs(); err != nil {
 			return pb.AssignedIds{}, err
 		}
 	}
 
-	worker.SetMaxUID(z.minLeasedUID - 1)
+	worker.SetMaxUID(db.z.minLeasedUID - 1)
 	return resp, nil
 }
 
-func readZeroState() (*pb.MembershipState, error) {
-	txn := worker.State.Pstore.NewTransactionAt(zeroStateTs, false)
+func (db *DB) readZeroState() (*pb.MembershipState, error) {
+	txn := db.ss.Pstore.NewTransactionAt(zeroStateTs, false)
 	defer txn.Discard()
 
 	item, err := txn.Get(x.DataKey(zeroStateKey, zeroStateUID))
@@ -133,14 +133,14 @@ func readZeroState() (*pb.MembershipState, error) {
 	return &zeroState, nil
 }
 
-func writeZeroState(maxUID, maxTs uint64) error {
+func (db *DB) writeZeroState(maxUID, maxTs uint64) error {
 	zeroState := pb.MembershipState{MaxUID: maxUID, MaxTxnTs: maxTs}
 	data, err := zeroState.Marshal()
 	if err != nil {
 		return fmt.Errorf("error marshalling zero state: %w", err)
 	}
 
-	txn := worker.State.Pstore.NewTransactionAt(zeroStateTs, true)
+	txn := db.ss.Pstore.NewTransactionAt(zeroStateTs, true)
 	defer txn.Discard()
 
 	e := &badger.Entry{
@@ -158,26 +158,26 @@ func writeZeroState(maxUID, maxTs uint64) error {
 	return nil
 }
 
-func (z *zero) leaseTs() error {
-	if z.minLeasedTs+leaseTsAtATime <= z.maxLeasedTs {
+func (db *DB) leaseTs() error {
+	if db.z.minLeasedTs+leaseTsAtATime <= db.z.maxLeasedTs {
 		return nil
 	}
 
-	z.maxLeasedTs += z.minLeasedTs + leaseTsAtATime
-	if err := writeZeroState(z.maxLeasedUID, z.maxLeasedTs); err != nil {
+	db.z.maxLeasedTs += db.z.minLeasedTs + leaseTsAtATime
+	if err := db.writeZeroState(db.z.maxLeasedUID, db.z.maxLeasedTs); err != nil {
 		return fmt.Errorf("error leasing UIDs: %w", err)
 	}
 
 	return nil
 }
 
-func (z *zero) leaseUIDs() error {
-	if z.minLeasedUID+leaseUIDAtATime <= z.maxLeasedUID {
+func (db *DB) leaseUIDs() error {
+	if db.z.minLeasedUID+leaseUIDAtATime <= db.z.maxLeasedUID {
 		return nil
 	}
 
-	z.maxLeasedUID += z.minLeasedUID + leaseUIDAtATime
-	if err := writeZeroState(z.maxLeasedUID, z.maxLeasedTs); err != nil {
+	db.z.maxLeasedUID += db.z.minLeasedUID + leaseUIDAtATime
+	if err := db.writeZeroState(db.z.maxLeasedUID, db.z.maxLeasedTs); err != nil {
 		return fmt.Errorf("error leasing timestamps: %w", err)
 	}
 
