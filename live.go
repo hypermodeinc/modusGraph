@@ -25,29 +25,29 @@ const (
 )
 
 type liveLoader struct {
-	db *DB
+	n *Namespace
 
 	blankNodes map[string]string
 	mutex      sync.RWMutex
 }
 
-func (db *DB) Load(ctx context.Context, schemaPath, dataPath string) error {
+func (n *Namespace) Load(ctx context.Context, schemaPath, dataPath string) error {
 	schemaData, err := os.ReadFile(schemaPath)
 	if err != nil {
 		return fmt.Errorf("error reading schema file [%v]: %w", schemaPath, err)
 	}
-	if err := db.AlterSchema(ctx, string(schemaData)); err != nil {
+	if err := n.AlterSchema(ctx, string(schemaData)); err != nil {
 		return fmt.Errorf("error altering schema: %w", err)
 	}
 
-	if err := db.LoadData(ctx, dataPath); err != nil {
+	if err := n.LoadData(ctx, dataPath); err != nil {
 		return fmt.Errorf("error loading data: %w", err)
 	}
 	return nil
 }
 
 // TODO: Add support for CSV file
-func (db *DB) LoadData(inCtx context.Context, dataDir string) error {
+func (n *Namespace) LoadData(inCtx context.Context, dataDir string) error {
 	fs := filestore.NewFileStore(dataDir)
 	files := fs.FindDataFiles(dataDir, []string{".rdf", ".rdf.gz", ".json", ".json.gz"})
 	if len(files) == 0 {
@@ -85,7 +85,7 @@ func (db *DB) LoadData(inCtx context.Context, dataDir string) error {
 				if !ok {
 					return nil
 				}
-				uids, err := db.Mutate(rootCtx, []*api.Mutation{nqs})
+				uids, err := n.Mutate(rootCtx, []*api.Mutation{nqs})
 				if err != nil {
 					return fmt.Errorf("error applying mutations: %w", err)
 				}
@@ -95,7 +95,7 @@ func (db *DB) LoadData(inCtx context.Context, dataDir string) error {
 		}
 	})
 
-	ll := &liveLoader{db: db, blankNodes: make(map[string]string)}
+	ll := &liveLoader{n: n, blankNodes: make(map[string]string)}
 	for _, datafile := range files {
 		procG.Go(func() error {
 			return ll.processFile(procCtx, fs, datafile, nqch)
@@ -237,7 +237,7 @@ func (l *liveLoader) uid(ns uint64, val string) (string, error) {
 		return uid, nil
 	}
 
-	asUID, err := l.db.LeaseUIDs(1)
+	asUID, err := l.n.db.LeaseUIDs(1)
 	if err != nil {
 		return "", fmt.Errorf("error allocating UID: %w", err)
 	}

@@ -44,7 +44,7 @@ func TestLiveLoaderSmall(t *testing.T) {
 
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer func() { db.Close() }()
+	defer db.Close()
 
 	dataFolder := t.TempDir()
 	schemaFile := filepath.Join(dataFolder, "data.schema")
@@ -85,7 +85,7 @@ func TestLiveLoaderSmall(t *testing.T) {
 func TestLiveLoader1Million(t *testing.T) {
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer func() { db.Close() }()
+	defer db.Close()
 
 	baseDir := t.TempDir()
 	schResp, err := grab.Get(baseDir, oneMillionSchema)

@@ -8,10 +8,10 @@ require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/dgraph-io/badger/v4 v4.4.0
 	github.com/dgraph-io/dgo/v240 v240.0.1
-	github.com/dgraph-io/dgraph/v24 v24.0.3-0.20241127082017-fd45b3875e3f
+	github.com/dgraph-io/dgraph/v24 v24.0.3-0.20241202011806-64256ce6cac9
 	github.com/dgraph-io/ristretto/v2 v2.0.0
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.9.0
 )
 
@@ -25,7 +25,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bits-and-blooms/bitset v1.15.0 // indirect
+	github.com/bits-and-blooms/bitset v1.17.0 // indirect
 	github.com/blevesearch/bleve/v2 v2.4.3 // indirect
 	github.com/blevesearch/bleve_index_api v1.1.12 // indirect
 	github.com/blevesearch/geo v0.1.20 // indirect

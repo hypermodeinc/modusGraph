@@ -22,13 +22,13 @@ const (
 func TestVectorDelete(t *testing.T) {
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer func() { db.Close() }()
+	defer db.Close()
 
 	require.NoError(t, db.DropAll(context.Background()))
 	require.NoError(t, db.AlterSchema(context.Background(),
 		fmt.Sprintf(vectorSchemaWithIndex, "vtest", "4", "euclidean")))
 
-	// insert random vectorss
+	// insert random vectors
 	assignIDs, err := db.LeaseUIDs(numVectors + 1)
 	require.NoError(t, err)
 	//nolint:gosec
@@ -108,7 +108,7 @@ func queryVectors(t *testing.T, db *modusdb.DB, query string) [][]float32 {
 	}
 	require.NoError(t, json.Unmarshal(resp.Json, &data))
 
-	vectors := make([][]float32, 0, numVectors)
+	vectors := make([][]float32, 0)
 	for _, vector := range data.Vector {
 		vectors = append(vectors, vector.VTest)
 	}

@@ -35,6 +35,8 @@ type zero struct {
 
 	minLeasedTs uint64
 	maxLeasedTs uint64
+
+	lastNS uint64
 }
 
 func newZero() (*zero, bool, error) {
@@ -50,11 +52,13 @@ func newZero() (*zero, bool, error) {
 		z.maxLeasedUID = initialUID
 		z.minLeasedTs = initialTs
 		z.maxLeasedTs = initialTs
+		z.lastNS = 0
 	} else {
 		z.minLeasedUID = zs.MaxUID
 		z.maxLeasedUID = zs.MaxUID
 		z.minLeasedTs = zs.MaxTxnTs
 		z.maxLeasedTs = zs.MaxTxnTs
+		z.lastNS = zs.MaxNsID
 	}
 	posting.Oracle().ProcessDelta(&pb.OracleDelta{MaxAssigned: z.minLeasedTs - 1})
 	worker.SetMaxUID(z.minLeasedUID - 1)
@@ -111,6 +115,14 @@ func (z *zero) nextUIDs(num *pb.Num) (pb.AssignedIds, error) {
 	return resp, nil
 }
 
+func (z *zero) nextNS() (uint64, error) {
+	z.lastNS++
+	if err := z.writeZeroState(); err != nil {
+		return 0, fmt.Errorf("error leasing namespace ID: %w", err)
+	}
+	return z.lastNS, nil
+}
+
 func readZeroState() (*pb.MembershipState, error) {
 	txn := worker.State.Pstore.NewTransactionAt(zeroStateTs, false)
 	defer txn.Discard()
@@ -130,11 +142,12 @@ func readZeroState() (*pb.MembershipState, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshalling zero state: %v", err)
 	}
+
 	return &zeroState, nil
 }
 
-func writeZeroState(maxUID, maxTs uint64) error {
-	zeroState := pb.MembershipState{MaxUID: maxUID, MaxTxnTs: maxTs}
+func (z *zero) writeZeroState() error {
+	zeroState := pb.MembershipState{MaxUID: z.maxLeasedUID, MaxTxnTs: z.maxLeasedTs, MaxNsID: z.lastNS}
 	data, err := zeroState.Marshal()
 	if err != nil {
 		return fmt.Errorf("error marshalling zero state: %w", err)
@@ -164,7 +177,7 @@ func (z *zero) leaseTs() error {
 	}
 
 	z.maxLeasedTs += z.minLeasedTs + leaseTsAtATime
-	if err := writeZeroState(z.maxLeasedUID, z.maxLeasedTs); err != nil {
+	if err := z.writeZeroState(); err != nil {
 		return fmt.Errorf("error leasing UIDs: %w", err)
 	}
 
@@ -177,7 +190,7 @@ func (z *zero) leaseUIDs() error {
 	}
 
 	z.maxLeasedUID += z.minLeasedUID + leaseUIDAtATime
-	if err := writeZeroState(z.maxLeasedUID, z.maxLeasedTs); err != nil {
+	if err := z.writeZeroState(); err != nil {
 		return fmt.Errorf("error leasing timestamps: %w", err)
 	}
 
