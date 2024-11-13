@@ -16,7 +16,7 @@ import (
 func TestRestart(t *testing.T) {
 	dataDir := t.TempDir()
 
-	db, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(dataDir))
+	db, err := modusdb.New(modusdb.NewDefaultConfig(dataDir))
 	require.NoError(t, err)
 	defer func() { db.Close() }()
 
@@ -47,7 +47,7 @@ func TestRestart(t *testing.T) {
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
 
 	db.Close()
-	db, err = modusdb.New(modusdb.NewDefaultConfig().WithDataDir(dataDir))
+	db, err = modusdb.New(modusdb.NewDefaultConfig(dataDir))
 	require.NoError(t, err)
 	qresp, err = db.Query(context.Background(), query)
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestRestart(t *testing.T) {
 }
 
 func TestSchemaQuery(t *testing.T) {
-	db, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(t.TempDir()))
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -86,7 +86,7 @@ func TestBasicVector(t *testing.T) {
 	}
 	vectBytes := buf.Bytes()
 
-	db, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(t.TempDir()))
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer db.Close()
 

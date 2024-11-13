@@ -42,7 +42,7 @@ func TestLiveLoaderSmall(t *testing.T) {
 		`
 	)
 
-	db, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(t.TempDir()))
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer func() { db.Close() }()
 
@@ -83,7 +83,7 @@ func TestLiveLoaderSmall(t *testing.T) {
 }
 
 func TestLiveLoader1Million(t *testing.T) {
-	db, err := modusdb.New(modusdb.NewDefaultConfig().WithDataDir(t.TempDir()))
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer func() { db.Close() }()
 
