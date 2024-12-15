@@ -2,14 +2,14 @@ module github.com/hypermodeinc/modusdb
 
 go 1.22.7
 
-toolchain go1.23.3
+toolchain go1.23.4
 
 require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
-	github.com/dgraph-io/badger/v4 v4.4.0
-	github.com/dgraph-io/dgo/v240 v240.0.1
-	github.com/dgraph-io/dgraph/v24 v24.0.3-0.20241202011806-64256ce6cac9
-	github.com/dgraph-io/ristretto/v2 v2.0.0
+	github.com/dgraph-io/badger/v4 v4.5.0
+	github.com/dgraph-io/dgo/v240 v240.1.0
+	github.com/dgraph-io/dgraph/v24 v24.0.5
+	github.com/dgraph-io/ristretto/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/twpayne/go-geom v1.5.7
