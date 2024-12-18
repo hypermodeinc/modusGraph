@@ -11,10 +11,47 @@ import (
 	"github.com/dgraph-io/dgraph/v24/x"
 )
 
-func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, error) {
-	n.db.mutex.Lock()
-	defer n.db.mutex.Unlock()
-	gid, err := n.db.z.nextUID()
+// Create(db, obj, namespace uint = db.Default)
+
+// ns := db.CreateNamespace()
+
+// modusdb.Create(db, obj)
+// Create(db, obj, ns.id)
+
+type ModusDbOption func(*modusDbOptions)
+
+type modusDbOptions struct {
+	namespace uint64
+}
+
+func WithNamespace(namespace uint64) ModusDbOption {
+	return func(o *modusDbOptions) {
+		o.namespace = namespace
+	}
+}
+
+func getDefaultNamespace(db *DB, opts ...ModusDbOption) (*Namespace, error) {
+	dbOpts := &modusDbOptions{
+		namespace: db.defaultNamespace.ID(),
+	}
+	for _, opt := range opts {
+		opt(dbOpts)
+	}
+
+	return db.getNamespaceWithLock(dbOpts.namespace)
+}
+
+func Create[T any](db *DB, object *T, opts ...ModusDbOption) (uint64, *T, error) {
+	ctx := context.Background()
+
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	n, err := getDefaultNamespace(db, opts...)
+	if err != nil {
+		return 0, object, err
+	}
+	gid, err := db.z.nextUID()
 	if err != nil {
 		return 0, object, err
 	}
@@ -35,15 +72,15 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		return 0, object, err
 	}
 
-	if !n.db.isOpen {
+	if !db.isOpen {
 		return 0, object, ErrClosedDB
 	}
 
-	startTs, err := n.db.z.nextTs()
+	startTs, err := db.z.nextTs()
 	if err != nil {
 		return 0, object, err
 	}
-	commitTs, err := n.db.z.nextTs()
+	commitTs, err := db.z.nextTs()
 	if err != nil {
 		return 0, object, err
 	}
@@ -81,7 +118,12 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 	return gid, object, nil
 }
 
-func Get[T any, R UniqueField](ctx context.Context, n *Namespace, uniqueField R) (*T, error) {
+func Get[T any, R UniqueField](db *DB, uniqueField R, opts ...ModusDbOption) (*T, error) {
+	ctx := context.Background()
+	n, err := getDefaultNamespace(db, opts...)
+	if err != nil {
+		return nil, err
+	}
 	if uid, ok := any(uniqueField).(uint64); ok {
 		return getByUid[T](ctx, n, uid)
 	}

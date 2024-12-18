@@ -38,7 +38,7 @@ type DB struct {
 	z *zero
 
 	// points to default / 0 / galaxy namespace
-	gxy *Namespace
+	defaultNamespace *Namespace
 }
 
 // New returns a new modusDB instance.
@@ -77,7 +77,7 @@ func New(conf Config) (*DB, error) {
 
 	x.UpdateHealthStatus(true)
 
-	db.gxy = &Namespace{id: 0, db: db}
+	db.defaultNamespace = &Namespace{id: 0, db: db}
 	return db, nil
 }
 
@@ -112,6 +112,10 @@ func (db *DB) GetNamespace(nsID uint64) (*Namespace, error) {
 	db.mutex.RLock()
 	defer db.mutex.RUnlock()
 
+	return db.getNamespaceWithLock(nsID)
+}
+
+func (db *DB) getNamespaceWithLock(nsID uint64) (*Namespace, error) {
 	if !db.isOpen {
 		return nil, ErrClosedDB
 	}
@@ -150,27 +154,27 @@ func (db *DB) DropAll(ctx context.Context) error {
 }
 
 func (db *DB) DropData(ctx context.Context) error {
-	return db.gxy.DropData(ctx)
+	return db.defaultNamespace.DropData(ctx)
 }
 
 func (db *DB) AlterSchema(ctx context.Context, sch string) error {
-	return db.gxy.AlterSchema(ctx, sch)
+	return db.defaultNamespace.AlterSchema(ctx, sch)
 }
 
 func (db *DB) Query(ctx context.Context, q string) (*api.Response, error) {
-	return db.gxy.Query(ctx, q)
+	return db.defaultNamespace.Query(ctx, q)
 }
 
 func (db *DB) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64, error) {
-	return db.gxy.Mutate(ctx, ms)
+	return db.defaultNamespace.Mutate(ctx, ms)
 }
 
 func (db *DB) Load(ctx context.Context, schemaPath, dataPath string) error {
-	return db.gxy.Load(ctx, schemaPath, dataPath)
+	return db.defaultNamespace.Load(ctx, schemaPath, dataPath)
 }
 
 func (db *DB) LoadData(inCtx context.Context, dataDir string) error {
-	return db.gxy.LoadData(inCtx, dataDir)
+	return db.defaultNamespace.LoadData(inCtx, dataDir)
 }
 
 // Close closes the modusDB instance.

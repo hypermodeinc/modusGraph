@@ -1,4 +1,4 @@
-name: ci-go-tests
+name: ci-go-lint
 
 on:
   pull_request:

@@ -18,6 +18,7 @@ type User struct {
 }
 
 func TestCreateApi(t *testing.T) {
+	ctx := context.Background()
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer db.Close()
@@ -25,15 +26,17 @@ func TestCreateApi(t *testing.T) {
 	db1, err := db.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(context.Background()))
+	require.NoError(t, db1.DropData(ctx))
 
 	user := &User{
-		Name:    "B",
-		Age:     20,
+		Name: "B", 
+		Age:  20,
 		ClerkId: "123",
 	}
 
-	gid, _, err := modusdb.Create(context.Background(), db1, user)
+	
+
+	gid, _, err := modusdb.Create(db, user, modusdb.WithNamespace(db1.ID()))
 	require.NoError(t, err)
 
 	require.Equal(t, "B", user.Name)
@@ -48,7 +51,7 @@ func TestCreateApi(t *testing.T) {
 			User.clerk_id
 		}
 	}`
-	resp, err := db1.Query(context.Background(), query)
+	resp, err := db1.Query(ctx, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"uid":"0x2","User.name":"B","User.age":20,"User.clerk_id":"123"}]}`,
 		string(resp.GetJson()))
@@ -60,7 +63,7 @@ func TestCreateApi(t *testing.T) {
 		index
 		tokenizer
 	}`
-	resp, err = db1.Query(context.Background(), schemaQuery)
+	resp, err = db1.Query(ctx, schemaQuery)
 	require.NoError(t, err)
 
 	actualJSON := string(resp.GetJson())
@@ -78,6 +81,7 @@ func TestCreateApi(t *testing.T) {
 }
 
 func TestCreateApiWithNonStruct(t *testing.T) {
+	ctx := context.Background()
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer db.Close()
@@ -85,19 +89,20 @@ func TestCreateApiWithNonStruct(t *testing.T) {
 	db1, err := db.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(context.Background()))
+	require.NoError(t, db1.DropData(ctx))
 
 	user := &User{
 		Name: "B",
 		Age:  20,
 	}
 
-	_, _, err = modusdb.Create[*User](context.Background(), db1, &user)
+	_, _, err = modusdb.Create[*User](db, &user, modusdb.WithNamespace(db1.ID()))
 	require.Error(t, err)
 	require.Equal(t, "expected struct, got ptr", err.Error())
 }
 
 func TestGetApi(t *testing.T) {
+	ctx := context.Background()
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer db.Close()
@@ -105,17 +110,17 @@ func TestGetApi(t *testing.T) {
 	db1, err := db.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(context.Background()))
+	require.NoError(t, db1.DropData(ctx))
 
 	user := &User{
 		Name: "B",
 		Age:  20,
 	}
 
-	_, _, err = modusdb.Create(context.Background(), db1, user)
+	_, _, err = modusdb.Create(db, user, modusdb.WithNamespace(db1.ID()))
 	require.NoError(t, err)
 
-	userQuery, err := modusdb.Get[User](context.Background(), db1, uint64(2))
+	userQuery, err := modusdb.Get[User](db, uint64(2), modusdb.WithNamespace(db1.ID()))
 
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), userQuery.Gid)
