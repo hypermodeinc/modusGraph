@@ -19,8 +19,8 @@ type UniqueField interface{
 	uint64 | ConstrainedField 
 }
 type ConstrainedField struct {
-	key string
-	value any
+	Key string
+	Value any
 }
 
 func getFieldTags(t reflect.Type) (jsonTags map[string]string, reverseEdgeTags map[string]string, err error) {
@@ -38,7 +38,8 @@ func getFieldTags(t reflect.Type) (jsonTags map[string]string, reverseEdgeTags m
 		if reverseEdgeTag != "" {
 			typeAndField := strings.Split(reverseEdgeTag, ",")
 			if len(typeAndField) != 2 {
-				return nil, nil, fmt.Errorf("field %s has invalid readFrom tag, expected format is type=<type>,field=<field>", field.Name)
+				return nil, nil, fmt.Errorf(`field %s has invalid readFrom tag, 
+				expected format is type=<type>,field=<field>`, field.Name)
 			}
 			t := strings.Split(typeAndField[0], "=")[1]
 			f := strings.Split(typeAndField[1], "=")[1]
@@ -75,8 +76,6 @@ func valueToPosting_ValType(v any) pb.Posting_ValType {
 		return pb.Posting_INT
 	case int64:
 		return pb.Posting_INT
-	case uint64:
-		return pb.Posting_INT
 	case bool:
 		return pb.Posting_BOOL
 	case float64:
@@ -94,8 +93,6 @@ func valueToValType(v any) *api.Value {
 		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
 	case int64:
 		return &api.Value{Val: &api.Value_IntVal{IntVal: val}}
-	case uint64:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
 	case bool:
 		return &api.Value{Val: &api.Value_BoolVal{BoolVal: val}}
 	case float64:
