@@ -73,26 +73,26 @@ func addNamespace(ns uint64, pred string) string {
 	return x.NamespaceAttr(ns, pred)
 }
 
-func valueToPosting_ValType(v any) pb.Posting_ValType {
+func valueToPosting_ValType(v any) (pb.Posting_ValType, error) {
 	switch v.(type) {
 	case string:
-		return pb.Posting_STRING
+		return pb.Posting_STRING, nil
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		return pb.Posting_INT
+		return pb.Posting_INT, nil
 	case bool:
-		return pb.Posting_BOOL
+		return pb.Posting_BOOL, nil
 	case float32, float64:
-		return pb.Posting_FLOAT
+		return pb.Posting_FLOAT, nil
 	case []byte:
-		return pb.Posting_BINARY
+		return pb.Posting_BINARY, nil
 	case time.Time:
-		return pb.Posting_DATETIME
+		return pb.Posting_DATETIME, nil
 	case geom.Point:
-		return pb.Posting_GEO
+		return pb.Posting_GEO, nil
 	case []float32, []float64:
-		return pb.Posting_VFLOAT
+		return pb.Posting_VFLOAT, nil
 	default:
-		return pb.Posting_DEFAULT
+		return pb.Posting_DEFAULT, fmt.Errorf("unsupported type %T", v)
 	}
 }
 
@@ -136,8 +136,10 @@ func valueToValType(v any) (*api.Value, error) {
 			return nil, err
 		}
 		return &api.Value{Val: &api.Value_GeoVal{GeoVal: bytes}}, nil
-	default:
+	case uint, uint64:
 		return &api.Value{Val: &api.Value_DefaultVal{DefaultVal: fmt.Sprint(v)}}, nil
+	default:
+		return nil, fmt.Errorf("unsupported type %T", v)
 	}
 }
 
@@ -166,9 +168,13 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		if jsonName == "uid" {
 			continue
 		}
+		valType, err := valueToPosting_ValType(value)
+		if err != nil {
+			return 0, object, err
+		}
 		sch.Preds = append(sch.Preds, &pb.SchemaUpdate{
 			Predicate: addNamespace(n.id, getPredicateName(t.Name(), jsonName)),
-			ValueType: valueToPosting_ValType(value),
+			ValueType: valType,
 		})
 		val, err := valueToValType(value)
 		if err != nil {
