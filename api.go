@@ -132,10 +132,10 @@ func valueToValType(v any) (*api.Value, error) {
 		return &api.Value{Val: &api.Value_DateVal{DateVal: bytes}}, nil
 	case geom.Point:
 		bytes, err := wkb.Marshal(&val, binary.LittleEndian)
-        if err != nil {
-            return nil, err
-        }
-        return &api.Value{Val: &api.Value_GeoVal{GeoVal: bytes}}, nil
+		if err != nil {
+			return nil, err
+		}
+		return &api.Value{Val: &api.Value_GeoVal{GeoVal: bytes}}, nil
 	default:
 		return &api.Value{Val: &api.Value_DefaultVal{DefaultVal: fmt.Sprint(v)}}, nil
 	}
@@ -261,31 +261,31 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 }
 
 func createDynamicStruct(t reflect.Type, jsonFields map[string]string) reflect.Type {
-    fields := make([]reflect.StructField, 0, len(jsonFields))
-    for fieldName, jsonName := range jsonFields {
+	fields := make([]reflect.StructField, 0, len(jsonFields))
+	for fieldName, jsonName := range jsonFields {
 		field, _ := t.FieldByName(fieldName)
-        fields = append(fields, reflect.StructField{
-            Name: field.Name,
-            Type: field.Type,
-            Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s.%s"`, t.Name(), jsonName)),
-        })
-    }
-    return reflect.StructOf(fields)
+		fields = append(fields, reflect.StructField{
+			Name: field.Name,
+			Type: field.Type,
+			Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s.%s"`, t.Name(), jsonName)),
+		})
+	}
+	return reflect.StructOf(fields)
 }
 
 func mapDynamicToFinal(dynamic any, final any) {
-    vFinal := reflect.ValueOf(final).Elem()
-    vDynamic := reflect.ValueOf(dynamic).Elem()
+	vFinal := reflect.ValueOf(final).Elem()
+	vDynamic := reflect.ValueOf(dynamic).Elem()
 
-    for i := 0; i < vDynamic.NumField(); i++ {
-        field := vDynamic.Type().Field(i)
-        value := vDynamic.Field(i)
+	for i := 0; i < vDynamic.NumField(); i++ {
+		field := vDynamic.Type().Field(i)
+		value := vDynamic.Field(i)
 
-        finalField := vFinal.FieldByName(field.Name)
-        if finalField.IsValid() && finalField.CanSet() {
-            finalField.Set(value)
-        }
-    }
+		finalField := vFinal.FieldByName(field.Name)
+		if finalField.IsValid() && finalField.CanSet() {
+			finalField.Set(value)
+		}
+	}
 }
 
 func Get[T any, R UniqueField](ctx context.Context, n *Namespace, uniqueField R) (*T, error) {
@@ -351,19 +351,19 @@ func executeGet[T any](ctx context.Context, n *Namespace, query string) (*T, err
 
 	result.Obj = append(result.Obj, dynamicInstance)
 
-    // Unmarshal the JSON response into the dynamic struct
-    if err := json.Unmarshal(resp.Json, &result); err != nil {
-        return nil, err
-    }
+	// Unmarshal the JSON response into the dynamic struct
+	if err := json.Unmarshal(resp.Json, &result); err != nil {
+		return nil, err
+	}
 
 	// Check if we have at least one object in the response
-    if len(result.Obj) == 0 {
-        return nil, fmt.Errorf("no object found")
-    }
+	if len(result.Obj) == 0 {
+		return nil, fmt.Errorf("no object found")
+	}
 
-    // Map the dynamic struct to the final type T
-    finalObject := reflect.New(t).Interface()
-    mapDynamicToFinal(result.Obj[0], finalObject)
+	// Map the dynamic struct to the final type T
+	finalObject := reflect.New(t).Interface()
+	mapDynamicToFinal(result.Obj[0], finalObject)
 
-    return finalObject.(*T), nil
+	return finalObject.(*T), nil
 }
