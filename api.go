@@ -118,19 +118,19 @@ func Create[T any](db *DB, object *T, opts ...ModusDbOption) (uint64, *T, error)
 	return gid, object, nil
 }
 
-func Get[T any, R UniqueField](db *DB, uniqueField R, opts ...ModusDbOption) (*T, error) {
+func Get[T any, R UniqueField](db *DB, uniqueField R, opts ...ModusDbOption) (uint64, *T, error) {
 	ctx := context.Background()
 	n, err := getDefaultNamespace(db, opts...)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 	if uid, ok := any(uniqueField).(uint64); ok {
-		return getByUid[T](ctx, n, uid)
+		return getByGid[T](ctx, n, uid)
 	}
 
 	if cf, ok := any(uniqueField).(ConstrainedField); ok {
 		return getByConstrainedField[T](ctx, n, cf)
 	}
 
-	return nil, fmt.Errorf("invalid unique field type")
+	return 0, nil, fmt.Errorf("invalid unique field type")
 }

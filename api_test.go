@@ -117,13 +117,14 @@ func TestGetApi(t *testing.T) {
 		Age:  20,
 	}
 
-	_, _, err = modusdb.Create(db, user, modusdb.WithNamespace(db1.ID()))
+	gid, _, err := modusdb.Create(db, user, modusdb.WithNamespace(db1.ID()))
 	require.NoError(t, err)
 
-	userQuery, err := modusdb.Get[User](db, uint64(2), modusdb.WithNamespace(db1.ID()))
+	gid, queriedUser, err := modusdb.Get[User](db, gid, modusdb.WithNamespace(db1.ID()))
 
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), userQuery.Gid)
-	require.Equal(t, 20, userQuery.Age)
-	require.Equal(t, "B", userQuery.Name)
+	require.Equal(t, uint64(2), gid)
+	require.Equal(t, uint64(2), queriedUser.Gid)
+	require.Equal(t, 20, queriedUser.Age)
+	require.Equal(t, "B", queriedUser.Name)
 }

@@ -68,13 +68,7 @@ func createDynamicStruct(t reflect.Type, jsonFields map[string]string) reflect.T
 	fields := make([]reflect.StructField, 0, len(jsonFields))
 	for fieldName, jsonName := range jsonFields {
 		field, _ := t.FieldByName(fieldName)
-		if fieldName == "Gid" {
-			fields = append(fields, reflect.StructField{
-				Name: "Uid",
-				Type: reflect.TypeOf(""),
-				Tag:  reflect.StructTag(`json:"uid"`),
-			})
-		} else {
+		if fieldName != "Gid" {
 			fields = append(fields, reflect.StructField{
 				Name: field.Name,
 				Type: field.Type,
@@ -82,12 +76,19 @@ func createDynamicStruct(t reflect.Type, jsonFields map[string]string) reflect.T
 			})
 		}
 	}
+	fields = append(fields, reflect.StructField{
+		Name: "Uid",
+		Type: reflect.TypeOf(""),
+		Tag:  reflect.StructTag(`json:"uid"`),
+	})
 	return reflect.StructOf(fields)
 }
 
-func mapDynamicToFinal(dynamic any, final any) {
+func mapDynamicToFinal(dynamic any, final any) uint64 {
 	vFinal := reflect.ValueOf(final).Elem()
 	vDynamic := reflect.ValueOf(dynamic).Elem()
+
+	gid := uint64(0)
 
 	for i := 0; i < vDynamic.NumField(); i++ {
 		field := vDynamic.Type().Field(i)
@@ -96,18 +97,19 @@ func mapDynamicToFinal(dynamic any, final any) {
 		var finalField reflect.Value
 		if field.Name == "Uid" {
 			finalField = vFinal.FieldByName("Gid")
+			gidStr := value.String()
+			gid, _ = strconv.ParseUint(gidStr, 0, 64)
 		} else {
 			finalField = vFinal.FieldByName(field.Name)
 		}
 		if finalField.IsValid() && finalField.CanSet() {
 			// if field name is uid, convert it to uint64
 			if field.Name == "Uid" {
-				uidStr := value.String()
-				uid, _ := strconv.ParseUint(uidStr, 0, 64)
-				finalField.SetUint(uid)
+				finalField.SetUint(gid)
 			} else {
 				finalField.Set(value)
 			}
 		}
 	}
+	return gid
 }

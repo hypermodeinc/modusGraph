@@ -164,7 +164,7 @@ func generateCreateDqlMutationAndSchema[T any](n *Namespace, object *T,
 	return dms, sch, nil
 }
 
-func getByUid[T any](ctx context.Context, n *Namespace, uid uint64) (*T, error) {
+func getByGid[T any](ctx context.Context, n *Namespace, gid uint64) (uint64, *T, error) {
 	query := fmt.Sprintf(`
 	{
 	  obj(func: uid(%d)) {
@@ -172,12 +172,12 @@ func getByUid[T any](ctx context.Context, n *Namespace, uid uint64) (*T, error) 
 		expand(_all_)
 	  }
 	}
-	  `, uid)
+	  `, gid)
 
 	return executeGet[T](ctx, n, query, nil)
 }
 
-func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf ConstrainedField) (*T, error) {
+func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf ConstrainedField) (uint64, *T, error) {
 	query := fmt.Sprintf(`
 	{
 	  obj(func: eq(%s, %s)) {
@@ -190,23 +190,23 @@ func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf Constrai
 	return executeGet[T](ctx, n, query, &cf)
 }
 
-func executeGet[T any](ctx context.Context, n *Namespace, query string, cf *ConstrainedField) (*T, error) {
+func executeGet[T any](ctx context.Context, n *Namespace, query string, cf *ConstrainedField) (uint64, *T, error) {
 	var obj T
 
 	t := reflect.TypeOf(obj)
 
 	jsonFields, dbTags, _, err := getFieldTags(t)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	if cf != nil && dbTags[cf.Key].constraint == "" {
-		return nil, fmt.Errorf("constraint not defined for field %s", cf.Key)
+		return 0, nil, fmt.Errorf("constraint not defined for field %s", cf.Key)
 	}
 
 	resp, err := n.Query(ctx, query)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	dynamicType := createDynamicStruct(t, jsonFields)
@@ -221,17 +221,17 @@ func executeGet[T any](ctx context.Context, n *Namespace, query string, cf *Cons
 
 	// Unmarshal the JSON response into the dynamic struct
 	if err := json.Unmarshal(resp.Json, &result); err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	// Check if we have at least one object in the response
 	if len(result.Obj) == 0 {
-		return nil, fmt.Errorf("no object found")
+		return 0, nil, fmt.Errorf("no object found")
 	}
 
 	// Map the dynamic struct to the final type T
 	finalObject := reflect.New(t).Interface()
-	mapDynamicToFinal(result.Obj[0], finalObject)
+	gid := mapDynamicToFinal(result.Obj[0], finalObject)
 
-	return finalObject.(*T), nil
+	return gid, finalObject.(*T), nil
 }
