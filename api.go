@@ -15,11 +15,11 @@ import (
 	"github.com/dgraph-io/dgraph/v24/x"
 )
 
-type UniqueField interface{ 
-	uint64 | ConstrainedField 
+type UniqueField interface {
+	uint64 | ConstrainedField
 }
 type ConstrainedField struct {
-	Key string
+	Key   string
 	Value any
 }
 
@@ -28,12 +28,12 @@ func getFieldTags(t reflect.Type) (jsonTags map[string]string, reverseEdgeTags m
 	reverseEdgeTags = make(map[string]string)
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-        jsonTag := field.Tag.Get("json")
-        if jsonTag == "" {
-            return nil, nil, fmt.Errorf("field %s has no json tag", field.Name)
-        }
+		jsonTag := field.Tag.Get("json")
+		if jsonTag == "" {
+			return nil, nil, fmt.Errorf("field %s has no json tag", field.Name)
+		}
 		jsonName := strings.Split(jsonTag, ",")[0]
-        jsonTags[field.Name] = jsonName
+		jsonTags[field.Name] = jsonName
 		reverseEdgeTag := field.Tag.Get("readFrom")
 		if reverseEdgeTag != "" {
 			typeAndField := strings.Split(reverseEdgeTag, ",")
@@ -45,8 +45,8 @@ func getFieldTags(t reflect.Type) (jsonTags map[string]string, reverseEdgeTags m
 			f := strings.Split(typeAndField[1], "=")[1]
 			reverseEdgeTags[field.Name] = getPredicateName(t, f)
 		}
-    }
-    return jsonTags, reverseEdgeTags, nil
+	}
+	return jsonTags, reverseEdgeTags, nil
 }
 
 func getFieldValues(object any, jsonFields map[string]string) map[string]any {
@@ -55,7 +55,7 @@ func getFieldValues(object any, jsonFields map[string]string) map[string]any {
 	for fieldName, jsonName := range jsonFields {
 		fieldValue := v.FieldByName(fieldName)
 		values[jsonName] = fieldValue.Interface()
-		
+
 	}
 	return values
 }
@@ -102,7 +102,7 @@ func valueToValType(v any) *api.Value {
 	}
 }
 
-func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, error){
+func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, error) {
 	n.db.mutex.Lock()
 	defer n.db.mutex.Unlock()
 	uids, err := n.db.z.nextUIDs(&pb.Num{Val: uint64(1), Type: pb.Num_UID})
@@ -133,15 +133,15 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		})
 		nquad := &api.NQuad{
 			Namespace:   n.ID(),
-			Subject: fmt.Sprint(uids.StartId),
-			Predicate: getPredicateName(t.Name(), jsonName),
+			Subject:     fmt.Sprint(uids.StartId),
+			Predicate:   getPredicateName(t.Name(), jsonName),
 			ObjectValue: valueToValType(value),
 		}
 		nquads = append(nquads, nquad)
 	}
 	sch.Types = append(sch.Types, &pb.TypeUpdate{
-		TypeName: addNamespace(n.id,t.Name()),
-		Fields:  sch.Preds,
+		TypeName: addNamespace(n.id, t.Name()),
+		Fields:   sch.Preds,
 	})
 
 	dms := make([]*dql.Mutation, 0)

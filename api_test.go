@@ -9,10 +9,10 @@ import (
 	"github.com/hypermodeinc/modusdb"
 )
 
-type User struct{
-	Uid uint64 `json:"uid,omitempty"`
+type User struct {
+	Uid  uint64 `json:"uid,omitempty"`
 	Name string `json:"name,omitempty"`
-	Age int `json:"age,omitempty"`
+	Age  int    `json:"age,omitempty"`
 }
 
 func TestCreateApi(t *testing.T) {
@@ -27,7 +27,7 @@ func TestCreateApi(t *testing.T) {
 
 	user := &User{
 		Name: "B",
-		Age: 20,
+		Age:  20,
 	}
 
 	uid, _, err := modusdb.Create(context.Background(), db1, user)
@@ -69,7 +69,7 @@ func TestCreateApiWithNonStruct(t *testing.T) {
 
 	user := &User{
 		Name: "B",
-		Age: 20,
+		Age:  20,
 	}
 
 	_, _, err = modusdb.Create[*User](context.Background(), db1, &user)
