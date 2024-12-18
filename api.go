@@ -143,7 +143,7 @@ func valueToValType(v any) (*api.Value, error) {
 	}
 }
 
-func generateDqlMutationAndSchema[T any](n *Namespace, object *T, 
+func generateDqlMutationAndSchema[T any](n *Namespace, object *T,
 	uid uint64) ([]*dql.Mutation, *schema.ParsedSchema, error) {
 	t := reflect.TypeOf(*object)
 	if t.Kind() != reflect.Struct {
@@ -219,7 +219,7 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 	if err != nil {
 		return 0, object, err
 	}
-	
+
 	edges, err := query.ToDirectedEdges(dms, nil)
 	if err != nil {
 		return 0, object, err
