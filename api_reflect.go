@@ -103,7 +103,7 @@ func mapDynamicToFinal(dynamic any, final any) {
 			// if field name is uid, convert it to uint64
 			if field.Name == "Uid" {
 				uidStr := value.String()
-    			uid, _ := strconv.ParseUint(uidStr, 0, 64)
+				uid, _ := strconv.ParseUint(uidStr, 0, 64)
 				finalField.SetUint(uid)
 			} else {
 				finalField.Set(value)

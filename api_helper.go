@@ -209,7 +209,6 @@ func executeGet[T any](ctx context.Context, n *Namespace, query string, cf *Cons
 		return nil, err
 	}
 
-	
 	dynamicType := createDynamicStruct(t, jsonFields)
 
 	dynamicInstance := reflect.New(dynamicType).Interface()

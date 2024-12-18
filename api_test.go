@@ -11,9 +11,9 @@ import (
 )
 
 type User struct {
-	Gid  uint64 `json:"gid,omitempty"`
-	Name string `json:"name,omitempty"`
-	Age  int    `json:"age,omitempty"`
+	Gid     uint64 `json:"gid,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Age     int    `json:"age,omitempty"`
 	ClerkId string `json:"clerk_id,omitempty" db:"constraint=unique"`
 }
 
@@ -28,8 +28,8 @@ func TestCreateApi(t *testing.T) {
 	require.NoError(t, db1.DropData(context.Background()))
 
 	user := &User{
-		Name: "B",
-		Age:  20,
+		Name:    "B",
+		Age:     20,
 		ClerkId: "123",
 	}
 
@@ -50,8 +50,8 @@ func TestCreateApi(t *testing.T) {
 	}`
 	resp, err := db1.Query(context.Background(), query)
 	require.NoError(t, err)
-	require.JSONEq(t, `{"me":[{"uid":"0x2","User.name":"B","User.age":20,"User.clerk_id":"123"}]}`, 
-	string(resp.GetJson()))
+	require.JSONEq(t, `{"me":[{"uid":"0x2","User.name":"B","User.age":20,"User.clerk_id":"123"}]}`,
+		string(resp.GetJson()))
 
 	// TODO schema{} should work
 	schemaQuery := `schema(pred: [User.name, User.age, User.clerk_id]) 
