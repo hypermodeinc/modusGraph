@@ -16,7 +16,7 @@ permissions:
   actions: write
 
 jobs:
-  ci-go-tests:
+  ci-go-lint:
     runs-on: ubuntu-24.04
 
     steps:

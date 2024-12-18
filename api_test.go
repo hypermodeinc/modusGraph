@@ -29,12 +29,10 @@ func TestCreateApi(t *testing.T) {
 	require.NoError(t, db1.DropData(ctx))
 
 	user := &User{
-		Name: "B", 
-		Age:  20,
+		Name:    "B",
+		Age:     20,
 		ClerkId: "123",
 	}
-
-	
 
 	gid, _, err := modusdb.Create(db, user, modusdb.WithNamespace(db1.ID()))
 	require.NoError(t, err)
