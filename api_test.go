@@ -2,7 +2,6 @@ package modusdb_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,7 +33,7 @@ func TestCreateApi(t *testing.T) {
 		ClerkId: "123",
 	}
 
-	gid, _, err := modusdb.Create(db, user, modusdb.WithNamespace(db1.ID()))
+	gid, _, err := modusdb.Create(db, user, db1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "B", user.Name)
@@ -64,9 +63,6 @@ func TestCreateApi(t *testing.T) {
 	resp, err = db1.Query(ctx, schemaQuery)
 	require.NoError(t, err)
 
-	actualJSON := string(resp.GetJson())
-	fmt.Println("Actual JSON:", actualJSON)
-
 	require.JSONEq(t,
 		`{"schema":
 			[
@@ -94,7 +90,7 @@ func TestCreateApiWithNonStruct(t *testing.T) {
 		Age:  20,
 	}
 
-	_, _, err = modusdb.Create[*User](db, &user, modusdb.WithNamespace(db1.ID()))
+	_, _, err = modusdb.Create[*User](db, &user, db1.ID())
 	require.Error(t, err)
 	require.Equal(t, "expected struct, got ptr", err.Error())
 }
@@ -115,10 +111,10 @@ func TestGetApi(t *testing.T) {
 		Age:  20,
 	}
 
-	gid, _, err := modusdb.Create(db, user, modusdb.WithNamespace(db1.ID()))
+	gid, _, err := modusdb.Create(db, user, db1.ID())
 	require.NoError(t, err)
 
-	gid, queriedUser, err := modusdb.Get[User](db, gid, modusdb.WithNamespace(db1.ID()))
+	gid, queriedUser, err := modusdb.Get[User](db, gid, db1.ID())
 
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), gid)

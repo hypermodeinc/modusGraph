@@ -11,13 +11,6 @@ import (
 	"github.com/dgraph-io/dgraph/v24/x"
 )
 
-// Create(db, obj, namespace uint = db.Default)
-
-// ns := db.CreateNamespace()
-
-// modusdb.Create(db, obj)
-// Create(db, obj, ns.id)
-
 type ModusDbOption func(*modusDbOptions)
 
 type modusDbOptions struct {
@@ -30,24 +23,27 @@ func WithNamespace(namespace uint64) ModusDbOption {
 	}
 }
 
-func getDefaultNamespace(db *DB, opts ...ModusDbOption) (*Namespace, error) {
+func getDefaultNamespace(db *DB, ns ...uint64) (*Namespace, error) {
 	dbOpts := &modusDbOptions{
 		namespace: db.defaultNamespace.ID(),
 	}
-	for _, opt := range opts {
-		opt(dbOpts)
+	for _, ns := range ns {
+		WithNamespace(ns)(dbOpts)
 	}
 
 	return db.getNamespaceWithLock(dbOpts.namespace)
 }
 
-func Create[T any](db *DB, object *T, opts ...ModusDbOption) (uint64, *T, error) {
+func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
+	if len(ns) > 1 {
+		return 0, object, fmt.Errorf("only one namespace is allowed")
+	}
 	ctx := context.Background()
 
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
-	n, err := getDefaultNamespace(db, opts...)
+	n, err := getDefaultNamespace(db, ns...)
 	if err != nil {
 		return 0, object, err
 	}
@@ -118,9 +114,9 @@ func Create[T any](db *DB, object *T, opts ...ModusDbOption) (uint64, *T, error)
 	return gid, object, nil
 }
 
-func Get[T any, R UniqueField](db *DB, uniqueField R, opts ...ModusDbOption) (uint64, *T, error) {
+func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, *T, error) {
 	ctx := context.Background()
-	n, err := getDefaultNamespace(db, opts...)
+	n, err := getDefaultNamespace(db, ns...)
 	if err != nil {
 		return 0, nil, err
 	}
