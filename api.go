@@ -12,7 +12,9 @@ import (
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/dgraph/v24/dql"
 	"github.com/dgraph-io/dgraph/v24/protos/pb"
+	"github.com/dgraph-io/dgraph/v24/query"
 	"github.com/dgraph-io/dgraph/v24/schema"
+	"github.com/dgraph-io/dgraph/v24/worker"
 	"github.com/dgraph-io/dgraph/v24/x"
 	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/wkb"
@@ -141,22 +143,16 @@ func valueToValType(v any) (*api.Value, error) {
 	}
 }
 
-func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, error) {
-	n.db.mutex.Lock()
-	defer n.db.mutex.Unlock()
-	uid, err := n.db.z.nextUID()
-	if err != nil {
-		return 0, object, err
-	}
-
+func generateDqlMutationAndSchema[T any](n *Namespace, object *T, 
+	uid uint64) ([]*dql.Mutation, *schema.ParsedSchema, error) {
 	t := reflect.TypeOf(*object)
 	if t.Kind() != reflect.Struct {
-		return 0, object, fmt.Errorf("expected struct, got %s", t.Kind())
+		return nil, nil, fmt.Errorf("expected struct, got %s", t.Kind())
 	}
 
 	jsonFields, _, err := getFieldTags(t)
 	if err != nil {
-		return 0, object, err
+		return nil, nil, err
 	}
 	values := getFieldValues(object, jsonFields)
 	sch := &schema.ParsedSchema{}
@@ -168,7 +164,7 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		}
 		valType, err := valueToPosting_ValType(value)
 		if err != nil {
-			return 0, object, err
+			return nil, nil, err
 		}
 		sch.Preds = append(sch.Preds, &pb.SchemaUpdate{
 			Predicate: addNamespace(n.id, getPredicateName(t.Name(), jsonName)),
@@ -176,7 +172,7 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		})
 		val, err := valueToValType(value)
 		if err != nil {
-			return 0, object, err
+			return nil, nil, err
 		}
 		nquad := &api.NQuad{
 			Namespace:   n.ID(),
@@ -193,7 +189,7 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 
 	val, err := valueToValType(t.Name())
 	if err != nil {
-		return 0, object, err
+		return nil, nil, err
 	}
 	nquad := &api.NQuad{
 		Namespace:   n.ID(),
@@ -207,8 +203,65 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 	dms = append(dms, &dql.Mutation{
 		Set: nquads,
 	})
+
+	return dms, sch, nil
+}
+
+func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, error) {
+	n.db.mutex.Lock()
+	defer n.db.mutex.Unlock()
+	uid, err := n.db.z.nextUID()
+	if err != nil {
+		return 0, object, err
+	}
+
+	dms, sch, err := generateDqlMutationAndSchema(n, object, uid)
+	if err != nil {
+		return 0, object, err
+	}
 	
-	_, err = n.mutateWithDqlMutation(ctx, dms, nil)
+	edges, err := query.ToDirectedEdges(dms, nil)
+	if err != nil {
+		return 0, object, err
+	}
+	ctx = x.AttachNamespace(ctx, n.ID())
+
+	err = n.alterSchemaWithParsed(ctx, sch)
+	if err != nil {
+		return 0, object, err
+	}
+
+	if !n.db.isOpen {
+		return 0, object, ErrClosedDB
+	}
+
+	startTs, err := n.db.z.nextTs()
+	if err != nil {
+		return 0, object, err
+	}
+	commitTs, err := n.db.z.nextTs()
+	if err != nil {
+		return 0, object, err
+	}
+
+	m := &pb.Mutations{
+		GroupId: 1,
+		StartTs: startTs,
+		Edges:   edges,
+	}
+	m.Edges, err = query.ExpandEdges(ctx, m)
+	if err != nil {
+		return 0, object, fmt.Errorf("error expanding edges: %w", err)
+	}
+
+	p := &pb.Proposal{Mutations: m, StartTs: startTs}
+	if err := worker.ApplyMutations(ctx, p); err != nil {
+		return 0, object, err
+	}
+
+	err = worker.ApplyCommited(ctx, &pb.OracleDelta{
+		Txns: []*pb.TxnStatus{{StartTs: startTs, CommitTs: commitTs}},
+	})
 	if err != nil {
 		return 0, object, err
 	}
