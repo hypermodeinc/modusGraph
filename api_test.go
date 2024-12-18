@@ -74,6 +74,7 @@ func TestCreateApiWithNonStruct(t *testing.T) {
 
 	_, _, err = modusdb.Create[*User](context.Background(), db1, &user)
 	require.Error(t, err)
+	require.Equal(t, "expected struct, got ptr", err.Error())
 }
 
 func TestGetApi(t *testing.T) {
