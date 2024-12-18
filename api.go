@@ -310,6 +310,23 @@ func getByUid[T any](ctx context.Context, n *Namespace, uid uint64) (*T, error) 
 	}
 	  `, uid)
 
+	return executeGet[T](ctx, n, query)
+}
+
+func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf ConstrainedField) (*T, error) {
+	query := fmt.Sprintf(`
+	{
+	  obj(func: eq(%s, %s)) {
+		uid
+		expand(_all_)
+	  }
+	}
+	  `, cf.Key, cf.Value)
+
+	return executeGet[T](ctx, n, query)
+}
+
+func executeGet[T any](ctx context.Context, n *Namespace, query string) (*T, error) {
 	resp, err := n.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -341,7 +358,7 @@ func getByUid[T any](ctx context.Context, n *Namespace, uid uint64) (*T, error) 
 
 	// Check if we have at least one object in the response
     if len(result.Obj) == 0 {
-        return nil, fmt.Errorf("no object found with uid %d", uid)
+        return nil, fmt.Errorf("no object found")
     }
 
     // Map the dynamic struct to the final type T
@@ -349,19 +366,4 @@ func getByUid[T any](ctx context.Context, n *Namespace, uid uint64) (*T, error) 
     mapDynamicToFinal(result.Obj[0], finalObject)
 
     return finalObject.(*T), nil
-}
-
-func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf ConstrainedField) (*T, error) {
-	query := fmt.Sprintf(`
-	{
-	  obj(func: eq(%s, %s)) {
-		uid
-		expand(_all_)
-	  }
-	}
-	  `, cf.Key, cf.Value)
-
-	n.Query(ctx, query)
-
-	return nil, nil
 }
