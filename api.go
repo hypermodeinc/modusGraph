@@ -2,10 +2,12 @@ package modusdb
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/dgraph/v24/dql"
@@ -14,6 +16,8 @@ import (
 	"github.com/dgraph-io/dgraph/v24/schema"
 	"github.com/dgraph-io/dgraph/v24/worker"
 	"github.com/dgraph-io/dgraph/v24/x"
+	"github.com/twpayne/go-geom"
+	"github.com/twpayne/go-geom/encoding/wkb"
 )
 
 type UniqueField interface {
@@ -79,43 +83,61 @@ func valueToPosting_ValType(v any) pb.Posting_ValType {
 		return pb.Posting_BOOL
 	case float32, float64:
 		return pb.Posting_FLOAT
+	case []byte:
+		return pb.Posting_BINARY
+	case time.Time:
+		return pb.Posting_DATETIME
+	case geom.Point:
+		return pb.Posting_GEO
+	case []float32, []float64:
+		return pb.Posting_VFLOAT
 	default:
 		return pb.Posting_DEFAULT
 	}
 }
 
-func valueToValType(v any) *api.Value {
+func valueToValType(v any) (*api.Value, error) {
 	switch val := v.(type) {
 	case string:
-		return &api.Value{Val: &api.Value_StrVal{StrVal: val}}
+		return &api.Value{Val: &api.Value_StrVal{StrVal: val}}, nil
 	case int:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
 	case int8:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
 	case int16:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
 	case int32:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
 	case int64:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: val}}
-	case uint:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+		return &api.Value{Val: &api.Value_IntVal{IntVal: val}}, nil
 	case uint8:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
 	case uint16:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
 	case uint32:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
-	case uint64:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
 	case bool:
-		return &api.Value{Val: &api.Value_BoolVal{BoolVal: val}}
+		return &api.Value{Val: &api.Value_BoolVal{BoolVal: val}}, nil
 	case float32:
-		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: float64(val)}}
+		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: float64(val)}}, nil
 	case float64:
-		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: val}}
+		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: val}}, nil
+	case []byte:
+		return &api.Value{Val: &api.Value_BytesVal{BytesVal: val}}, nil
+	case time.Time:
+		bytes, err := val.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+		return &api.Value{Val: &api.Value_DateVal{DateVal: bytes}}, nil
+	case geom.Point:
+		bytes, err := wkb.Marshal(&val, binary.LittleEndian)
+        if err != nil {
+            return nil, err
+        }
+        return &api.Value{Val: &api.Value_GeoVal{GeoVal: bytes}}, nil
 	default:
-		return &api.Value{Val: &api.Value_DefaultVal{DefaultVal: fmt.Sprint(v)}}
+		return &api.Value{Val: &api.Value_DefaultVal{DefaultVal: fmt.Sprint(v)}}, nil
 	}
 }
 
@@ -148,11 +170,15 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 			Predicate: addNamespace(n.id, getPredicateName(t.Name(), jsonName)),
 			ValueType: valueToPosting_ValType(value),
 		})
+		val, err := valueToValType(value)
+		if err != nil {
+			return 0, object, err
+		}
 		nquad := &api.NQuad{
 			Namespace:   n.ID(),
 			Subject:     fmt.Sprint(uids.StartId),
 			Predicate:   getPredicateName(t.Name(), jsonName),
-			ObjectValue: valueToValType(value),
+			ObjectValue: val,
 		}
 		nquads = append(nquads, nquad)
 	}
@@ -161,11 +187,15 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		Fields:   sch.Preds,
 	})
 
+	val, err := valueToValType(t.Name())
+	if err != nil {
+		return 0, object, err
+	}
 	nquad := &api.NQuad{
 		Namespace:   n.ID(),
 		Subject:     fmt.Sprint(uids.StartId),
 		Predicate:   "dgraph.type",
-		ObjectValue: valueToValType(t.Name()),
+		ObjectValue: val,
 	}
 	nquads = append(nquads, nquad)
 
