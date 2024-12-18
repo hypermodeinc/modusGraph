@@ -12,9 +12,7 @@ import (
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/dgraph/v24/dql"
 	"github.com/dgraph-io/dgraph/v24/protos/pb"
-	"github.com/dgraph-io/dgraph/v24/query"
 	"github.com/dgraph-io/dgraph/v24/schema"
-	"github.com/dgraph-io/dgraph/v24/worker"
 	"github.com/dgraph-io/dgraph/v24/x"
 	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/wkb"
@@ -146,7 +144,7 @@ func valueToValType(v any) (*api.Value, error) {
 func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, error) {
 	n.db.mutex.Lock()
 	defer n.db.mutex.Unlock()
-	uids, err := n.db.z.nextUIDs(&pb.Num{Val: uint64(1), Type: pb.Num_UID})
+	uid, err := n.db.z.nextUID()
 	if err != nil {
 		return 0, object, err
 	}
@@ -182,7 +180,7 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		}
 		nquad := &api.NQuad{
 			Namespace:   n.ID(),
-			Subject:     fmt.Sprint(uids.StartId),
+			Subject:     fmt.Sprint(uid),
 			Predicate:   getPredicateName(t.Name(), jsonName),
 			ObjectValue: val,
 		}
@@ -199,7 +197,7 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 	}
 	nquad := &api.NQuad{
 		Namespace:   n.ID(),
-		Subject:     fmt.Sprint(uids.StartId),
+		Subject:     fmt.Sprint(uid),
 		Predicate:   "dgraph.type",
 		ObjectValue: val,
 	}
@@ -209,48 +207,8 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 	dms = append(dms, &dql.Mutation{
 		Set: nquads,
 	})
-	edges, err := query.ToDirectedEdges(dms, nil)
-	if err != nil {
-		return 0, object, err
-	}
-	ctx = x.AttachNamespace(ctx, n.ID())
-
-	err = n.alterSchemaWithParsed(ctx, sch)
-	if err != nil {
-		return 0, object, err
-	}
-
-	if !n.db.isOpen {
-		return 0, object, ErrClosedDB
-	}
-
-	startTs, err := n.db.z.nextTs()
-	if err != nil {
-		return 0, object, err
-	}
-	commitTs, err := n.db.z.nextTs()
-	if err != nil {
-		return 0, object, err
-	}
-
-	m := &pb.Mutations{
-		GroupId: 1,
-		StartTs: startTs,
-		Edges:   edges,
-	}
-	m.Edges, err = query.ExpandEdges(ctx, m)
-	if err != nil {
-		return 0, object, fmt.Errorf("error expanding edges: %w", err)
-	}
-
-	p := &pb.Proposal{Mutations: m, StartTs: startTs}
-	if err := worker.ApplyMutations(ctx, p); err != nil {
-		return 0, object, err
-	}
-
-	err = worker.ApplyCommited(ctx, &pb.OracleDelta{
-		Txns: []*pb.TxnStatus{{StartTs: startTs, CommitTs: commitTs}},
-	})
+	
+	_, err = n.mutateWithDqlMutation(ctx, dms, nil)
 	if err != nil {
 		return 0, object, err
 	}
@@ -260,10 +218,10 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 	uidField := v.FieldByName("Uid")
 
 	if uidField.IsValid() && uidField.CanSet() && uidField.Kind() == reflect.Uint64 {
-		uidField.SetUint(uids.StartId)
+		uidField.SetUint(uid)
 	}
 
-	return uids.StartId, object, nil
+	return uid, object, nil
 }
 
 func createDynamicStruct(t reflect.Type, jsonFields map[string]string) reflect.Type {

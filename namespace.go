@@ -91,6 +91,8 @@ func (n *Namespace) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]
 		return nil, nil
 	}
 
+	n.db.mutex.Lock()
+	defer n.db.mutex.Unlock()
 	dms := make([]*dql.Mutation, 0, len(ms))
 	for _, mu := range ms {
 		dm, err := edgraph.ParseMutationObject(mu, false)
@@ -117,14 +119,16 @@ func (n *Namespace) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]
 			curId++
 		}
 	}
+
+	return n.mutateWithDqlMutation(ctx, dms, newUids)
+}
+
+func (n *Namespace) mutateWithDqlMutation(ctx context.Context, dms []*dql.Mutation, newUids map[string]uint64) (map[string]uint64, error) {
 	edges, err := query.ToDirectedEdges(dms, newUids)
 	if err != nil {
 		return nil, err
 	}
 	ctx = x.AttachNamespace(ctx, n.ID())
-
-	n.db.mutex.Lock()
-	defer n.db.mutex.Unlock()
 
 	if !n.db.isOpen {
 		return nil, ErrClosedDB
