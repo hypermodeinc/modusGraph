@@ -75,3 +75,28 @@ func TestCreateApiWithNonStruct(t *testing.T) {
 	_, _, err = modusdb.Create[*User](context.Background(), db1, &user)
 	require.Error(t, err)
 }
+
+func TestGetApi(t *testing.T) {
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(context.Background()))
+
+	user := &User{
+		Name: "B",
+		Age:  20,
+	}
+
+	_, _, err = modusdb.Create(context.Background(), db1, user)
+	require.NoError(t, err)
+
+	userQuery, err := modusdb.Get[User](context.Background(), db1, uint64(2))
+
+	require.NoError(t, err)
+	require.Equal(t, 20, userQuery.Age)
+	require.Equal(t, "B", userQuery.Name)
+}

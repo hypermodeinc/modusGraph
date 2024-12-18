@@ -2,6 +2,7 @@ package modusdb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -72,13 +73,11 @@ func valueToPosting_ValType(v any) pb.Posting_ValType {
 	switch v.(type) {
 	case string:
 		return pb.Posting_STRING
-	case int:
-		return pb.Posting_INT
-	case int64:
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		return pb.Posting_INT
 	case bool:
 		return pb.Posting_BOOL
-	case float64:
+	case float32, float64:
 		return pb.Posting_FLOAT
 	default:
 		return pb.Posting_DEFAULT
@@ -91,10 +90,28 @@ func valueToValType(v any) *api.Value {
 		return &api.Value{Val: &api.Value_StrVal{StrVal: val}}
 	case int:
 		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+	case int8:
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+	case int16:
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+	case int32:
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
 	case int64:
 		return &api.Value{Val: &api.Value_IntVal{IntVal: val}}
+	case uint:
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+	case uint8:
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+	case uint16:
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+	case uint32:
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
+	case uint64:
+		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}
 	case bool:
 		return &api.Value{Val: &api.Value_BoolVal{BoolVal: val}}
+	case float32:
+		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: float64(val)}}
 	case float64:
 		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: val}}
 	default:
@@ -143,6 +160,14 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		TypeName: addNamespace(n.id, t.Name()),
 		Fields:   sch.Preds,
 	})
+
+	nquad := &api.NQuad{
+		Namespace:   n.ID(),
+		Subject:     fmt.Sprint(uids.StartId),
+		Predicate:   "dgraph.type",
+		ObjectValue: valueToValType(t.Name()),
+	}
+	nquads = append(nquads, nquad)
 
 	dms := make([]*dql.Mutation, 0)
 	dms = append(dms, &dql.Mutation{
@@ -203,4 +228,110 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 	}
 
 	return uids.StartId, object, nil
+}
+
+func createDynamicStruct(t reflect.Type, jsonFields map[string]string) reflect.Type {
+    fields := make([]reflect.StructField, 0, len(jsonFields))
+    for fieldName, jsonName := range jsonFields {
+		field, _ := t.FieldByName(fieldName)
+        fields = append(fields, reflect.StructField{
+            Name: field.Name,
+            Type: field.Type,
+            Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s.%s"`, t.Name(), jsonName)),
+        })
+    }
+    return reflect.StructOf(fields)
+}
+
+func mapDynamicToFinal(dynamic any, final any) {
+    vFinal := reflect.ValueOf(final).Elem()
+    vDynamic := reflect.ValueOf(dynamic).Elem()
+
+    for i := 0; i < vDynamic.NumField(); i++ {
+        field := vDynamic.Type().Field(i)
+        value := vDynamic.Field(i)
+
+        finalField := vFinal.FieldByName(field.Name)
+        if finalField.IsValid() && finalField.CanSet() {
+            finalField.Set(value)
+        }
+    }
+}
+
+func Get[T any, R UniqueField](ctx context.Context, n *Namespace, uniqueField R) (*T, error) {
+	if uid, ok := any(uniqueField).(uint64); ok {
+		return getByUid[T](ctx, n, uid)
+	}
+
+	if cf, ok := any(uniqueField).(ConstrainedField); ok {
+		return getByConstrainedField[T](ctx, n, cf)
+	}
+
+	return nil, fmt.Errorf("invalid unique field type")
+}
+
+func getByUid[T any](ctx context.Context, n *Namespace, uid uint64) (*T, error) {
+	query := fmt.Sprintf(`
+	{
+	  obj(func: uid(%d)) {
+		uid
+		expand(_all_)
+	  }
+	}
+	  `, uid)
+
+	resp, err := n.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	var obj T
+
+	t := reflect.TypeOf(obj)
+
+	jsonFields, _, err := getFieldTags(t)
+	if err != nil {
+		return nil, err
+	}
+
+	dynamicType := createDynamicStruct(t, jsonFields)
+
+	dynamicInstance := reflect.New(dynamicType).Interface()
+
+	var result struct {
+		Obj []any `json:"obj"`
+	}
+
+	result.Obj = append(result.Obj, dynamicInstance)
+
+    // Unmarshal the JSON response into the dynamic struct
+    if err := json.Unmarshal(resp.Json, &result); err != nil {
+        return nil, err
+    }
+
+	// Check if we have at least one object in the response
+    if len(result.Obj) == 0 {
+        return nil, fmt.Errorf("no object found with uid %d", uid)
+    }
+
+    // Map the dynamic struct to the final type T
+    finalObject := reflect.New(t).Interface()
+    mapDynamicToFinal(result.Obj[0], finalObject)
+
+    return finalObject.(*T), nil
+}
+
+func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf ConstrainedField) (*T, error) {
+	query := fmt.Sprintf(`
+	{
+	  obj(func: eq(%s, %s)) {
+		uid
+		expand(_all_)
+	  }
+	}
+	  `, cf.Key, cf.Value)
+
+	n.Query(ctx, query)
+
+	return nil, nil
 }
