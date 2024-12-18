@@ -10,6 +10,7 @@ import (
 	"github.com/dgraph-io/dgraph/v24/dql"
 	"github.com/dgraph-io/dgraph/v24/protos/pb"
 	"github.com/dgraph-io/dgraph/v24/query"
+	"github.com/dgraph-io/dgraph/v24/schema"
 	"github.com/dgraph-io/dgraph/v24/worker"
 	"github.com/dgraph-io/dgraph/v24/x"
 )
@@ -62,6 +63,25 @@ func getPredicateName(typeName, fieldName string) string {
 	return fmt.Sprint(typeName, ".", fieldName)
 }
 
+func valueToPosting_ValType(v any) pb.Posting_ValType {
+	switch v.(type) {
+	case string:
+		return pb.Posting_STRING
+	case int:
+		return pb.Posting_INT
+	case int64:
+		return pb.Posting_INT
+	case uint64:
+		return pb.Posting_INT
+	case bool:
+		return pb.Posting_BOOL
+	case float64:
+		return pb.Posting_FLOAT
+	default:
+		return pb.Posting_DEFAULT
+	}
+}
+
 func valueToValType(v any) *api.Value {
 	switch val := v.(type) {
 	case string:
@@ -97,14 +117,17 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		return 0, object, err
 	}
 	values := getFieldValues(object, jsonFields)
-
-	
+	sch := schema.ParsedSchema{}
 
 	nquads := make([]*api.NQuad, 0)
 	for jsonName, value := range values {
 		if jsonName == "uid" {
 			continue
 		}
+		sch.Preds = append(sch.Preds, &pb.SchemaUpdate{
+			Predicate: getPredicateName(t.Name(), jsonName),
+			ValueType: valueToPosting_ValType(value),
+		})
 		nquad := &api.NQuad{
 			Namespace:   n.ID(),
 			Subject: fmt.Sprint(uids.StartId),
@@ -113,6 +136,10 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		}
 		nquads = append(nquads, nquad)
 	}
+	sch.Types = append(sch.Types, &pb.TypeUpdate{
+		TypeName: t.Name(),
+		Fields:  sch.Preds,
+	})
 
 	dms := make([]*dql.Mutation, 0)
 	dms = append(dms, &dql.Mutation{

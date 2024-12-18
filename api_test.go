@@ -10,9 +10,9 @@ import (
 )
 
 type User struct{
-	Uid uint64 `json:"uid"`
-	Name string `json:"name"`
-	Age int `json:"age"`
+	Uid uint64 `json:"uid,omitempty"`
+	Name string `json:"name,omitempty"`
+	Age int `json:"age,omitempty"`
 }
 
 func TestCreateApi(t *testing.T) {
