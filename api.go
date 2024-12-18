@@ -63,6 +63,10 @@ func getPredicateName(typeName, fieldName string) string {
 	return fmt.Sprint(typeName, ".", fieldName)
 }
 
+func addNamespace(ns uint64, pred string) string {
+	return x.NamespaceAttr(ns, pred)
+}
+
 func valueToPosting_ValType(v any) pb.Posting_ValType {
 	switch v.(type) {
 	case string:
@@ -117,7 +121,7 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		return 0, object, err
 	}
 	values := getFieldValues(object, jsonFields)
-	sch := schema.ParsedSchema{}
+	sch := &schema.ParsedSchema{}
 
 	nquads := make([]*api.NQuad, 0)
 	for jsonName, value := range values {
@@ -125,7 +129,7 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 			continue
 		}
 		sch.Preds = append(sch.Preds, &pb.SchemaUpdate{
-			Predicate: getPredicateName(t.Name(), jsonName),
+			Predicate: addNamespace(n.id, getPredicateName(t.Name(), jsonName)),
 			ValueType: valueToPosting_ValType(value),
 		})
 		nquad := &api.NQuad{
@@ -137,7 +141,7 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		nquads = append(nquads, nquad)
 	}
 	sch.Types = append(sch.Types, &pb.TypeUpdate{
-		TypeName: t.Name(),
+		TypeName: addNamespace(n.id,t.Name()),
 		Fields:  sch.Preds,
 	})
 
@@ -153,6 +157,11 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 
 	n.db.mutex.Lock()
 	defer n.db.mutex.Unlock()
+
+	err = n.alterSchemaWithParsed(ctx, sch)
+	if err != nil {
+		return 0, object, err
+	}
 
 	if !n.db.isOpen {
 		return 0, object, ErrClosedDB
@@ -175,10 +184,6 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 	m.Edges, err = query.ExpandEdges(ctx, m)
 	if err != nil {
 		return 0, object, fmt.Errorf("error expanding edges: %w", err)
-	}
-
-	for _, edge := range m.Edges {
-		worker.InitTablet(edge.Attr)
 	}
 
 	p := &pb.Proposal{Mutations: m, StartTs: startTs}

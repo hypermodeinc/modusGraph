@@ -47,6 +47,14 @@ func TestCreateApi(t *testing.T) {
 	resp, err := db1.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"uid":"0x2","User.name":"B","User.age":20}]}`, string(resp.GetJson()))
+
+	// TODO schema{} should work
+	resp, err = db1.Query(context.Background(), `schema(pred: [User.name, User.age]) {type}`)
+	require.NoError(t, err)
+
+	require.JSONEq(t,
+		`{"schema":[{"predicate":"User.age","type":"int"},{"predicate":"User.name","type":"string"}]}`,
+		string(resp.GetJson()))
 }
 
 func TestCreateApiWithNonStruct(t *testing.T) {

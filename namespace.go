@@ -61,6 +61,29 @@ func (n *Namespace) AlterSchema(ctx context.Context, sch string) error {
 	if err != nil {
 		return fmt.Errorf("error parsing schema: %w", err)
 	}
+	return n.alterSchemaWithParsed(ctx, sc)
+	for _, pred := range sc.Preds {
+		worker.InitTablet(pred.Predicate)
+	}
+
+	startTs, err := n.db.z.nextTs()
+	if err != nil {
+		return err
+	}
+
+	p := &pb.Proposal{Mutations: &pb.Mutations{
+		GroupId: 1,
+		StartTs: startTs,
+		Schema:  sc.Preds,
+		Types:   sc.Types,
+	}}
+	if err := worker.ApplyMutations(ctx, p); err != nil {
+		return fmt.Errorf("error applying mutation: %w", err)
+	}
+	return nil
+}
+
+func (n *Namespace) alterSchemaWithParsed(ctx context.Context, sc *schema.ParsedSchema) error {
 	for _, pred := range sc.Preds {
 		worker.InitTablet(pred.Predicate)
 	}
