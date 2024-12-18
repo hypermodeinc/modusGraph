@@ -123,7 +123,8 @@ func (n *Namespace) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]
 	return n.mutateWithDqlMutation(ctx, dms, newUids)
 }
 
-func (n *Namespace) mutateWithDqlMutation(ctx context.Context, dms []*dql.Mutation, newUids map[string]uint64) (map[string]uint64, error) {
+func (n *Namespace) mutateWithDqlMutation(ctx context.Context, dms []*dql.Mutation,
+	newUids map[string]uint64) (map[string]uint64, error) {
 	edges, err := query.ToDirectedEdges(dms, newUids)
 	if err != nil {
 		return nil, err
