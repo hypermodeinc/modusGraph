@@ -103,6 +103,8 @@ func valueToValType(v any) *api.Value {
 }
 
 func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, error){
+	n.db.mutex.Lock()
+	defer n.db.mutex.Unlock()
 	uids, err := n.db.z.nextUIDs(&pb.Num{Val: uint64(1), Type: pb.Num_UID})
 	if err != nil {
 		return 0, object, err
@@ -151,9 +153,6 @@ func Create[T any](ctx context.Context, n *Namespace, object *T) (uint64, *T, er
 		return 0, object, err
 	}
 	ctx = x.AttachNamespace(ctx, n.ID())
-
-	n.db.mutex.Lock()
-	defer n.db.mutex.Unlock()
 
 	err = n.alterSchemaWithParsed(ctx, sch)
 	if err != nil {
