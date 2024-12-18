@@ -1,0 +1,69 @@
+package modusdb_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/hypermodeinc/modusdb"
+)
+
+type User struct{
+	Uid uint64 `json:"uid"`
+	Name string `json:"name"`
+	Age int `json:"age"`
+}
+
+func TestCreateApi(t *testing.T) {
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(context.Background()))
+
+	user := &User{
+		Name: "B",
+		Age: 20,
+	}
+
+	uid, _, err := modusdb.Create(context.Background(), db1, user)
+	require.NoError(t, err)
+
+	require.Equal(t, "B", user.Name)
+	require.Equal(t, uint64(2), uid)
+	require.Equal(t, uint64(2), user.Uid)
+
+	query := `{
+		me(func: has(User.name)) {
+			uid
+			User.name
+			User.age
+		}
+	}`
+	resp, err := db1.Query(context.Background(), query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[{"uid":"0x2","User.name":"B","User.age":20}]}`, string(resp.GetJson()))
+}
+
+func TestCreateApiWithNonStruct(t *testing.T) {
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(context.Background()))
+
+	user := &User{
+		Name: "B",
+		Age: 20,
+	}
+
+	_, _, err = modusdb.Create[*User](context.Background(), db1, &user)
+	require.Error(t, err)
+}
