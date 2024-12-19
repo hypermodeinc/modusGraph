@@ -15,13 +15,13 @@ func TestNonGalaxyNamespace(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	db1, err := db.CreateNamespace()
+	ns1, err := db.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(context.Background()))
-	require.NoError(t, db1.AlterSchema(context.Background(), "name: string @index(exact) ."))
+	require.NoError(t, db.DropDataNS(context.Background(), ns1))
+	require.NoError(t, db.AlterSchemaNS(context.Background(), ns1, "name: string @index(exact) ."))
 
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	_, err = db.MutateNS(context.Background(), ns1, []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -39,7 +39,7 @@ func TestNonGalaxyNamespace(t *testing.T) {
 				name
 			}
 		}`
-	resp, err := db1.Query(context.Background(), query)
+	resp, err := db.QueryNS(context.Background(), ns1, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(resp.GetJson()))
 
@@ -50,13 +50,13 @@ func TestDropData(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	db1, err := db.CreateNamespace()
+	ns1, err := db.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(context.Background()))
-	require.NoError(t, db1.AlterSchema(context.Background(), "name: string @index(exact) ."))
+	require.NoError(t, db.DropDataNS(context.Background(), ns1))
+	require.NoError(t, db.AlterSchemaNS(context.Background(), ns1, "name: string @index(exact) ."))
 
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	_, err = db.MutateNS(context.Background(), ns1, []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -74,13 +74,13 @@ func TestDropData(t *testing.T) {
 				name
 			}
 		}`
-	resp, err := db1.Query(context.Background(), query)
+	resp, err := db.QueryNS(context.Background(), ns1, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(resp.GetJson()))
 
-	require.NoError(t, db1.DropData(context.Background()))
+	require.NoError(t, db.DropDataNS(context.Background(), ns1))
 
-	resp, err = db1.Query(context.Background(), query)
+	resp, err = db.QueryNS(context.Background(), ns1, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[]}`, string(resp.GetJson()))
 }
@@ -90,16 +90,16 @@ func TestMultipleNamespaces(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	db0, err := db.GetNamespace(0)
+	ns0, err := db.GetNamespace(0)
 	require.NoError(t, err)
-	db1, err := db.CreateNamespace()
+	ns1, err := db.CreateNamespace()
 	require.NoError(t, err)
 
 	require.NoError(t, db.DropAll(context.Background()))
-	require.NoError(t, db0.AlterSchema(context.Background(), "name: string @index(exact) ."))
-	require.NoError(t, db1.AlterSchema(context.Background(), "name: string @index(exact) ."))
+	require.NoError(t, db.AlterSchemaNS(context.Background(), ns0, "name: string @index(exact) ."))
+	require.NoError(t, db.AlterSchemaNS(context.Background(), ns1, "name: string @index(exact) ."))
 
-	_, err = db0.Mutate(context.Background(), []*api.Mutation{
+	_, err = db.MutateNS(context.Background(), ns0, []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -112,7 +112,7 @@ func TestMultipleNamespaces(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	_, err = db.MutateNS(context.Background(), ns1, []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -130,16 +130,16 @@ func TestMultipleNamespaces(t *testing.T) {
 				name
 			}
 		}`
-	resp, err := db0.Query(context.Background(), query)
+	resp, err := db.QueryNS(context.Background(), ns0, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(resp.GetJson()))
 
-	resp, err = db1.Query(context.Background(), query)
+	resp, err = db.QueryNS(context.Background(), ns1, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"B"}]}`, string(resp.GetJson()))
 
-	require.NoError(t, db1.DropData(context.Background()))
-	resp, err = db1.Query(context.Background(), query)
+	require.NoError(t, db.DropDataNS(context.Background(), ns1))
+	resp, err = db.QueryNS(context.Background(), ns1, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[]}`, string(resp.GetJson()))
 }
@@ -149,16 +149,16 @@ func TestQueryWrongNamespace(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	db0, err := db.GetNamespace(0)
+	ns0, err := db.GetNamespace(0)
 	require.NoError(t, err)
-	db1, err := db.CreateNamespace()
+	ns1, err := db.CreateNamespace()
 	require.NoError(t, err)
 
 	require.NoError(t, db.DropAll(context.Background()))
-	require.NoError(t, db0.AlterSchema(context.Background(), "name: string @index(exact) ."))
-	require.NoError(t, db1.AlterSchema(context.Background(), "name: string @index(exact) ."))
+	require.NoError(t, db.AlterSchemaNS(context.Background(), ns0, "name: string @index(exact) ."))
+	require.NoError(t, db.AlterSchemaNS(context.Background(), ns1, "name: string @index(exact) ."))
 
-	_, err = db0.Mutate(context.Background(), []*api.Mutation{
+	_, err = db.MutateNS(context.Background(), ns0, []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -178,7 +178,7 @@ func TestQueryWrongNamespace(t *testing.T) {
 		}
 	}`
 
-	resp, err := db1.Query(context.Background(), query)
+	resp, err := db.QueryNS(context.Background(), ns1, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[]}`, string(resp.GetJson()))
 }
@@ -188,16 +188,16 @@ func TestTwoNamespaces(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	db0, err := db.GetNamespace(0)
+	ns0, err := db.GetNamespace(0)
 	require.NoError(t, err)
-	db1, err := db.CreateNamespace()
+	ns1, err := db.CreateNamespace()
 	require.NoError(t, err)
 
 	require.NoError(t, db.DropAll(context.Background()))
-	require.NoError(t, db0.AlterSchema(context.Background(), "foo: string @index(exact) ."))
-	require.NoError(t, db1.AlterSchema(context.Background(), "bar: string @index(exact) ."))
+	require.NoError(t, db.AlterSchemaNS(context.Background(), ns0, "foo: string @index(exact) ."))
+	require.NoError(t, db.AlterSchemaNS(context.Background(), ns1, "bar: string @index(exact) ."))
 
-	_, err = db0.Mutate(context.Background(), []*api.Mutation{
+	_, err = db.MutateNS(context.Background(), ns0, []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -210,7 +210,7 @@ func TestTwoNamespaces(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	_, err = db.MutateNS(context.Background(), ns1, []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -228,7 +228,7 @@ func TestTwoNamespaces(t *testing.T) {
 			foo
 		}
 	}`
-	resp, err := db0.Query(context.Background(), query)
+	resp, err := db.QueryNS(context.Background(), ns0, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"foo":"A"}]}`, string(resp.GetJson()))
 
@@ -237,7 +237,7 @@ func TestTwoNamespaces(t *testing.T) {
 			bar
 		}
 	}`
-	resp, err = db1.Query(context.Background(), query)
+	resp, err = db.QueryNS(context.Background(), ns1, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"bar":"B"}]}`, string(resp.GetJson()))
 }
@@ -248,12 +248,11 @@ func TestNamespaceDBRestart(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { db.Close() }()
 
-	db1, err := db.CreateNamespace()
+	ns1, err := db.CreateNamespace()
 	require.NoError(t, err)
-	ns1 := db1.ID()
 
-	require.NoError(t, db1.AlterSchema(context.Background(), "bar: string @index(exact) ."))
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	require.NoError(t, db.AlterSchemaNS(context.Background(), ns1, "bar: string @index(exact) ."))
+	_, err = db.MutateNS(context.Background(), ns1, []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -272,9 +271,9 @@ func TestNamespaceDBRestart(t *testing.T) {
 
 	db2, err := db.CreateNamespace()
 	require.NoError(t, err)
-	require.Greater(t, db2.ID(), ns1)
+	require.Greater(t, db2.ID(), ns1.ID())
 
-	db1, err = db.GetNamespace(ns1)
+	ns1, err = db.GetNamespace(ns1.ID())
 	require.NoError(t, err)
 
 	query := `{
@@ -282,7 +281,7 @@ func TestNamespaceDBRestart(t *testing.T) {
 			bar
 		}
 	}`
-	resp, err := db1.Query(context.Background(), query)
+	resp, err := db.QueryNS(context.Background(), ns1, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"bar":"B"}]}`, string(resp.GetJson()))
 }

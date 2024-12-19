@@ -2,6 +2,7 @@ package modusdb
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/dgraph-io/dgraph/v24/posting"
@@ -12,32 +13,33 @@ import (
 )
 
 const (
+	// We store zero data at UID 1 and assign the UIDs
+	// starting from 2 to the data added by the user.
 	zeroStateUID = 1
 	initialUID   = 2
 
-	schemaTs    = 1
+	// We store zero data at timestamp 2 and assign the timestamps
+	// starting from 3 to the data added by the user.
 	zeroStateTs = 2
 	initialTs   = 3
 
+	// We lease UIDs and timestamps in batches of 10000.
 	leaseUIDAtATime = 10000
 	leaseTsAtATime  = 10000
 
+	// zero data is stored at the following predicate
 	zeroStateKey = "0-dgraph.modusdb.zero"
 )
 
-func (db *DB) LeaseUIDs(numUIDs uint64) (*pb.AssignedIds, error) {
-	num := &pb.Num{Val: numUIDs, Type: pb.Num_UID}
-	return db.z.nextUIDs(num)
-}
-
+// zero takes care of all the responsibilities of zero node in Dgraph.
 type zero struct {
+	lock sync.Mutex
+
 	minLeasedUID uint64
 	maxLeasedUID uint64
-
-	minLeasedTs uint64
-	maxLeasedTs uint64
-
-	lastNS uint64
+	minLeasedTs  uint64
+	maxLeasedTs  uint64
+	lastNS       uint64
 }
 
 func newZero() (*zero, bool, error) {
@@ -74,7 +76,10 @@ func newZero() (*zero, bool, error) {
 	return z, restart, nil
 }
 
-func (z *zero) nextTs() (uint64, error) {
+func (z *zero) nextTS() (uint64, error) {
+	z.lock.Lock()
+	defer z.lock.Unlock()
+
 	if z.minLeasedTs >= z.maxLeasedTs {
 		if err := z.leaseTs(); err != nil {
 			return 0, fmt.Errorf("error leasing timestamps: %w", err)
@@ -88,6 +93,9 @@ func (z *zero) nextTs() (uint64, error) {
 }
 
 func (z *zero) readTs() uint64 {
+	z.lock.Lock()
+	defer z.lock.Unlock()
+
 	return z.minLeasedTs - 1
 }
 
@@ -100,6 +108,9 @@ func (z *zero) nextUID() (uint64, error) {
 }
 
 func (z *zero) nextUIDs(num *pb.Num) (*pb.AssignedIds, error) {
+	z.lock.Lock()
+	defer z.lock.Unlock()
+
 	var resp *pb.AssignedIds
 	if num.Bump {
 		if z.minLeasedUID >= num.Val {
@@ -125,6 +136,9 @@ func (z *zero) nextUIDs(num *pb.Num) (*pb.AssignedIds, error) {
 }
 
 func (z *zero) nextNS() (uint64, error) {
+	z.lock.Lock()
+	defer z.lock.Unlock()
+
 	z.lastNS++
 	if err := z.writeZeroState(); err != nil {
 		return 0, fmt.Errorf("error leasing namespace ID: %w", err)
@@ -132,27 +146,31 @@ func (z *zero) nextNS() (uint64, error) {
 	return z.lastNS, nil
 }
 
-func readZeroState() (*pb.MembershipState, error) {
-	txn := worker.State.Pstore.NewTransactionAt(zeroStateTs, false)
-	defer txn.Discard()
-
-	item, err := txn.Get(x.DataKey(zeroStateKey, zeroStateUID))
-	if err != nil {
-		if err == badger.ErrKeyNotFound {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("error getting zero state: %v", err)
+// leaseTS leases timestamps in batches of leaseTsAtATime.
+func (z *zero) leaseTs() error {
+	if z.minLeasedTs+leaseTsAtATime <= z.maxLeasedTs {
+		return nil
 	}
 
-	zeroState := &pb.MembershipState{}
-	err = item.Value(func(val []byte) error {
-		return proto.Unmarshal(val, zeroState)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling zero state: %v", err)
+	z.maxLeasedTs += z.minLeasedTs + leaseTsAtATime
+	if err := z.writeZeroState(); err != nil {
+		return fmt.Errorf("error leasing UIDs: %w", err)
 	}
 
-	return zeroState, nil
+	return nil
+}
+
+func (z *zero) leaseUIDs() error {
+	if z.minLeasedUID+leaseUIDAtATime <= z.maxLeasedUID {
+		return nil
+	}
+
+	z.maxLeasedUID += z.minLeasedUID + leaseUIDAtATime
+	if err := z.writeZeroState(); err != nil {
+		return fmt.Errorf("error leasing timestamps: %w", err)
+	}
+
+	return nil
 }
 
 func (z *zero) writeZeroState() error {
@@ -180,28 +198,25 @@ func (z *zero) writeZeroState() error {
 	return nil
 }
 
-func (z *zero) leaseTs() error {
-	if z.minLeasedTs+leaseTsAtATime <= z.maxLeasedTs {
-		return nil
+func readZeroState() (*pb.MembershipState, error) {
+	txn := worker.State.Pstore.NewTransactionAt(zeroStateTs, false)
+	defer txn.Discard()
+
+	item, err := txn.Get(x.DataKey(zeroStateKey, zeroStateUID))
+	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error getting zero state: %v", err)
 	}
 
-	z.maxLeasedTs += z.minLeasedTs + leaseTsAtATime
-	if err := z.writeZeroState(); err != nil {
-		return fmt.Errorf("error leasing UIDs: %w", err)
+	var zeroState pb.MembershipState
+	err = item.Value(func(val []byte) error {
+		return proto.Unmarshal(val, &zeroState)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error un-marshalling zero state: %v", err)
 	}
 
-	return nil
-}
-
-func (z *zero) leaseUIDs() error {
-	if z.minLeasedUID+leaseUIDAtATime <= z.maxLeasedUID {
-		return nil
-	}
-
-	z.maxLeasedUID += z.minLeasedUID + leaseUIDAtATime
-	if err := z.writeZeroState(); err != nil {
-		return fmt.Errorf("error leasing timestamps: %w", err)
-	}
-
-	return nil
+	return &zeroState, nil
 }

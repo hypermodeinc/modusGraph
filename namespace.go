@@ -18,7 +18,6 @@ import (
 // Namespace is one of the namespaces in modusDB.
 type Namespace struct {
 	id uint64
-	db *DB
 }
 
 func (n *Namespace) ID() uint64 {
@@ -26,18 +25,18 @@ func (n *Namespace) ID() uint64 {
 }
 
 // DropData drops all the data in the modusDB instance.
-func (n *Namespace) DropData(ctx context.Context) error {
-	n.db.mutex.Lock()
-	defer n.db.mutex.Unlock()
+func (db *DB) DropDataNS(ctx context.Context, ns *Namespace) error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 
-	if !n.db.isOpen {
+	if !db.isOpen {
 		return ErrClosedDB
 	}
 
 	p := &pb.Proposal{Mutations: &pb.Mutations{
 		GroupId:   1,
 		DropOp:    pb.Mutations_DATA,
-		DropValue: strconv.FormatUint(n.ID(), 10),
+		DropValue: strconv.FormatUint(ns.ID(), 10),
 	}}
 
 	if err := worker.ApplyMutations(ctx, p); err != nil {
@@ -49,27 +48,27 @@ func (n *Namespace) DropData(ctx context.Context) error {
 	return nil
 }
 
-func (n *Namespace) AlterSchema(ctx context.Context, sch string) error {
-	n.db.mutex.Lock()
-	defer n.db.mutex.Unlock()
-
-	if !n.db.isOpen {
-		return ErrClosedDB
-	}
-
-	sc, err := schema.ParseWithNamespace(sch, n.ID())
+func (db *DB) AlterSchemaNS(ctx context.Context, ns *Namespace, sch string) error {
+	sc, err := schema.ParseWithNamespace(sch, ns.ID())
 	if err != nil {
 		return fmt.Errorf("error parsing schema: %w", err)
 	}
-	return n.alterSchemaWithParsed(ctx, sc)
+	return db.alterSchemaWithParsed(ctx, ns, sc)
 }
 
-func (n *Namespace) alterSchemaWithParsed(ctx context.Context, sc *schema.ParsedSchema) error {
-	for _, pred := range sc.Preds {
+func (db *DB) alterSchemaWithParsed(ctx context.Context, ns *Namespace, sch *schema.ParsedSchema) error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	if !db.isOpen {
+		return ErrClosedDB
+	}
+
+	for _, pred := range sch.Preds {
 		worker.InitTablet(pred.Predicate)
 	}
 
-	startTs, err := n.db.z.nextTs()
+	startTs, err := db.z.nextTS()
 	if err != nil {
 		return err
 	}
@@ -77,8 +76,8 @@ func (n *Namespace) alterSchemaWithParsed(ctx context.Context, sc *schema.Parsed
 	p := &pb.Proposal{Mutations: &pb.Mutations{
 		GroupId: 1,
 		StartTs: startTs,
-		Schema:  sc.Preds,
-		Types:   sc.Types,
+		Schema:  sch.Preds,
+		Types:   sch.Types,
 	}}
 	if err := worker.ApplyMutations(ctx, p); err != nil {
 		return fmt.Errorf("error applying mutation: %w", err)
@@ -86,13 +85,11 @@ func (n *Namespace) alterSchemaWithParsed(ctx context.Context, sc *schema.Parsed
 	return nil
 }
 
-func (n *Namespace) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64, error) {
+func (db *DB) MutateNS(ctx context.Context, ns *Namespace, ms []*api.Mutation) (map[string]uint64, error) {
 	if len(ms) == 0 {
 		return nil, nil
 	}
 
-	n.db.mutex.Lock()
-	defer n.db.mutex.Unlock()
 	dms := make([]*dql.Mutation, 0, len(ms))
 	for _, mu := range ms {
 		dm, err := edgraph.ParseMutationObject(mu, false)
@@ -101,45 +98,49 @@ func (n *Namespace) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]
 		}
 		dms = append(dms, dm)
 	}
-	newUids, err := query.ExtractBlankUIDs(ctx, dms)
+	newUIDs, err := query.ExtractBlankUIDs(ctx, dms)
 	if err != nil {
 		return nil, err
 	}
-	if len(newUids) > 0 {
-		num := &pb.Num{Val: uint64(len(newUids)), Type: pb.Num_UID}
-		res, err := n.db.z.nextUIDs(num)
+	if len(newUIDs) > 0 {
+		num := &pb.Num{Val: uint64(len(newUIDs)), Type: pb.Num_UID}
+		res, err := db.z.nextUIDs(num)
 		if err != nil {
 			return nil, err
 		}
 
 		curId := res.StartId
-		for k := range newUids {
+		for k := range newUIDs {
 			x.AssertTruef(curId != 0 && curId <= res.EndId, "not enough uids generated")
-			newUids[k] = curId
+			newUIDs[k] = curId
 			curId++
 		}
 	}
 
-	return n.mutateWithDqlMutation(ctx, dms, newUids)
+	return db.mutateWithParsed(ctx, ns, dms, newUIDs)
 }
 
-func (n *Namespace) mutateWithDqlMutation(ctx context.Context, dms []*dql.Mutation,
-	newUids map[string]uint64) (map[string]uint64, error) {
-	edges, err := query.ToDirectedEdges(dms, newUids)
+func (db *DB) mutateWithParsed(ctx context.Context, ns *Namespace, dms []*dql.Mutation,
+	newUIDs map[string]uint64) (map[string]uint64, error) {
+
+	edges, err := query.ToDirectedEdges(dms, newUIDs)
 	if err != nil {
 		return nil, err
 	}
-	ctx = x.AttachNamespace(ctx, n.ID())
+	ctx = x.AttachNamespace(ctx, ns.ID())
 
-	if !n.db.isOpen {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	if !db.isOpen {
 		return nil, ErrClosedDB
 	}
 
-	startTs, err := n.db.z.nextTs()
+	startTs, err := db.z.nextTS()
 	if err != nil {
 		return nil, err
 	}
-	commitTs, err := n.db.z.nextTs()
+	commitTs, err := db.z.nextTS()
 	if err != nil {
 		return nil, err
 	}
@@ -163,24 +164,24 @@ func (n *Namespace) mutateWithDqlMutation(ctx context.Context, dms []*dql.Mutati
 		return nil, err
 	}
 
-	return newUids, worker.ApplyCommited(ctx, &pb.OracleDelta{
+	return newUIDs, worker.ApplyCommited(ctx, &pb.OracleDelta{
 		Txns: []*pb.TxnStatus{{StartTs: startTs, CommitTs: commitTs}},
 	})
 }
 
 // Query performs query or mutation or upsert on the given modusDB instance.
-func (n *Namespace) Query(ctx context.Context, query string) (*api.Response, error) {
-	n.db.mutex.RLock()
-	defer n.db.mutex.RUnlock()
+func (db *DB) QueryNS(ctx context.Context, ns *Namespace, query string) (*api.Response, error) {
+	db.mutex.RLock()
+	defer db.mutex.RUnlock()
 
-	if !n.db.isOpen {
+	if !db.isOpen {
 		return nil, ErrClosedDB
 	}
 
-	ctx = x.AttachNamespace(ctx, n.ID())
+	ctx = x.AttachNamespace(ctx, ns.ID())
 	return (&edgraph.Server{}).QueryNoAuth(ctx, &api.Request{
 		ReadOnly: true,
 		Query:    query,
-		StartTs:  n.db.z.readTs(),
+		StartTs:  db.z.readTs(),
 	})
 }

@@ -11,29 +11,6 @@ import (
 	"github.com/dgraph-io/dgraph/v24/x"
 )
 
-type ModusDbOption func(*modusDbOptions)
-
-type modusDbOptions struct {
-	namespace uint64
-}
-
-func WithNamespace(namespace uint64) ModusDbOption {
-	return func(o *modusDbOptions) {
-		o.namespace = namespace
-	}
-}
-
-func getDefaultNamespace(db *DB, ns ...uint64) (*Namespace, error) {
-	dbOpts := &modusDbOptions{
-		namespace: db.defaultNamespace.ID(),
-	}
-	for _, ns := range ns {
-		WithNamespace(ns)(dbOpts)
-	}
-
-	return db.getNamespaceWithLock(dbOpts.namespace)
-}
-
 func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
 	if len(ns) > 1 {
 		return 0, object, fmt.Errorf("only one namespace is allowed")
@@ -43,10 +20,6 @@ func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
-	n, err := getDefaultNamespace(db, ns...)
-	if err != nil {
-		return 0, object, err
-	}
 	gid, err := db.z.nextUID()
 	if err != nil {
 		return 0, object, err
@@ -61,7 +34,7 @@ func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
 	if err != nil {
 		return 0, object, err
 	}
-	ctx = x.AttachNamespace(ctx, n.ID())
+	ctx = x.AttachNamespace(ctx, ns.ID())
 
 	err = n.alterSchemaWithParsed(ctx, sch)
 	if err != nil {
@@ -72,11 +45,11 @@ func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
 		return 0, object, ErrClosedDB
 	}
 
-	startTs, err := db.z.nextTs()
+	startTs, err := db.z.nextTS()
 	if err != nil {
 		return 0, object, err
 	}
-	commitTs, err := db.z.nextTs()
+	commitTs, err := db.z.nextTS()
 	if err != nil {
 		return 0, object, err
 	}

@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	vectorSchemaWithIndex = `%v: float32vector @index(hnsw(exponent: "%v", metric: "%v")) .`
-	numVectors            = 1000
+	vectorSchema = `%v: float32vector @index(hnsw(exponent: "%v", metric: "%v")) .`
+	numVectors   = 1000
 )
 
 func TestVectorDelete(t *testing.T) {
@@ -26,7 +26,7 @@ func TestVectorDelete(t *testing.T) {
 
 	require.NoError(t, db.DropAll(context.Background()))
 	require.NoError(t, db.AlterSchema(context.Background(),
-		fmt.Sprintf(vectorSchemaWithIndex, "vtest", "4", "euclidean")))
+		fmt.Sprintf(vectorSchema, "vtest", "4", "euclidean")))
 
 	// insert random vectors
 	assignIDs, err := db.LeaseUIDs(numVectors + 1)
