@@ -19,15 +19,11 @@ const (
 	baseURL          = "https://github.com/dgraph-io/benchmarks/blob/master/data"
 	oneMillionSchema = baseURL + "/1million.schema?raw=true"
 	oneMillionRDF    = baseURL + "/1million.rdf.gz?raw=true"
-)
-
-func TestLiveLoaderSmall(t *testing.T) {
-	const (
-		dbSchema = `
+	DbSchema         = `
 			director.film : [uid] @reverse @count .
 			name          : string @index(hash, term, trigram, fulltext) @lang .
 		`
-		data = `
+	SmallData = `
 			<12534504120601169429> <name> "Marc Caro"@en .
 			<2698880893682087932> <name> "Delicatessen"@en .
 			<2698880893682087932> <name> "Delicatessen"@de .
@@ -40,7 +36,9 @@ func TestLiveLoaderSmall(t *testing.T) {
 			<12534504120601169429> <director.film> <15617393957106514527> .
 			<14514306440537019930> <director.film> <15617393957106514527> .
 		`
-	)
+)
+
+func TestLiveLoaderSmall(t *testing.T) {
 
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
@@ -49,8 +47,8 @@ func TestLiveLoaderSmall(t *testing.T) {
 	dataFolder := t.TempDir()
 	schemaFile := filepath.Join(dataFolder, "data.schema")
 	dataFile := filepath.Join(dataFolder, "data.rdf")
-	require.NoError(t, os.WriteFile(schemaFile, []byte(dbSchema), 0600))
-	require.NoError(t, os.WriteFile(dataFile, []byte(data), 0600))
+	require.NoError(t, os.WriteFile(schemaFile, []byte(DbSchema), 0600))
+	require.NoError(t, os.WriteFile(dataFile, []byte(SmallData), 0600))
 	require.NoError(t, db.Load(context.Background(), schemaFile, dataFile))
 
 	const query = `{

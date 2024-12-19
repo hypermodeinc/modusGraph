@@ -17,3 +17,5 @@ go.work.sum
 
 # env file
 .env
+
+cpu_profile.prof
