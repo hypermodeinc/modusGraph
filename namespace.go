@@ -173,6 +173,10 @@ func (n *Namespace) Query(ctx context.Context, query string) (*api.Response, err
 	n.db.mutex.RLock()
 	defer n.db.mutex.RUnlock()
 
+	return n.queryWithLock(ctx, query)
+}
+
+func (n *Namespace) queryWithLock(ctx context.Context, query string) (*api.Response, error) {
 	if !n.db.isOpen {
 		return nil, ErrClosedDB
 	}

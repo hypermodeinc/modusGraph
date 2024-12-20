@@ -107,8 +107,9 @@ func TestGetApi(t *testing.T) {
 	require.NoError(t, db1.DropData(ctx))
 
 	user := &User{
-		Name: "B",
-		Age:  20,
+		Name:    "B",
+		Age:     20,
+		ClerkId: "123",
 	}
 
 	gid, _, err := modusdb.Create(db, user, db1.ID())
@@ -121,4 +122,72 @@ func TestGetApi(t *testing.T) {
 	require.Equal(t, uint64(2), queriedUser.Gid)
 	require.Equal(t, 20, queriedUser.Age)
 	require.Equal(t, "B", queriedUser.Name)
+	require.Equal(t, "123", queriedUser.ClerkId)
+}
+
+func TestGetApiWithConstrainedField(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	user := &User{
+		Name:    "B",
+		Age:     20,
+		ClerkId: "123",
+	}
+
+	_, _, err = modusdb.Create(db, user, db1.ID())
+	require.NoError(t, err)
+
+	gid, queriedUser, err := modusdb.Get[User](db, modusdb.ConstrainedField{
+		Key:   "clerk_id",
+		Value: "123",
+	}, db1.ID())
+
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), gid)
+	require.Equal(t, uint64(2), queriedUser.Gid)
+	require.Equal(t, 20, queriedUser.Age)
+	require.Equal(t, "B", queriedUser.Name)
+	require.Equal(t, "123", queriedUser.ClerkId)
+}
+
+func TestDeleteApi(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	user := &User{
+		Name: "B",
+		Age:  20,
+		ClerkId: "123",
+	}
+
+	gid, _, err := modusdb.Create(db, user, db1.ID())
+	require.NoError(t, err)
+
+	_, _, err = modusdb.Delete[User](db, gid, db1.ID())
+	require.NoError(t, err)
+
+	// TODO: when getting with uid, it returns an object with values set to 0 instead of an error
+	// _, queriedUser, err := modusdb.Get[User](db, gid, db1.ID())
+	_, queriedUser, err := modusdb.Get[User](db, modusdb.ConstrainedField{
+		Key:   "clerk_id",
+		Value: "123",
+	}, db1.ID())
+	require.Error(t, err)
+	require.Equal(t, "no object found", err.Error())
+	require.Nil(t, queriedUser)
 }
