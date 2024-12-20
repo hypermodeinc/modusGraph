@@ -170,8 +170,8 @@ func TestDeleteApi(t *testing.T) {
 	require.NoError(t, db1.DropData(ctx))
 
 	user := &User{
-		Name: "B",
-		Age:  20,
+		Name:    "B",
+		Age:     20,
 		ClerkId: "123",
 	}
 
