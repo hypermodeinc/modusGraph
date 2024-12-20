@@ -106,7 +106,6 @@ func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
 		} else if field.Name == "DgraphType" {
 			fieldArr := value.Interface().([]string)
 			if len(fieldArr) == 0 {
-				final = nil
 				return 0, ErrNoObjFound
 			}
 		} else {
