@@ -80,11 +80,15 @@ func createDynamicStruct(t reflect.Type, jsonFields map[string]string) reflect.T
 		Name: "Uid",
 		Type: reflect.TypeOf(""),
 		Tag:  reflect.StructTag(`json:"uid"`),
+	}, reflect.StructField{
+		Name: "DgraphType",
+		Type: reflect.TypeOf([]string{}),
+		Tag:  reflect.StructTag(`json:"dgraph.type"`),
 	})
 	return reflect.StructOf(fields)
 }
 
-func mapDynamicToFinal(dynamic any, final any) uint64 {
+func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
 	vFinal := reflect.ValueOf(final).Elem()
 	vDynamic := reflect.ValueOf(dynamic).Elem()
 
@@ -99,6 +103,12 @@ func mapDynamicToFinal(dynamic any, final any) uint64 {
 			finalField = vFinal.FieldByName("Gid")
 			gidStr := value.String()
 			gid, _ = strconv.ParseUint(gidStr, 0, 64)
+		} else if field.Name == "DgraphType" {
+			fieldArr := value.Interface().([]string)
+			if len(fieldArr) == 0 {
+				final = nil
+				return 0, ErrNoObjFound
+			}
 		} else {
 			finalField = vFinal.FieldByName(field.Name)
 		}
@@ -111,5 +121,5 @@ func mapDynamicToFinal(dynamic any, final any) uint64 {
 			}
 		}
 	}
-	return gid
+	return gid, nil
 }

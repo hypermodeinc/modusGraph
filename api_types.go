@@ -1,5 +1,11 @@
 package modusdb
 
+import "fmt"
+
+var (
+	ErrNoObjFound = fmt.Errorf("no object found")
+)
+
 type UniqueField interface {
 	uint64 | ConstrainedField
 }

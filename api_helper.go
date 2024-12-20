@@ -187,6 +187,7 @@ func getByGid[T any](ctx context.Context, n *Namespace, gid uint64) (uint64, *T,
 	  obj(func: uid(%d)) {
 		uid
 		expand(_all_)
+		dgraph.type
 	  }
 	}
 	  `, gid)
@@ -203,6 +204,7 @@ func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf Constrai
 	  obj(func: eq(%s, %s)) {
 		uid
 		expand(_all_)
+		dgraph.type
 	  }
 	}
 	  `, getPredicateName(t.Name(), cf.Key), cf.Value)
@@ -246,12 +248,15 @@ func executeGet[T any](ctx context.Context, n *Namespace, query string, cf *Cons
 
 	// Check if we have at least one object in the response
 	if len(result.Obj) == 0 {
-		return 0, nil, fmt.Errorf("no object found")
+		return 0, nil, ErrNoObjFound
 	}
 
 	// Map the dynamic struct to the final type T
 	finalObject := reflect.New(t).Interface()
-	gid := mapDynamicToFinal(result.Obj[0], finalObject)
+	gid, err := mapDynamicToFinal(result.Obj[0], finalObject)
+	if err != nil {
+		return 0, nil, err
+	}
 
 	return gid, finalObject.(*T), nil
 }

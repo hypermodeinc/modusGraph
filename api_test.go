@@ -181,9 +181,12 @@ func TestDeleteApi(t *testing.T) {
 	_, _, err = modusdb.Delete[User](db, gid, db1.ID())
 	require.NoError(t, err)
 
-	// TODO: when getting with uid, it returns an object with values set to 0 instead of an error
-	// _, queriedUser, err := modusdb.Get[User](db, gid, db1.ID())
-	_, queriedUser, err := modusdb.Get[User](db, modusdb.ConstrainedField{
+	_, queriedUser, err := modusdb.Get[User](db, gid, db1.ID())
+	require.Error(t, err)
+	require.Equal(t, "no object found", err.Error())
+	require.Nil(t, queriedUser)
+
+	_, queriedUser, err = modusdb.Get[User](db, modusdb.ConstrainedField{
 		Key:   "clerk_id",
 		Value: "123",
 	}, db1.ID())
