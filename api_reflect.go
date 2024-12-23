@@ -11,10 +11,10 @@ type dbTag struct {
 	constraint string
 }
 
-func getFieldTags(t reflect.Type) (jsonTags map[string]string, jsonToDbTags map[string]*dbTag,
-	reverseEdgeTags map[string]string, err error) {
+func getFieldTags(t reflect.Type) (fieldToJsonTags map[string]string,
+	jsonToDbTags map[string]*dbTag, reverseEdgeTags map[string]string, err error) {
 
-	jsonTags = make(map[string]string)
+	fieldToJsonTags = make(map[string]string)
 	jsonToDbTags = make(map[string]*dbTag)
 	reverseEdgeTags = make(map[string]string)
 	for i := 0; i < t.NumField(); i++ {
@@ -24,7 +24,7 @@ func getFieldTags(t reflect.Type) (jsonTags map[string]string, jsonToDbTags map[
 			return nil, nil, nil, fmt.Errorf("field %s has no json tag", field.Name)
 		}
 		jsonName := strings.Split(jsonTag, ",")[0]
-		jsonTags[field.Name] = jsonName
+		fieldToJsonTags[field.Name] = jsonName
 
 		reverseEdgeTag := field.Tag.Get("readFrom")
 		if reverseEdgeTag != "" {
@@ -50,13 +50,13 @@ func getFieldTags(t reflect.Type) (jsonTags map[string]string, jsonToDbTags map[
 			}
 		}
 	}
-	return jsonTags, jsonToDbTags, reverseEdgeTags, nil
+	return fieldToJsonTags, jsonToDbTags, reverseEdgeTags, nil
 }
 
-func getFieldValues(object any, jsonFields map[string]string) map[string]any {
+func getJsonTagToValues(object any, fieldToJsonTags map[string]string) map[string]any {
 	values := make(map[string]any)
 	v := reflect.ValueOf(object).Elem()
-	for fieldName, jsonName := range jsonFields {
+	for fieldName, jsonName := range fieldToJsonTags {
 		fieldValue := v.FieldByName(fieldName)
 		values[jsonName] = fieldValue.Interface()
 
@@ -64,9 +64,9 @@ func getFieldValues(object any, jsonFields map[string]string) map[string]any {
 	return values
 }
 
-func createDynamicStruct(t reflect.Type, jsonFields map[string]string) reflect.Type {
-	fields := make([]reflect.StructField, 0, len(jsonFields))
-	for fieldName, jsonName := range jsonFields {
+func createDynamicStruct(t reflect.Type, fieldToJsonTags map[string]string) reflect.Type {
+	fields := make([]reflect.StructField, 0, len(fieldToJsonTags))
+	for fieldName, jsonName := range fieldToJsonTags {
 		field, _ := t.FieldByName(fieldName)
 		if fieldName != "Gid" {
 			fields = append(fields, reflect.StructField{

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/dgraph-io/dgraph/v24/dql"
+	"github.com/dgraph-io/dgraph/v24/schema"
 	"github.com/dgraph-io/dgraph/v24/x"
 )
 
@@ -55,7 +57,9 @@ func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
 		return 0, object, err
 	}
 
-	dms, sch, err := generateCreateDqlMutationsAndSchema(n, object, gid)
+	dms := make([]*dql.Mutation, 0)
+	sch := &schema.ParsedSchema{}
+	err = generateCreateDqlMutationsAndSchema(ctx, n, object, gid, &dms, sch)
 	if err != nil {
 		return 0, object, err
 	}
@@ -91,11 +95,11 @@ func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, *T,
 		return 0, nil, err
 	}
 	if uid, ok := any(uniqueField).(uint64); ok {
-		return getByGid[T](ctx, n, uid)
+		return getByGid[T](ctx, n, uid, true)
 	}
 
 	if cf, ok := any(uniqueField).(ConstrainedField); ok {
-		return getByConstrainedField[T](ctx, n, cf)
+		return getByConstrainedField[T](ctx, n, cf, true)
 	}
 
 	return 0, nil, fmt.Errorf("invalid unique field type")
@@ -109,7 +113,7 @@ func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, 
 		return 0, nil, err
 	}
 	if uid, ok := any(uniqueField).(uint64); ok {
-		uid, obj, err := getByGid[T](ctx, n, uid)
+		uid, obj, err := getByGid[T](ctx, n, uid, true)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -125,8 +129,34 @@ func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, 
 	}
 
 	if cf, ok := any(uniqueField).(ConstrainedField); ok {
-		return getByConstrainedField[T](ctx, n, cf)
+		uid, obj, err := getByConstrainedField[T](ctx, n, cf, true)
+		if err != nil {
+			return 0, nil, err
+		}
+
+		dms := generateDeleteDqlMutations(n, uid)
+
+		err = applyDqlMutations(ctx, db, dms)
+		if err != nil {
+			return 0, nil, err
+		}
+
+		return uid, obj, nil
 	}
 
 	return 0, nil, fmt.Errorf("invalid unique field type")
+}
+
+func Upsert[T any](db *DB, object *T, ns ...uint64) (uint64, *T, bool, error) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	if len(ns) > 1 {
+		return 0, object, false, fmt.Errorf("only one namespace is allowed")
+	}
+	ctx, n, err := getDefaultNamespace(db, ns...)
+	if err != nil {
+		return 0, object, false, err
+	}
+
+	return upsertHelper[T](ctx, db, n, object, true)
 }
