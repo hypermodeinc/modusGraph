@@ -12,11 +12,11 @@ type dbTag struct {
 }
 
 func getFieldTags(t reflect.Type) (fieldToJsonTags map[string]string,
-	jsonToDbTags map[string]*dbTag, reverseEdgeTags map[string]string, err error) {
+	jsonToDbTags map[string]*dbTag, jsonToReverseEdgeTags map[string]string, err error) {
 
 	fieldToJsonTags = make(map[string]string)
 	jsonToDbTags = make(map[string]*dbTag)
-	reverseEdgeTags = make(map[string]string)
+	jsonToReverseEdgeTags = make(map[string]string)
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		jsonTag := field.Tag.Get("json")
@@ -35,7 +35,7 @@ func getFieldTags(t reflect.Type) (fieldToJsonTags map[string]string,
 			}
 			t := strings.Split(typeAndField[0], "=")[1]
 			f := strings.Split(typeAndField[1], "=")[1]
-			reverseEdgeTags[field.Name] = getPredicateName(t, f)
+			jsonToReverseEdgeTags[jsonName] = getPredicateName(t, f)
 		}
 
 		dbConstraintsTag := field.Tag.Get("db")
@@ -50,12 +50,15 @@ func getFieldTags(t reflect.Type) (fieldToJsonTags map[string]string,
 			}
 		}
 	}
-	return fieldToJsonTags, jsonToDbTags, reverseEdgeTags, nil
+	return fieldToJsonTags, jsonToDbTags, jsonToReverseEdgeTags, nil
 }
 
 func getJsonTagToValues(object any, fieldToJsonTags map[string]string) map[string]any {
 	values := make(map[string]any)
-	v := reflect.ValueOf(object).Elem()
+	v := reflect.ValueOf(object)
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
 	for fieldName, jsonName := range fieldToJsonTags {
 		fieldValue := v.FieldByName(fieldName)
 		values[jsonName] = fieldValue.Interface()

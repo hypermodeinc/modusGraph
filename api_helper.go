@@ -97,38 +97,44 @@ func valueToApiVal(v any) (*api.Value, error) {
 	}
 }
 
-func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, object *T,
+func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, object T,
 	gid uint64, dms *[]*dql.Mutation, sch *schema.ParsedSchema) error {
-	t := reflect.TypeOf(*object)
+	t := reflect.TypeOf(object)
 	if t.Kind() != reflect.Struct {
 		return fmt.Errorf("expected struct, got %s", t.Kind())
 	}
 
-	fieldToJsonTags, jsonToDbTags, _, err := getFieldTags(t)
+	fieldToJsonTags, jsonToDbTags, jsonToReverseEdgeTags, err := getFieldTags(t)
 	if err != nil {
 		return err
 	}
-	values := getJsonTagToValues(object, fieldToJsonTags)
+	jsonTagToValue := getJsonTagToValues(object, fieldToJsonTags)
 
 	nquads := make([]*api.NQuad, 0)
-	for jsonName, value := range values {
+	for jsonName, value := range jsonTagToValue {
+		if jsonToReverseEdgeTags[jsonName] != "" {
+			continue
+		}
 		if jsonName == "gid" {
 			continue
 		}
 		var val *api.Value
 		var valType pb.Posting_ValType
-		if reflect.TypeOf(value).Kind() == reflect.Struct {
-			gid, _, _, err := upsertHelper(ctx, n.db, n, &value, false)
+
+		reflectValueType := reflect.TypeOf(value)
+		var nquad *api.NQuad
+		if reflectValueType.Kind() == reflect.Struct {
+			newGid, err := getUidOrMutate(ctx, n.db, n, value)
 			if err != nil {
 				return err
 			}
-			valType, err = valueToPosting_ValType(fmt.Sprint(gid))
-			if err != nil {
-				return err
-			}
-			val, err = valueToApiVal(fmt.Sprint(gid))
-			if err != nil {
-				return err
+			valType = pb.Posting_UID
+
+			nquad = &api.NQuad{
+				Namespace: n.ID(),
+				Subject:   fmt.Sprint(gid),
+				Predicate: getPredicateName(t.Name(), jsonName),
+				ObjectId:  fmt.Sprint(newGid),
 			}
 		} else {
 			valType, err = valueToPosting_ValType(value)
@@ -138,6 +144,13 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 			val, err = valueToApiVal(value)
 			if err != nil {
 				return err
+			}
+
+			nquad = &api.NQuad{
+				Namespace:   n.ID(),
+				Subject:     fmt.Sprint(gid),
+				Predicate:   getPredicateName(t.Name(), jsonName),
+				ObjectValue: val,
 			}
 		}
 		u := &pb.SchemaUpdate{
@@ -157,12 +170,6 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 		}
 
 		sch.Preds = append(sch.Preds, u)
-		nquad := &api.NQuad{
-			Namespace:   n.ID(),
-			Subject:     fmt.Sprint(gid),
-			Predicate:   getPredicateName(t.Name(), jsonName),
-			ObjectValue: val,
-		}
 		nquads = append(nquads, nquad)
 	}
 	sch.Types = append(sch.Types, &pb.TypeUpdate{
@@ -204,7 +211,7 @@ func generateDeleteDqlMutations(n *Namespace, gid uint64) []*dql.Mutation {
 	}}
 }
 
-func getByGid[T any](ctx context.Context, n *Namespace, gid uint64, readFrom bool) (uint64, *T, error) {
+func getByGid[T any](ctx context.Context, n *Namespace, gid uint64) (uint64, *T, error) {
 	query := `
 	{
 	  obj(func: uid(%d)) {
@@ -216,10 +223,25 @@ func getByGid[T any](ctx context.Context, n *Namespace, gid uint64, readFrom boo
 	}
 	  `
 
-	return executeGet[T](ctx, n, query, readFrom, gid)
+	return executeGet[T](ctx, n, query, gid)
 }
 
-func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf ConstrainedField, readFrom bool) (uint64, *T, error) {
+func getByGidWithObject[T any](ctx context.Context, n *Namespace, gid uint64, obj T) (uint64, *T, error) {
+	query := `
+	{
+	  obj(func: uid(%d)) {
+		uid
+		expand(_all_)
+		dgraph.type
+		%s
+	  }
+	}
+	  `
+
+	return executeGetWithObject[T](ctx, n, query, obj, gid)
+}
+
+func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf ConstrainedField) (uint64, *T, error) {
 	query := `
 	{
 	  obj(func: eq(%s, %s)) {
@@ -231,16 +253,35 @@ func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf Constrai
 	}
 	  `
 
-	return executeGet[T](ctx, n, query, readFrom, cf)
+	return executeGet[T](ctx, n, query, cf)
 }
 
-func executeGet[T any, R UniqueField](ctx context.Context, n *Namespace, query string, readFrom bool, args ...R) (uint64, *T, error) {
+func getByConstrainedFieldWithObject[T any](ctx context.Context, n *Namespace, cf ConstrainedField, obj T) (uint64, *T, error) {
+	query := `
+	{
+	  obj(func: eq(%s, %s)) {
+		uid
+		expand(_all_)
+		dgraph.type
+		%s
+	  }
+	}
+	  `
+
+	return executeGetWithObject[T](ctx, n, query, obj, cf)
+}
+
+func executeGet[T any, R UniqueField](ctx context.Context, n *Namespace, query string, args ...R) (uint64, *T, error) {
 	if len(args) != 1 {
 		return 0, nil, fmt.Errorf("expected 1 argument, got %d", len(args))
 	}
 
 	var obj T
 
+	return executeGetWithObject(ctx, n, query, obj, args...)
+}
+
+func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespace, query string, obj T, args ...R) (uint64, *T, error) {
 	t := reflect.TypeOf(obj)
 
 	fieldToJsonTags, jsonToDbTag, reverseEdgeTags, err := getFieldTags(t)
@@ -346,15 +387,15 @@ func applyDqlMutations(ctx context.Context, db *DB, dms []*dql.Mutation) error {
 	})
 }
 
-func getUniqueConstraint[T any](object *T) (uint64, *ConstrainedField, error) {
-	t := reflect.TypeOf(*object)
+func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
+	t := reflect.TypeOf(object)
 	fieldToJsonTags, jsonToDbTags, _, err := getFieldTags(t)
 	if err != nil {
 		return 0, nil, err
 	}
-	values := getJsonTagToValues(object, fieldToJsonTags)
+	jsonTagToValue := getJsonTagToValues(object, fieldToJsonTags)
 
-	for jsonName, value := range values {
+	for jsonName, value := range jsonTagToValue {
 		if jsonName == "gid" {
 			gid, ok := value.(uint64)
 			if !ok {
@@ -375,55 +416,54 @@ func getUniqueConstraint[T any](object *T) (uint64, *ConstrainedField, error) {
 	return 0, nil, fmt.Errorf("unique constraint not defined for any field on type %s", t.Name())
 }
 
-func upsertHelper[T any](ctx context.Context, db *DB, n *Namespace, object *T, readFrom bool) (uint64, *T, bool, error) {
+func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) (uint64, error) {
+	// if object == nil {
+	// 	return 0, nil, false, fmt.Errorf("object is nil")
+	// }
 	gid, cf, err := getUniqueConstraint(object)
 	if err != nil {
-		return 0, object, false, err
-	}
-	if gid != 0 {
-		gid, object, err := getByGid[T](ctx, n, gid, readFrom)
-		if err != nil {
-			return 0, object, false, err
-		}
-		return gid, object, true, nil
-	} else if cf != nil {
-		gid, object, err := getByConstrainedField[T](ctx, n, *cf, readFrom)
-		if err == nil {
-			return gid, object, true, nil
-		}
-	}
-
-	gid, err = db.z.nextUID()
-	if err != nil {
-		return 0, object, false, err
+		return 0, err
 	}
 
 	dms := make([]*dql.Mutation, 0)
 	sch := &schema.ParsedSchema{}
 	err = generateCreateDqlMutationsAndSchema(ctx, n, object, gid, &dms, sch)
 	if err != nil {
-		return 0, object, false, err
+		return 0, err
 	}
-
-	ctx = x.AttachNamespace(ctx, n.ID())
 
 	err = n.alterSchemaWithParsed(ctx, sch)
 	if err != nil {
-		return 0, object, false, err
+		return 0, err
+	}
+	if gid != 0 {
+		gid, _, err := getByGidWithObject[T](ctx, n, gid, object)
+		if err != nil {
+			return 0, err
+		}
+		return gid, nil
+	} else if cf != nil {
+		gid, _, err := getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
+		if err == nil {
+			return gid, nil
+		}
+	}
+
+	gid, err = db.z.nextUID()
+	if err != nil {
+		return 0, err
+	}
+
+	dms = make([]*dql.Mutation, 0)
+	err = generateCreateDqlMutationsAndSchema(ctx, n, object, gid, &dms, sch)
+	if err != nil {
+		return 0, err
 	}
 
 	err = applyDqlMutations(ctx, db, dms)
 	if err != nil {
-		return 0, object, false, err
+		return 0, err
 	}
 
-	v := reflect.ValueOf(object).Elem()
-
-	gidField := v.FieldByName("Gid")
-
-	if gidField.IsValid() && gidField.CanSet() && gidField.Kind() == reflect.Uint64 {
-		gidField.SetUint(gid)
-	}
-
-	return gid, object, false, nil
+	return gid, nil
 }

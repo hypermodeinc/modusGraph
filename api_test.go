@@ -16,6 +16,51 @@ type User struct {
 	ClerkId string `json:"clerk_id,omitempty" db:"constraint=unique"`
 }
 
+func TestFirstTimeUser(t *testing.T) {
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+
+	gid, user, err := modusdb.Create(db, &User{
+		Name:    "A",
+		Age:     10,
+		ClerkId: "123",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, user.Gid, gid)
+	require.Equal(t, "A", user.Name)
+	require.Equal(t, 10, user.Age)
+	require.Equal(t, "123", user.ClerkId)
+
+	gid, queriedUser, err := modusdb.Get[User](db, gid)
+
+	require.NoError(t, err)
+	require.Equal(t, queriedUser.Gid, gid)
+	require.Equal(t, 10, queriedUser.Age)
+	require.Equal(t, "A", queriedUser.Name)
+	require.Equal(t, "123", queriedUser.ClerkId)
+
+	gid, queriedUser2, err := modusdb.Get[User](db, modusdb.ConstrainedField{
+		Key:   "clerk_id",
+		Value: "123",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, queriedUser.Gid, gid)
+	require.Equal(t, 10, queriedUser2.Age)
+	require.Equal(t, "A", queriedUser2.Name)
+	require.Equal(t, "123", queriedUser2.ClerkId)
+
+	_, _, err = modusdb.Delete[User](db, gid)
+	require.NoError(t, err)
+
+	_, queriedUser3, err := modusdb.Get[User](db, gid)
+	require.Error(t, err)
+	require.Equal(t, "no object found", err.Error())
+	require.Nil(t, queriedUser3)
+
+}
+
 func TestCreateApi(t *testing.T) {
 	ctx := context.Background()
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
@@ -37,8 +82,7 @@ func TestCreateApi(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "B", user.Name)
-	require.Equal(t, uint64(2), gid)
-	require.Equal(t, uint64(2), user.Gid)
+	require.Equal(t, user.Gid, gid)
 
 	query := `{
 		me(func: has(User.name)) {
@@ -118,8 +162,7 @@ func TestGetApi(t *testing.T) {
 	gid, queriedUser, err := modusdb.Get[User](db, gid, db1.ID())
 
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), gid)
-	require.Equal(t, uint64(2), queriedUser.Gid)
+	require.Equal(t, queriedUser.Gid, gid)
 	require.Equal(t, 20, queriedUser.Age)
 	require.Equal(t, "B", queriedUser.Name)
 	require.Equal(t, "123", queriedUser.ClerkId)
@@ -151,8 +194,7 @@ func TestGetApiWithConstrainedField(t *testing.T) {
 	}, db1.ID())
 
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), gid)
-	require.Equal(t, uint64(2), queriedUser.Gid)
+	require.Equal(t, queriedUser.Gid, gid)
 	require.Equal(t, 20, queriedUser.Age)
 	require.Equal(t, "B", queriedUser.Name)
 	require.Equal(t, "123", queriedUser.ClerkId)
@@ -193,4 +235,98 @@ func TestDeleteApi(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, "no object found", err.Error())
 	require.Nil(t, queriedUser)
+}
+
+// func TestUpsertApi(t *testing.T) {
+// 	ctx := context.Background()
+// 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+// 	require.NoError(t, err)
+// 	defer db.Close()
+
+// 	db1, err := db.CreateNamespace()
+// 	require.NoError(t, err)
+
+// 	require.NoError(t, db1.DropData(ctx))
+
+// 	user := &User{
+// 		Name:    "B",
+// 		Age:     20,
+// 		ClerkId: "123",
+// 	}
+
+// 	gid, _, _, err := modusdb.Upsert(db, user, db1.ID())
+// 	require.NoError(t, err)
+// 	require.Equal(t, user.Gid, gid)
+
+// 	user.Age = 21
+// 	gid, _, _, err = modusdb.Upsert(db, user, db1.ID())
+// 	require.NoError(t, err)
+// 	require.Equal(t, user.Gid, gid)
+
+// 	_, queriedUser, err := modusdb.Get[User](db, gid, db1.ID())
+// 	require.NoError(t, err)
+// 	require.Equal(t, uint64(2), queriedUser.Gid)
+// 	require.Equal(t, 21, queriedUser.Age)
+// 	require.Equal(t, "B", queriedUser.Name)
+// 	require.Equal(t, "123", queriedUser.ClerkId)
+// }
+
+type Project struct {
+	Gid     uint64 `json:"gid,omitempty"`
+	Name    string `json:"name,omitempty"`
+	ClerkId string `json:"clerk_id,omitempty" db:"constraint=unique"`
+	// Branches []Branch `json:"branches,omitempty" readFrom:"type=Branch,field=proj"`
+}
+
+type Branch struct {
+	Gid     uint64  `json:"gid,omitempty"`
+	Name    string  `json:"name,omitempty"`
+	ClerkId string  `json:"clerk_id,omitempty" db:"constraint=unique"`
+	Proj    Project `json:"proj,omitempty"`
+}
+
+func TestCreateApiWithNestedObj(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	branch := &Branch{
+		Name:    "B",
+		ClerkId: "123",
+		Proj: Project{
+			Name:    "P",
+			ClerkId: "456",
+		},
+	}
+
+	gid, _, err := modusdb.Create(db, branch, db1.ID())
+	require.NoError(t, err)
+
+	require.Equal(t, "B", branch.Name)
+	require.Equal(t, branch.Gid, gid)
+	require.Equal(t, "P", branch.Proj.Name)
+
+	query := `{
+		me(func: has(Branch.name)) {
+			uid
+			Branch.name
+			Branch.clerk_id
+			Branch.proj {
+				uid
+				Project.name
+				Project.clerk_id
+			}
+		}
+	}`
+	resp, err := db1.Query(ctx, query)
+	require.NoError(t, err)
+	require.JSONEq(t,
+		`{"me":[{"uid":"0x2","Branch.name":"B","Branch.clerk_id":"123","Branch.proj":{"uid":"0x3","Project.name":"P","Project.clerk_id":"456"}}]}`,
+		string(resp.GetJson()))
 }
