@@ -206,7 +206,9 @@ func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf Constrai
 	return executeGet[T](ctx, n, query, cf)
 }
 
-func getByConstrainedFieldWithObject[T any](ctx context.Context, n *Namespace, cf ConstrainedField, obj T) (uint64, *T, error) {
+func getByConstrainedFieldWithObject[T any](ctx context.Context, n *Namespace,
+	cf ConstrainedField, obj T) (uint64, *T, error) {
+
 	query := `
 	{
 	  obj(func: eq(%s, %s)) {
@@ -372,13 +374,17 @@ func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
 		if jsonName == "gid" {
 			gid, ok := value.(uint64)
 			if !ok {
-				return 0, nil, fmt.Errorf("expected uint64 type for gid, got %T", value)
+				continue
 			}
 			if gid != 0 {
 				return gid, nil, nil
 			}
 		}
 		if jsonToDbTags[jsonName] != nil && jsonToDbTags[jsonName].constraint == "unique" {
+			// check if value is zero or nil
+			if value == reflect.Zero(reflect.TypeOf(value)).Interface() || value == nil {
+				continue
+			}
 			return 0, &ConstrainedField{
 				Key:   jsonName,
 				Value: value,
