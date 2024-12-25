@@ -67,16 +67,38 @@ func getJsonTagToValues(object any, fieldToJsonTags map[string]string) map[strin
 	return values
 }
 
-func createDynamicStruct(t reflect.Type, fieldToJsonTags map[string]string) reflect.Type {
+func createDynamicStruct(t reflect.Type, fieldToJsonTags map[string]string, depth int) reflect.Type {
 	fields := make([]reflect.StructField, 0, len(fieldToJsonTags))
 	for fieldName, jsonName := range fieldToJsonTags {
 		field, _ := t.FieldByName(fieldName)
 		if fieldName != "Gid" {
-			fields = append(fields, reflect.StructField{
-				Name: field.Name,
-				Type: field.Type,
-				Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s.%s"`, t.Name(), jsonName)),
-			})
+			if field.Type.Kind() == reflect.Struct {
+				if depth <= 2 {
+					nestedFieldToJsonTags, _, _, _ := getFieldTags(field.Type)
+					nestedType := createDynamicStruct(field.Type, nestedFieldToJsonTags, depth+1)
+					fields = append(fields, reflect.StructField{
+						Name: field.Name,
+						Type: nestedType,
+						Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s.%s"`, t.Name(), jsonName)),
+					})
+				}
+			} else if field.Type.Kind() == reflect.Ptr &&
+				field.Type.Elem().Kind() == reflect.Struct {
+				nestedFieldToJsonTags, _, _, _ := getFieldTags(field.Type.Elem())
+				nestedType := createDynamicStruct(field.Type.Elem(), nestedFieldToJsonTags, depth+1)
+				fields = append(fields, reflect.StructField{
+					Name: field.Name,
+					Type: reflect.PointerTo(nestedType),
+					Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s.%s"`, t.Name(), jsonName)),
+				})
+			} else {
+				fields = append(fields, reflect.StructField{
+					Name: field.Name,
+					Type: field.Type,
+					Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s.%s"`, t.Name(), jsonName)),
+				})
+			}
+
 		}
 	}
 	fields = append(fields, reflect.StructField{
@@ -98,28 +120,39 @@ func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
 	gid := uint64(0)
 
 	for i := 0; i < vDynamic.NumField(); i++ {
-		field := vDynamic.Type().Field(i)
-		value := vDynamic.Field(i)
+
+		dynamicField := vDynamic.Type().Field(i)
+		dynamicFieldType := dynamicField.Type
+		dynamicValue := vDynamic.Field(i)
 
 		var finalField reflect.Value
-		if field.Name == "Uid" {
+		if dynamicField.Name == "Uid" {
 			finalField = vFinal.FieldByName("Gid")
-			gidStr := value.String()
+			gidStr := dynamicValue.String()
 			gid, _ = strconv.ParseUint(gidStr, 0, 64)
-		} else if field.Name == "DgraphType" {
-			fieldArr := value.Interface().([]string)
+		} else if dynamicField.Name == "DgraphType" {
+			fieldArr := dynamicValue.Interface().([]string)
 			if len(fieldArr) == 0 {
 				return 0, ErrNoObjFound
 			}
 		} else {
-			finalField = vFinal.FieldByName(field.Name)
+			finalField = vFinal.FieldByName(dynamicField.Name)
 		}
-		if finalField.IsValid() && finalField.CanSet() {
-			// if field name is uid, convert it to uint64
-			if field.Name == "Uid" {
-				finalField.SetUint(gid)
-			} else {
-				finalField.Set(value)
+		if dynamicFieldType.Kind() == reflect.Struct {
+			mapDynamicToFinal(dynamicValue.Addr().Interface(), finalField.Addr().Interface())
+		} else if dynamicFieldType.Kind() == reflect.Ptr &&
+			dynamicFieldType.Elem().Kind() == reflect.Struct {
+			// if field is a pointer, find if the underlying is a struct
+			mapDynamicToFinal(dynamicValue.Interface(), finalField.Interface())
+
+		} else {
+			if finalField.IsValid() && finalField.CanSet() {
+				// if field name is uid, convert it to uint64
+				if dynamicField.Name == "Uid" {
+					finalField.SetUint(gid)
+				} else {
+					finalField.Set(dynamicValue)
+				}
 			}
 		}
 	}

@@ -2,11 +2,9 @@ package modusdb
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/dgraph/v24/dql"
@@ -15,87 +13,7 @@ import (
 	"github.com/dgraph-io/dgraph/v24/schema"
 	"github.com/dgraph-io/dgraph/v24/worker"
 	"github.com/dgraph-io/dgraph/v24/x"
-	"github.com/twpayne/go-geom"
-	"github.com/twpayne/go-geom/encoding/wkb"
 )
-
-func getPredicateName(typeName, fieldName string) string {
-	return fmt.Sprint(typeName, ".", fieldName)
-}
-
-func addNamespace(ns uint64, pred string) string {
-	return x.NamespaceAttr(ns, pred)
-}
-
-func valueToPosting_ValType(v any) (pb.Posting_ValType, error) {
-	switch v.(type) {
-	case string:
-		return pb.Posting_STRING, nil
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		return pb.Posting_INT, nil
-	case bool:
-		return pb.Posting_BOOL, nil
-	case float32, float64:
-		return pb.Posting_FLOAT, nil
-	case []byte:
-		return pb.Posting_BINARY, nil
-	case time.Time:
-		return pb.Posting_DATETIME, nil
-	case geom.Point:
-		return pb.Posting_GEO, nil
-	case []float32, []float64:
-		return pb.Posting_VFLOAT, nil
-	default:
-		return pb.Posting_DEFAULT, fmt.Errorf("unsupported type %T", v)
-	}
-}
-
-func valueToApiVal(v any) (*api.Value, error) {
-	switch val := v.(type) {
-	case string:
-		return &api.Value{Val: &api.Value_StrVal{StrVal: val}}, nil
-	case int:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
-	case int8:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
-	case int16:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
-	case int32:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
-	case int64:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: val}}, nil
-	case uint8:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
-	case uint16:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
-	case uint32:
-		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
-	case bool:
-		return &api.Value{Val: &api.Value_BoolVal{BoolVal: val}}, nil
-	case float32:
-		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: float64(val)}}, nil
-	case float64:
-		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: val}}, nil
-	case []byte:
-		return &api.Value{Val: &api.Value_BytesVal{BytesVal: val}}, nil
-	case time.Time:
-		bytes, err := val.MarshalBinary()
-		if err != nil {
-			return nil, err
-		}
-		return &api.Value{Val: &api.Value_DateVal{DateVal: bytes}}, nil
-	case geom.Point:
-		bytes, err := wkb.Marshal(&val, binary.LittleEndian)
-		if err != nil {
-			return nil, err
-		}
-		return &api.Value{Val: &api.Value_GeoVal{GeoVal: bytes}}, nil
-	case uint, uint64:
-		return &api.Value{Val: &api.Value_DefaultVal{DefaultVal: fmt.Sprint(v)}}, nil
-	default:
-		return nil, fmt.Errorf("unsupported type %T", v)
-	}
-}
 
 func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, object T,
 	gid uint64, dms *[]*dql.Mutation, sch *schema.ParsedSchema) error {
@@ -124,6 +42,7 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 		reflectValueType := reflect.TypeOf(value)
 		var nquad *api.NQuad
 		if reflectValueType.Kind() == reflect.Struct {
+			value = reflect.ValueOf(value).Interface()
 			newGid, err := getUidOrMutate(ctx, n.db, n, value)
 			if err != nil {
 				return err
@@ -135,6 +54,25 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 				Subject:   fmt.Sprint(gid),
 				Predicate: getPredicateName(t.Name(), jsonName),
 				ObjectId:  fmt.Sprint(newGid),
+			}
+		} else if reflectValueType.Kind() == reflect.Pointer {
+			// dereference the pointer
+			reflectValueType = reflectValueType.Elem()
+			if reflectValueType.Kind() == reflect.Struct {
+				// convert value to pointer, and then dereference
+				value = reflect.ValueOf(value).Elem().Interface()
+				newGid, err := getUidOrMutate(ctx, n.db, n, value)
+				if err != nil {
+					return err
+				}
+				valType = pb.Posting_UID
+
+				nquad = &api.NQuad{
+					Namespace: n.ID(),
+					Subject:   fmt.Sprint(gid),
+					Predicate: getPredicateName(t.Name(), jsonName),
+					ObjectId:  fmt.Sprint(newGid),
+				}
 			}
 		} else {
 			valType, err = valueToPosting_ValType(value)
@@ -216,7 +154,10 @@ func getByGid[T any](ctx context.Context, n *Namespace, gid uint64) (uint64, *T,
 	{
 	  obj(func: uid(%d)) {
 		uid
-		expand(_all_)
+		expand(_all_) {
+			uid
+			expand(_all_)
+		}
 		dgraph.type
 		%s
 	  }
@@ -231,14 +172,17 @@ func getByGidWithObject[T any](ctx context.Context, n *Namespace, gid uint64, ob
 	{
 	  obj(func: uid(%d)) {
 		uid
-		expand(_all_)
+		expand(_all_) {
+			uid
+			expand(_all_)
+		}
 		dgraph.type
 		%s
 	  }
 	}
 	  `
 
-	return executeGetWithObject[T](ctx, n, query, obj, gid)
+	return executeGetWithObject[T](ctx, n, query, obj, false, gid)
 }
 
 func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf ConstrainedField) (uint64, *T, error) {
@@ -246,7 +190,10 @@ func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf Constrai
 	{
 	  obj(func: eq(%s, %s)) {
 		uid
-		expand(_all_)
+		expand(_all_) {
+			uid
+			expand(_all_)
+		}
 		dgraph.type
 		%s
 	  }
@@ -261,14 +208,17 @@ func getByConstrainedFieldWithObject[T any](ctx context.Context, n *Namespace, c
 	{
 	  obj(func: eq(%s, %s)) {
 		uid
-		expand(_all_)
+		expand(_all_) {
+			uid
+			expand(_all_)
+		}
 		dgraph.type
 		%s
 	  }
 	}
 	  `
 
-	return executeGetWithObject[T](ctx, n, query, obj, cf)
+	return executeGetWithObject[T](ctx, n, query, obj, false, cf)
 }
 
 func executeGet[T any, R UniqueField](ctx context.Context, n *Namespace, query string, args ...R) (uint64, *T, error) {
@@ -278,25 +228,28 @@ func executeGet[T any, R UniqueField](ctx context.Context, n *Namespace, query s
 
 	var obj T
 
-	return executeGetWithObject(ctx, n, query, obj, args...)
+	return executeGetWithObject(ctx, n, query, obj, true, args...)
 }
 
-func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespace, query string, obj T, args ...R) (uint64, *T, error) {
+func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespace, query string,
+	obj T, withReverse bool, args ...R) (uint64, *T, error) {
 	t := reflect.TypeOf(obj)
 
-	fieldToJsonTags, jsonToDbTag, reverseEdgeTags, err := getFieldTags(t)
+	fieldToJsonTags, jsonToDbTag, jsonToReverseEdgeTags, err := getFieldTags(t)
 	if err != nil {
 		return 0, nil, err
 	}
 	readFromQuery := ""
-	for fieldName, reverseEdgeTag := range reverseEdgeTags {
-		readFromQuery += fmt.Sprintf(`
+	if withReverse {
+		for jsonTag, reverseEdgeTag := range jsonToReverseEdgeTags {
+			readFromQuery += fmt.Sprintf(`
 		%s: ~%s {
 			uid
 			expand(_all_)
 			dgraph.type
 		}
-		`, getPredicateName(t.Name(), fieldToJsonTags[fieldName]), reverseEdgeTag)
+		`, getPredicateName(t.Name(), jsonTag), reverseEdgeTag)
+		}
 	}
 
 	var cf ConstrainedField
@@ -318,7 +271,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 		return 0, nil, err
 	}
 
-	dynamicType := createDynamicStruct(t, fieldToJsonTags)
+	dynamicType := createDynamicStruct(t, fieldToJsonTags, 1)
 
 	dynamicInstance := reflect.New(dynamicType).Interface()
 
@@ -345,7 +298,23 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 		return 0, nil, err
 	}
 
-	return gid, finalObject.(*T), nil
+	// Convert to *interface{} then to *T
+	if ifacePtr, ok := finalObject.(*interface{}); ok {
+		if typedPtr, ok := (*ifacePtr).(*T); ok {
+			return gid, typedPtr, nil
+		}
+	}
+
+	// If conversion fails, try direct conversion
+	if typedPtr, ok := finalObject.(*T); ok {
+		return gid, typedPtr, nil
+	}
+
+	if dirType, ok := finalObject.(T); ok {
+		return gid, &dirType, nil
+	}
+
+	return 0, nil, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
 }
 
 func applyDqlMutations(ctx context.Context, db *DB, dms []*dql.Mutation) error {
@@ -417,9 +386,6 @@ func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
 }
 
 func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) (uint64, error) {
-	// if object == nil {
-	// 	return 0, nil, false, fmt.Errorf("object is nil")
-	// }
 	gid, cf, err := getUniqueConstraint(object)
 	if err != nil {
 		return 0, err
@@ -444,6 +410,9 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 		return gid, nil
 	} else if cf != nil {
 		gid, _, err := getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
+		if err != nil && err != ErrNoObjFound {
+			return 0, err
+		}
 		if err == nil {
 			return gid, nil
 		}
