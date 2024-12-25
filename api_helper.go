@@ -29,11 +29,13 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 	jsonTagToValue := getJsonTagToValues(object, fieldToJsonTags)
 
 	nquads := make([]*api.NQuad, 0)
+	uniqueConstraintFound := false
 	for jsonName, value := range jsonTagToValue {
 		if jsonToReverseEdgeTags[jsonName] != "" {
 			continue
 		}
 		if jsonName == "gid" {
+			uniqueConstraintFound = true
 			continue
 		}
 		var val *api.Value
@@ -98,6 +100,7 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 		if jsonToDbTags[jsonName] != nil {
 			constraint := jsonToDbTags[jsonName].constraint
 			if constraint == "unique" || constraint == "term" {
+				uniqueConstraintFound = true
 				u.Directive = pb.SchemaUpdate_INDEX
 				if constraint == "unique" {
 					u.Tokenizer = []string{"exact"}
@@ -109,6 +112,9 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 
 		sch.Preds = append(sch.Preds, u)
 		nquads = append(nquads, nquad)
+	}
+	if !uniqueConstraintFound {
+		return fmt.Errorf(NoUniqueConstr, t.Name())
 	}
 	sch.Types = append(sch.Types, &pb.TypeUpdate{
 		TypeName: addNamespace(n.id, t.Name()),
@@ -392,7 +398,7 @@ func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
 		}
 	}
 
-	return 0, nil, fmt.Errorf("unique constraint not defined for any field on type %s", t.Name())
+	return 0, nil, fmt.Errorf(NoUniqueConstr, t.Name())
 }
 
 func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) (uint64, error) {

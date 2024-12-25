@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	ErrNoObjFound = fmt.Errorf("no object found")
+	ErrNoObjFound  = fmt.Errorf("no object found")
+	NoUniqueConstr = "unique constraint not defined for any field on type %s"
 )
 
 type UniqueField interface {

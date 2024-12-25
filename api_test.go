@@ -2,6 +2,7 @@ package modusdb_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -462,5 +463,52 @@ func TestLinkingObjectsByGid(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, queriedBranch.Gid, gid)
 	require.Equal(t, "B", queriedBranch.Name)
+
+}
+
+type BadProject struct {
+	Name    string `json:"name,omitempty"`
+	ClerkId string `json:"clerk_id,omitempty"`
+}
+
+type BadBranch struct {
+	Gid     uint64     `json:"gid,omitempty"`
+	Name    string     `json:"name,omitempty"`
+	ClerkId string     `json:"clerk_id,omitempty" db:"constraint=unique"`
+	Proj    BadProject `json:"proj,omitempty"`
+}
+
+func TestNestedObjectMutationWithBadType(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	branch := &BadBranch{
+		Name:    "B",
+		ClerkId: "123",
+		Proj: BadProject{
+			Name:    "P",
+			ClerkId: "456",
+		},
+	}
+
+	_, _, err = modusdb.Create(db, branch, db1.ID())
+	require.Error(t, err)
+	require.Equal(t, fmt.Sprintf(modusdb.NoUniqueConstr, "BadProject"), err.Error())
+
+	proj := &BadProject{
+		Name:    "P",
+		ClerkId: "456",
+	}
+
+	_, _, err = modusdb.Create(db, proj, db1.ID())
+	require.Error(t, err)
+	require.Equal(t, fmt.Sprintf(modusdb.NoUniqueConstr, "BadProject"), err.Error())
 
 }
