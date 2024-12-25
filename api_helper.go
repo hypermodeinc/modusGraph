@@ -157,6 +157,7 @@ func getByGid[T any](ctx context.Context, n *Namespace, gid uint64) (uint64, *T,
 		expand(_all_) {
 			uid
 			expand(_all_)
+			dgraph.type
 		}
 		dgraph.type
 		%s
@@ -175,6 +176,7 @@ func getByGidWithObject[T any](ctx context.Context, n *Namespace, gid uint64, ob
 		expand(_all_) {
 			uid
 			expand(_all_)
+			dgraph.type
 		}
 		dgraph.type
 		%s
@@ -193,6 +195,7 @@ func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf Constrai
 		expand(_all_) {
 			uid
 			expand(_all_)
+			dgraph.type
 		}
 		dgraph.type
 		%s
@@ -211,6 +214,7 @@ func getByConstrainedFieldWithObject[T any](ctx context.Context, n *Namespace, c
 		expand(_all_) {
 			uid
 			expand(_all_)
+			dgraph.type
 		}
 		dgraph.type
 		%s

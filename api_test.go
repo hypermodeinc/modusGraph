@@ -339,7 +339,7 @@ func TestNestedObjectMutation(t *testing.T) {
 
 }
 
-func TestLinkingObjects(t *testing.T) {
+func TestLinkingObjectsByConstrainedFields(t *testing.T) {
 	ctx := context.Background()
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
@@ -365,6 +365,67 @@ func TestLinkingObjects(t *testing.T) {
 		Proj: Project{
 			Name:    "P",
 			ClerkId: "456",
+		},
+	}
+
+	gid, branch, err := modusdb.Create(db, branch, db1.ID())
+	require.NoError(t, err)
+
+	require.Equal(t, "B", branch.Name)
+	require.Equal(t, branch.Gid, gid)
+	require.Equal(t, projGid, branch.Proj.Gid)
+	require.Equal(t, "P", branch.Proj.Name)
+
+	query := `{
+		me(func: has(Branch.name)) {
+			uid
+			Branch.name
+			Branch.clerk_id
+			Branch.proj {
+				uid
+				Project.name
+				Project.clerk_id
+			}
+		}
+	}`
+	resp, err := db1.Query(ctx, query)
+	require.NoError(t, err)
+	require.JSONEq(t,
+		`{"me":[{"uid":"0x3","Branch.name":"B","Branch.clerk_id":"123","Branch.proj":{"uid":"0x2","Project.name":"P","Project.clerk_id":"456"}}]}`,
+		string(resp.GetJson()))
+
+	gid, queriedBranch, err := modusdb.Get[Branch](db, gid, db1.ID())
+	require.NoError(t, err)
+	require.Equal(t, queriedBranch.Gid, gid)
+	require.Equal(t, "B", queriedBranch.Name)
+
+}
+
+func TestLinkingObjectsByGid(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	projGid, project, err := modusdb.Create(db, &Project{
+		Name:    "P",
+		ClerkId: "456",
+	}, db1.ID())
+	require.NoError(t, err)
+
+	require.Equal(t, "P", project.Name)
+	require.Equal(t, project.Gid, projGid)
+
+	branch := &Branch{
+		Name:    "B",
+		ClerkId: "123",
+		Proj: Project{
+			Gid: projGid,
 		},
 	}
 
