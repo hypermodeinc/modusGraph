@@ -454,7 +454,8 @@ func TestLinkingObjectsByGid(t *testing.T) {
 	resp, err := db1.Query(ctx, query)
 	require.NoError(t, err)
 	require.JSONEq(t,
-		`{"me":[{"uid":"0x3","Branch.name":"B","Branch.clerk_id":"123","Branch.proj":{"uid":"0x2","Project.name":"P","Project.clerk_id":"456"}}]}`,
+		`{"me":[{"uid":"0x3","Branch.name":"B","Branch.clerk_id":"123",
+		"Branch.proj":{"uid":"0x2","Project.name":"P","Project.clerk_id":"456"}}]}`,
 		string(resp.GetJson()))
 
 	gid, queriedBranch, err := modusdb.Get[Branch](db, gid, db1.ID())
