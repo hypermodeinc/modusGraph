@@ -139,11 +139,17 @@ func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
 			finalField = vFinal.FieldByName(dynamicField.Name)
 		}
 		if dynamicFieldType.Kind() == reflect.Struct {
-			mapDynamicToFinal(dynamicValue.Addr().Interface(), finalField.Addr().Interface())
+			_, err := mapDynamicToFinal(dynamicValue.Addr().Interface(), finalField.Addr().Interface())
+			if err != nil {
+				return 0, err
+			}
 		} else if dynamicFieldType.Kind() == reflect.Ptr &&
 			dynamicFieldType.Elem().Kind() == reflect.Struct {
 			// if field is a pointer, find if the underlying is a struct
-			mapDynamicToFinal(dynamicValue.Interface(), finalField.Interface())
+			_, err := mapDynamicToFinal(dynamicValue.Interface(), finalField.Interface())
+			if err != nil {
+				return 0, err
+			}
 
 		} else {
 			if finalField.IsValid() && finalField.CanSet() {

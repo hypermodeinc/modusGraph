@@ -19,6 +19,7 @@ type User struct {
 func TestFirstTimeUser(t *testing.T) {
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
+	defer db.Close()
 
 	gid, user, err := modusdb.Create(db, &User{
 		Name:    "A",
@@ -78,7 +79,7 @@ func TestCreateApi(t *testing.T) {
 		ClerkId: "123",
 	}
 
-	gid, _, err := modusdb.Create(db, user, db1.ID())
+	gid, user, err := modusdb.Create(db, user, db1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "B", user.Name)
