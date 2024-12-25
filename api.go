@@ -25,7 +25,7 @@ func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
 
 	dms := make([]*dql.Mutation, 0)
 	sch := &schema.ParsedSchema{}
-	err = generateCreateDqlMutationsAndSchema(ctx, n, *object, gid, &dms, sch)
+	err = generateCreateDqlMutationsAndSchema[T](ctx, n, *object, gid, &dms, sch)
 	if err != nil {
 		return 0, object, err
 	}
@@ -41,6 +41,79 @@ func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
 	}
 
 	return getByGid[T](ctx, n, gid)
+}
+
+func Upsert[T any](db *DB, object *T, ns ...uint64) (uint64, *T, bool, error) {
+
+	var wasFound bool
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	if len(ns) > 1 {
+		return 0, object, false, fmt.Errorf("only one namespace is allowed")
+	}
+	if object == nil {
+		return 0, nil, false, fmt.Errorf("object is nil")
+	}
+
+	ctx, n, err := getDefaultNamespace(db, ns...)
+	if err != nil {
+		return 0, object, false, err
+	}
+
+	gid, cf, err := getUniqueConstraint[T](*object)
+	if err != nil {
+		return 0, nil, false, err
+	}
+
+	dms := make([]*dql.Mutation, 0)
+	sch := &schema.ParsedSchema{}
+	err = generateCreateDqlMutationsAndSchema[T](ctx, n, *object, gid, &dms, sch)
+	if err != nil {
+		return 0, nil, false, err
+	}
+
+	err = n.alterSchemaWithParsed(ctx, sch)
+	if err != nil {
+		return 0, nil, false, err
+	}
+
+	if gid != 0 {
+		gid, _, err = getByGidWithObject[T](ctx, n, gid, *object)
+		if err != nil && err != ErrNoObjFound {
+			return 0, nil, false, err
+		}
+		wasFound = err == nil
+	} else if cf != nil {
+		gid, _, err = getByConstrainedFieldWithObject[T](ctx, n, *cf, *object)
+		if err != nil && err != ErrNoObjFound {
+			return 0, nil, false, err
+		}
+		wasFound = err == nil
+	}
+	if gid == 0 {
+		gid, err = db.z.nextUID()
+		if err != nil {
+			return 0, nil, false, err
+		}
+	}
+
+	dms = make([]*dql.Mutation, 0)
+	err = generateCreateDqlMutationsAndSchema[T](ctx, n, *object, gid, &dms, sch)
+	if err != nil {
+		return 0, nil, false, err
+	}
+
+	err = applyDqlMutations(ctx, db, dms)
+	if err != nil {
+		return 0, nil, false, err
+	}
+
+	gid, object, err = getByGid[T](ctx, n, gid)
+	if err != nil {
+		return 0, nil, false, err
+	}
+
+	return gid, object, wasFound, nil
 }
 
 func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, *T, error) {

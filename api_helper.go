@@ -386,7 +386,7 @@ func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
 }
 
 func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) (uint64, error) {
-	gid, cf, err := getUniqueConstraint(object)
+	gid, cf, err := getUniqueConstraint[T](object)
 	if err != nil {
 		return 0, err
 	}
@@ -403,13 +403,15 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 		return 0, err
 	}
 	if gid != 0 {
-		gid, _, err := getByGidWithObject[T](ctx, n, gid, object)
-		if err != nil {
+		gid, _, err = getByGidWithObject[T](ctx, n, gid, object)
+		if err != nil && err != ErrNoObjFound {
 			return 0, err
 		}
-		return gid, nil
+		if err == nil {
+			return gid, nil
+		}
 	} else if cf != nil {
-		gid, _, err := getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
+		gid, _, err = getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
 		if err != nil && err != ErrNoObjFound {
 			return 0, err
 		}

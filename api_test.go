@@ -237,39 +237,39 @@ func TestDeleteApi(t *testing.T) {
 	require.Nil(t, queriedUser)
 }
 
-// func TestUpsertApi(t *testing.T) {
-// 	ctx := context.Background()
-// 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
-// 	require.NoError(t, err)
-// 	defer db.Close()
+func TestUpsertApi(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
 
-// 	db1, err := db.CreateNamespace()
-// 	require.NoError(t, err)
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
 
-// 	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, db1.DropData(ctx))
 
-// 	user := &User{
-// 		Name:    "B",
-// 		Age:     20,
-// 		ClerkId: "123",
-// 	}
+	user := &User{
+		Name:    "B",
+		Age:     20,
+		ClerkId: "123",
+	}
 
-// 	gid, _, _, err := modusdb.Upsert(db, user, db1.ID())
-// 	require.NoError(t, err)
-// 	require.Equal(t, user.Gid, gid)
+	gid, user, _, err := modusdb.Upsert(db, user, db1.ID())
+	require.NoError(t, err)
+	require.Equal(t, user.Gid, gid)
 
-// 	user.Age = 21
-// 	gid, _, _, err = modusdb.Upsert(db, user, db1.ID())
-// 	require.NoError(t, err)
-// 	require.Equal(t, user.Gid, gid)
+	user.Age = 21
+	gid, _, _, err = modusdb.Upsert(db, user, db1.ID())
+	require.NoError(t, err)
+	require.Equal(t, user.Gid, gid)
 
-// 	_, queriedUser, err := modusdb.Get[User](db, gid, db1.ID())
-// 	require.NoError(t, err)
-// 	require.Equal(t, uint64(2), queriedUser.Gid)
-// 	require.Equal(t, 21, queriedUser.Age)
-// 	require.Equal(t, "B", queriedUser.Name)
-// 	require.Equal(t, "123", queriedUser.ClerkId)
-// }
+	_, queriedUser, err := modusdb.Get[User](db, gid, db1.ID())
+	require.NoError(t, err)
+	require.Equal(t, user.Gid, queriedUser.Gid)
+	require.Equal(t, 21, queriedUser.Age)
+	require.Equal(t, "B", queriedUser.Name)
+	require.Equal(t, "123", queriedUser.ClerkId)
+}
 
 type Project struct {
 	Gid     uint64 `json:"gid,omitempty"`
