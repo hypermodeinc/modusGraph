@@ -26,13 +26,13 @@ const (
 
 func buildUidQuery(gid uint64) QueryFunc {
 	return func() string {
-		return fmt.Sprintf("func: uid(%d)", gid)
+		return fmt.Sprintf(funcUid, gid)
 	}
 }
 
 func buildEqQuery(key, value any) QueryFunc {
 	return func() string {
-		return fmt.Sprintf("func: eq(%s, %s)", key, value)
+		return fmt.Sprintf(funcEq, key, value)
 	}
 }
 
