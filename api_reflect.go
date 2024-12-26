@@ -164,3 +164,36 @@ func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
 	}
 	return gid, nil
 }
+
+func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
+	t := reflect.TypeOf(object)
+	fieldToJsonTags, jsonToDbTags, _, err := getFieldTags(t)
+	if err != nil {
+		return 0, nil, err
+	}
+	jsonTagToValue := getJsonTagToValues(object, fieldToJsonTags)
+
+	for jsonName, value := range jsonTagToValue {
+		if jsonName == "gid" {
+			gid, ok := value.(uint64)
+			if !ok {
+				continue
+			}
+			if gid != 0 {
+				return gid, nil, nil
+			}
+		}
+		if jsonToDbTags[jsonName] != nil && jsonToDbTags[jsonName].constraint == "unique" {
+			// check if value is zero or nil
+			if value == reflect.Zero(reflect.TypeOf(value)).Interface() || value == nil {
+				continue
+			}
+			return 0, &ConstrainedField{
+				Key:   jsonName,
+				Value: value,
+			}, nil
+		}
+	}
+
+	return 0, nil, fmt.Errorf(NoUniqueConstr, t.Name())
+}
