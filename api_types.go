@@ -61,8 +61,10 @@ func valueToPosting_ValType(v any) (pb.Posting_ValType, error) {
 	switch v.(type) {
 	case string:
 		return pb.Posting_STRING, nil
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32:
 		return pb.Posting_INT, nil
+	case uint64:
+		return pb.Posting_UID, nil
 	case bool:
 		return pb.Posting_BOOL, nil
 	case float32, float64:
@@ -100,6 +102,8 @@ func valueToApiVal(v any) (*api.Value, error) {
 		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
 	case uint32:
 		return &api.Value{Val: &api.Value_IntVal{IntVal: int64(val)}}, nil
+	case uint64:
+		return &api.Value{Val: &api.Value_UidVal{UidVal: val}}, nil
 	case bool:
 		return &api.Value{Val: &api.Value_BoolVal{BoolVal: val}}, nil
 	case float32:
@@ -120,7 +124,7 @@ func valueToApiVal(v any) (*api.Value, error) {
 			return nil, err
 		}
 		return &api.Value{Val: &api.Value_GeoVal{GeoVal: bytes}}, nil
-	case uint, uint64:
+	case uint:
 		return &api.Value{Val: &api.Value_DefaultVal{DefaultVal: fmt.Sprint(v)}}, nil
 	default:
 		return nil, fmt.Errorf("unsupported type %T", v)
