@@ -20,6 +20,18 @@ const (
     }
     `
 
+	unstructuredQuery = `
+    {
+      obj(%s) {
+        uid
+        expand(_all_) {
+            uid
+            expand(_all_)
+        }
+      }
+    }
+    `
+
 	funcUid = `func: uid(%d)`
 	funcEq  = `func: eq(%s, %s)`
 )
@@ -38,4 +50,8 @@ func buildEqQuery(key, value any) QueryFunc {
 
 func formatObjQuery(qf QueryFunc, extraFields string) string {
 	return fmt.Sprintf(objQuery, qf(), extraFields)
+}
+
+func formatUnstructuredQuery(qf QueryFunc) string {
+	return fmt.Sprintf(unstructuredQuery, qf())
 }

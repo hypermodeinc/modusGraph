@@ -131,6 +131,57 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 	return nil
 }
 
+func generateCreateDqlMutationsAndSchemaFromRaw(n *Namespace, data map[string]any,
+	indexes map[string]string, gid uint64, dms *[]*dql.Mutation, sch *schema.ParsedSchema) error {
+
+	nquads := make([]*api.NQuad, 0)
+	for pred, value := range data {
+		valType, err := valueToPosting_ValType(value)
+		if err != nil {
+			return err
+		}
+		val, err := valueToApiVal(value)
+		if err != nil {
+			return err
+		}
+
+		nquad := &api.NQuad{
+			Namespace: n.ID(),
+			Subject:   fmt.Sprint(gid),
+			Predicate: pred,
+		}
+
+		if valType == pb.Posting_UID {
+			nquad.ObjectId = fmt.Sprint(value)
+		} else {
+			nquad.ObjectValue = val
+		}
+
+		u := &pb.SchemaUpdate{
+			Predicate: addNamespace(n.id, pred),
+			ValueType: valType,
+		}
+		if indexes[pred] != "" {
+			u.Directive = pb.SchemaUpdate_INDEX
+			index := indexes[pred]
+			if index == "unique" {
+				u.Tokenizer = []string{"exact"}
+			} else if index == "term" {
+				u.Tokenizer = []string{"term"}
+			}
+		}
+
+		sch.Preds = append(sch.Preds, u)
+		nquads = append(nquads, nquad)
+	}
+
+	*dms = append(*dms, &dql.Mutation{
+		Set: nquads,
+	})
+
+	return nil
+}
+
 func generateDeleteDqlMutations(n *Namespace, gid uint64) []*dql.Mutation {
 	return []*dql.Mutation{{
 		Del: []*api.NQuad{

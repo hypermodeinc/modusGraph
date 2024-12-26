@@ -181,3 +181,40 @@ func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, 
 
 	return 0, nil, fmt.Errorf("invalid unique field type")
 }
+
+func RawCreate(db *DB, data map[string]any, indexes map[string]string, ns ...uint64) (uint64, error) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	if len(ns) > 1 {
+		return 0, fmt.Errorf("only one namespace is allowed")
+	}
+	ctx, n, err := getDefaultNamespace(db, ns...)
+	if err != nil {
+		return 0, err
+	}
+
+	gid, err := db.z.nextUID()
+	if err != nil {
+		return 0, err
+	}
+
+	dms := make([]*dql.Mutation, 0)
+	sch := &schema.ParsedSchema{}
+
+	err = generateCreateDqlMutationsAndSchemaFromRaw(n, data, indexes, gid, &dms, sch)
+	if err != nil {
+		return 0, err
+	}
+
+	err = n.alterSchemaWithParsed(ctx, sch)
+	if err != nil {
+		return 0, err
+	}
+
+	err = applyDqlMutations(ctx, db, dms)
+	if err != nil {
+		return 0, err
+	}
+
+	return gid, nil
+}
