@@ -51,7 +51,10 @@ func buildEqQuery(key, value any) QueryFunc {
 func formatObjQuery(qf QueryFunc, extraFields string) string {
 	return fmt.Sprintf(objQuery, qf(), extraFields)
 }
+<<<<<<< HEAD
 
 func formatUnstructuredQuery(qf QueryFunc) string {
 	return fmt.Sprintf(unstructuredQuery, qf())
 }
+=======
+>>>>>>> main
