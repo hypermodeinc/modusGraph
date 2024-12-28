@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 )
 
 func getByGid[T any](ctx context.Context, n *Namespace, gid uint64) (uint64, *T, error) {
@@ -120,4 +122,64 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	}
 
 	return 0, nil, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
+}
+
+func getByGidRaw(ctx context.Context, n *Namespace, gid uint64,
+	fields []string) (uint64, map[string]any, error) {
+	return executeGetRaw(ctx, n, fields, gid)
+}
+
+func getByConstrainedFieldRaw(ctx context.Context, n *Namespace,
+	cf ConstrainedField, fields []string) (uint64, map[string]any, error) {
+	return executeGetRaw(ctx, n, fields, cf)
+}
+
+func executeGetRaw[R UniqueField](ctx context.Context, n *Namespace,
+	fields []string, args ...R) (uint64, map[string]any, error) {
+	if len(args) != 1 {
+		return 0, nil, fmt.Errorf("expected 1 argument, got %d", len(args))
+	}
+
+	var query string
+	gid, ok := any(args[0]).(uint64)
+	fieldsStr := strings.Join(fields, "\n")
+	if ok {
+		query = formatUnstructuredQuery(buildUidQuery(gid), fieldsStr)
+	} else if cf, ok := any(args[0]).(ConstrainedField); ok {
+		query = formatUnstructuredQuery(buildEqQuery(cf.Key, cf.Value), fieldsStr)
+	} else {
+		return 0, nil, fmt.Errorf("invalid unique field type")
+	}
+
+	resp, err := n.queryWithLock(ctx, query)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	var result struct {
+		Obj []map[string]any `json:"obj"`
+	}
+
+	// Unmarshal the JSON response into the dynamic struct
+	if err := json.Unmarshal(resp.Json, &result); err != nil {
+		return 0, nil, err
+	}
+
+	// Check if we have at least one object in the response
+	if len(result.Obj) == 0 {
+		return 0, nil, ErrNoObjFound
+	}
+
+	var returnGid uint64
+	if result.Obj[0]["uid"] == nil {
+		return 0, nil, ErrNoObjFound
+	} else {
+		gidStr := result.Obj[0]["uid"].(string)
+		returnGid, err = strconv.ParseUint(gidStr, 0, 64)
+		if err != nil {
+			return 0, nil, err
+		}
+	}
+
+	return returnGid, result.Obj[0], nil
 }

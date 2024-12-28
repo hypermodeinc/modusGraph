@@ -218,3 +218,64 @@ func RawCreate(db *DB, data map[string]any, indexes map[string]string, ns ...uin
 
 	return gid, nil
 }
+
+func RawGet[R UniqueField](db *DB, uniqueField R, fields []string, ns ...uint64) (uint64, map[string]any, error) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	if len(ns) > 1 {
+		return 0, nil, fmt.Errorf("only one namespace is allowed")
+	}
+	ctx, n, err := getDefaultNamespace(db, ns...)
+	if err != nil {
+		return 0, nil, err
+	}
+	if uid, ok := any(uniqueField).(uint64); ok {
+		return getByGidRaw(ctx, n, uid, fields)
+	}
+
+	if cf, ok := any(uniqueField).(ConstrainedField); ok {
+		return getByConstrainedFieldRaw(ctx, n, cf, fields)
+	}
+
+	return 0, nil, fmt.Errorf("invalid unique field type")
+}
+
+func RawDelete[R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, error) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	if len(ns) > 1 {
+		return 0, fmt.Errorf("only one namespace is allowed")
+	}
+	ctx, n, err := getDefaultNamespace(db, ns...)
+	if err != nil {
+		return 0, err
+	}
+	if uid, ok := any(uniqueField).(uint64); ok {
+		dms := generateDeleteDqlMutations(n, uid)
+
+		err = applyDqlMutations(ctx, db, dms)
+		if err != nil {
+			return 0, err
+		}
+
+		return uid, nil
+	}
+
+	if cf, ok := any(uniqueField).(ConstrainedField); ok {
+		uid, _, err := getByConstrainedFieldRaw(ctx, n, cf, nil)
+		if err != nil {
+			return 0, err
+		}
+
+		dms := generateDeleteDqlMutations(n, uid)
+
+		err = applyDqlMutations(ctx, db, dms)
+		if err != nil {
+			return 0, err
+		}
+
+		return uid, nil
+	}
+
+	return 0, fmt.Errorf("invalid unique field type")
+}

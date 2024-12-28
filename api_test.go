@@ -512,3 +512,56 @@ func TestNestedObjectMutationWithBadType(t *testing.T) {
 	require.Equal(t, fmt.Sprintf(modusdb.NoUniqueConstr, "BadProject"), err.Error())
 
 }
+
+func TestRawAPIs(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	gid, err := modusdb.RawCreate(db, map[string]any{
+		"name":     "B",
+		"age":      20,
+		"clerk_id": "123",
+	}, map[string]string{
+		"clerk_id": "unique",
+	}, db1.ID())
+
+	require.NoError(t, err)
+
+	query := `{
+		me(func: has(name)) {
+			uid
+			name
+			age
+			clerk_id
+		}
+	}`
+
+	resp, err := db1.Query(ctx, query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[{"uid":"0x2","name":"B","age":20,"clerk_id":"123"}]}`,
+		string(resp.GetJson()))
+
+	getGid, maps, err := modusdb.RawGet(db, gid, []string{"name", "age", "clerk_id"}, db1.ID())
+	require.NoError(t, err)
+	require.Equal(t, gid, getGid)
+	require.Equal(t, "B", maps["name"])
+
+	//TODO figure out why it comes back as a flaot64
+	// schema and value are correctly set to int, so its a query side issue
+	require.Equal(t, float64(20), maps["age"])
+	require.Equal(t, "123", maps["clerk_id"])
+
+	deleteGid, err := modusdb.RawDelete(db, modusdb.ConstrainedField{
+		Key:   "clerk_id",
+		Value: "123",
+	}, db1.ID())
+	require.NoError(t, err)
+	require.Equal(t, gid, deleteGid)
+}

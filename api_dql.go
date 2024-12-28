@@ -24,10 +24,7 @@ const (
     {
       obj(%s) {
         uid
-        expand(_all_) {
-            uid
-            expand(_all_)
-        }
+        %s
       }
     }
     `
@@ -52,6 +49,6 @@ func formatObjQuery(qf QueryFunc, extraFields string) string {
 	return fmt.Sprintf(objQuery, qf(), extraFields)
 }
 
-func formatUnstructuredQuery(qf QueryFunc) string {
-	return fmt.Sprintf(unstructuredQuery, qf())
+func formatUnstructuredQuery(qf QueryFunc, extraFields string) string {
+	return fmt.Sprintf(unstructuredQuery, qf(), extraFields)
 }
