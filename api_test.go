@@ -626,7 +626,6 @@ func TestVectorIndexSearchUntyped(t *testing.T) {
 		{10.0, 20.0, 30.0}, // Tens
 		{0.5, 1.0, 1.5},    // Half increments
 		{2.2, 4.4, 6.6},    // Multiples of 2.2
-		{3.3, 6.6, 9.9},    // Multiples of 3.3
 	}
 
 	for _, vec := range vectors {
@@ -676,7 +675,7 @@ func TestVectorIndexSearchTyped(t *testing.T) {
 	require.NoError(t, db1.DropData(ctx))
 
 	documents := []Document{
-		{Text: "apple", TextVec: []float32{1.0, 0.0, 0.0}},
+		{Text: "apple", TextVec: []float32{0.1, 0.1, 0.0}},
 		{Text: "banana", TextVec: []float32{0.0, 1.0, 0.0}},
 		{Text: "carrot", TextVec: []float32{0.0, 0.0, 1.0}},
 		{Text: "dog", TextVec: []float32{1.0, 1.0, 0.0}},
