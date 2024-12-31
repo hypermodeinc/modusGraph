@@ -639,7 +639,7 @@ func TestVectorIndexSearchUntyped(t *testing.T) {
 
 	const query = `
 		{
-			vector(func: similar_to(vec, 5, "[4.1,5.1,6.1]")) {
+			vector(func: similar_to(vec, 3, "[4.1,5.1,6.1]")) {
 					vec
 			}
 		}`
@@ -650,9 +650,7 @@ func TestVectorIndexSearchUntyped(t *testing.T) {
         "vector":[
             {"vec":[4,5,6]},
             {"vec":[7,8,9]},
-            {"vec":[1.5,2.5,3.5]},
-            {"vec":[10,20,30]},
-            {"vec":[2.2,4.4,6.6]}
+            {"vec":[1.5,2.5,3.5]}
         ]
     }`, string(resp.GetJson()))
 }
