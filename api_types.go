@@ -8,6 +8,7 @@ import (
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/dgraph/v24/protos/pb"
+	"github.com/dgraph-io/dgraph/v24/types"
 	"github.com/dgraph-io/dgraph/v24/x"
 	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/wkb"
@@ -110,6 +111,16 @@ func valueToApiVal(v any) (*api.Value, error) {
 		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: float64(val)}}, nil
 	case float64:
 		return &api.Value{Val: &api.Value_DoubleVal{DoubleVal: val}}, nil
+	case []float32:
+		return &api.Value{Val: &api.Value_Vfloat32Val{
+			Vfloat32Val: types.FloatArrayAsBytes(val)}}, nil
+	case []float64:
+		float32Slice := make([]float32, len(val))
+		for i, v := range val {
+			float32Slice[i] = float32(v)
+		}
+		return &api.Value{Val: &api.Value_Vfloat32Val{
+			Vfloat32Val: types.FloatArrayAsBytes(float32Slice)}}, nil
 	case []byte:
 		return &api.Value{Val: &api.Value_BytesVal{BytesVal: val}}, nil
 	case time.Time:

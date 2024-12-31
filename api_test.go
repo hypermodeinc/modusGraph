@@ -553,7 +553,7 @@ func TestRawAPIs(t *testing.T) {
 	require.Equal(t, gid, getGid)
 	require.Equal(t, "B", maps["name"])
 
-	//TODO figure out why it comes back as a flaot64
+	//TODO figure out why it comes back as a float64
 	// schema and value are correctly set to int, so its a query side issue
 	require.Equal(t, float64(20), maps["age"])
 	require.Equal(t, "123", maps["clerk_id"])
@@ -564,4 +564,148 @@ func TestRawAPIs(t *testing.T) {
 	}, db1.ID())
 	require.NoError(t, err)
 	require.Equal(t, gid, deleteGid)
+}
+
+func TestVectorIndexInsert(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	_, err = modusdb.RawCreate(db, map[string]any{
+		"name":     "B",
+		"age":      20,
+		"clerk_id": "123",
+		"vec":      []float64{1.0, 2.0, 3.0},
+	}, map[string]string{
+		"clerk_id": "unique",
+		"vec":      "vector",
+	}, db1.ID())
+
+	require.NoError(t, err)
+
+	query := `{
+		me(func: has(name)) {
+			uid
+			name
+			age
+			clerk_id
+			vec
+		}
+	}`
+	resp, err := db1.Query(ctx, query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"me":[{"uid":"0x2","name":"B","age":20,"clerk_id":"123","vec":[1,2,3]}]}`,
+		string(resp.GetJson()))
+
+}
+
+func TestVectorIndexSearchUntyped(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	vectors := [][]float64{
+		{1.0, 2.0, 3.0},    // Sequential
+		{4.0, 5.0, 6.0},    // Sequential continued
+		{7.0, 8.0, 9.0},    // Sequential continued
+		{0.1, 0.2, 0.3},    // Small decimals
+		{1.5, 2.5, 3.5},    // Half steps
+		{1.0, 2.0, 3.0},    // Duplicate
+		{10.0, 20.0, 30.0}, // Tens
+		{0.5, 1.0, 1.5},    // Half increments
+		{2.2, 4.4, 6.6},    // Multiples of 2.2
+		{3.3, 6.6, 9.9},    // Multiples of 3.3
+	}
+
+	for _, vec := range vectors {
+		_, err = modusdb.RawCreate(db, map[string]any{
+			"vec": vec,
+		}, map[string]string{
+			"vec": "vector",
+		}, db1.ID())
+		require.NoError(t, err)
+	}
+
+	const query = `
+		{
+			vector(func: similar_to(vec, 5, "[4.1,5.1,6.1]")) {
+					vec
+			}
+		}`
+
+	resp, err := db1.Query(ctx, query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+        "vector":[
+            {"vec":[4,5,6]},
+            {"vec":[7,8,9]},
+            {"vec":[1.5,2.5,3.5]},
+            {"vec":[10,20,30]},
+            {"vec":[2.2,4.4,6.6]}
+        ]
+    }`, string(resp.GetJson()))
+}
+
+type Document struct {
+	Gid     uint64    `json:"gid,omitempty"`
+	Text    string    `json:"text,omitempty"`
+	TextVec []float32 `json:"textVec,omitempty" db:"constraint=vector"`
+}
+
+func TestVectorIndexSearchTyped(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	documents := []Document{
+		{Text: "apple", TextVec: []float32{1.0, 0.0, 0.0}},
+		{Text: "banana", TextVec: []float32{0.0, 1.0, 0.0}},
+		{Text: "carrot", TextVec: []float32{0.0, 0.0, 1.0}},
+		{Text: "dog", TextVec: []float32{1.0, 1.0, 0.0}},
+		{Text: "elephant", TextVec: []float32{0.0, 1.0, 1.0}},
+		{Text: "fox", TextVec: []float32{1.0, 0.0, 1.0}},
+		{Text: "gorilla", TextVec: []float32{1.0, 1.0, 1.0}},
+	}
+
+	for _, doc := range documents {
+		_, _, err = modusdb.Create(db, &doc, db1.ID())
+		require.NoError(t, err)
+	}
+
+	const query = `
+		{
+			documents(func: similar_to(Document.textVec, 5, "[0.1,0.1,0.1]")) {
+					Document.text
+			}
+		}`
+
+	resp, err := db1.Query(ctx, query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+		"documents":[
+			{"Document.text":"apple"},
+			{"Document.text":"dog"},
+			{"Document.text":"elephant"},
+			{"Document.text":"fox"},
+			{"Document.text":"gorilla"}
+		]
+	}`, string(resp.GetJson()))
 }

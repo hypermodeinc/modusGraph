@@ -90,15 +90,13 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 		}
 		if jsonToDbTags[jsonName] != nil {
 			constraint := jsonToDbTags[jsonName].constraint
-			if constraint == "unique" || constraint == "term" {
-				uniqueConstraintFound = true
-				u.Directive = pb.SchemaUpdate_INDEX
-				if constraint == "unique" {
-					u.Tokenizer = []string{"exact"}
-				} else {
-					u.Tokenizer = []string{"term"}
-				}
+			if constraint == "vector" && valType != pb.Posting_VFLOAT {
+				return fmt.Errorf("vector index can only be applied to []float values")
 			}
+			if uniqueConstraintFound {
+
+			}
+			uniqueConstraintFound = addIndex(u, constraint, uniqueConstraintFound)
 		}
 
 		sch.Preds = append(sch.Preds, u)
@@ -162,13 +160,10 @@ func generateCreateDqlMutationsAndSchemaFromRaw(n *Namespace, data map[string]an
 			ValueType: valType,
 		}
 		if indexes[pred] != "" {
-			u.Directive = pb.SchemaUpdate_INDEX
-			index := indexes[pred]
-			if index == "unique" {
-				u.Tokenizer = []string{"exact"}
-			} else if index == "term" {
-				u.Tokenizer = []string{"term"}
+			if indexes[pred] == "vector" && valType != pb.Posting_VFLOAT {
+				return fmt.Errorf("vector index can only be applied to []float values")
 			}
+			addIndex(u, indexes[pred], false)
 		}
 
 		sch.Preds = append(sch.Preds, u)
@@ -288,4 +283,31 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 	}
 
 	return gid, nil
+}
+
+func addIndex(u *pb.SchemaUpdate, index string, uniqueConstraintExists bool) bool {
+	u.Directive = pb.SchemaUpdate_INDEX
+	switch index {
+	case "unique":
+		u.Tokenizer = []string{"exact"}
+		uniqueConstraintExists = true
+	case "term":
+		u.Tokenizer = []string{"term"}
+		uniqueConstraintExists = true
+	case "vector":
+		u.IndexSpecs = []*pb.VectorIndexSpec{
+			{
+				Name: "hnsw",
+				Options: []*pb.OptionPair{
+					{
+						Key:   "metric",
+						Value: "cosine",
+					},
+				},
+			},
+		}
+	default:
+		return uniqueConstraintExists
+	}
+	return uniqueConstraintExists
 }
