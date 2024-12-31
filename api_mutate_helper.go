@@ -93,9 +93,6 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 			if constraint == "vector" && valType != pb.Posting_VFLOAT {
 				return fmt.Errorf("vector index can only be applied to []float values")
 			}
-			if uniqueConstraintFound {
-
-			}
 			uniqueConstraintFound = addIndex(u, constraint, uniqueConstraintFound)
 		}
 
