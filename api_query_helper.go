@@ -69,7 +69,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 		return 0, nil, fmt.Errorf("invalid unique field type")
 	}
 
-	if jsonToDbTag[cf.Key] == nil || jsonToDbTag[cf.Key].constraint == "" {
+	if jsonToDbTag[cf.Key] != nil && jsonToDbTag[cf.Key].constraint == "" {
 		return 0, nil, fmt.Errorf("constraint not defined for field %s", cf.Key)
 	}
 
