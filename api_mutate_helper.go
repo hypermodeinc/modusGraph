@@ -93,7 +93,10 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 			if constraint == "vector" && valType != pb.Posting_VFLOAT {
 				return fmt.Errorf("vector index can only be applied to []float values")
 			}
-			uniqueConstraintFound = addIndex(u, constraint)
+			if uniqueConstraintFound {
+
+			}
+			uniqueConstraintFound = addIndex(u, constraint, uniqueConstraintFound)
 		}
 
 		sch.Preds = append(sch.Preds, u)
@@ -160,7 +163,7 @@ func generateCreateDqlMutationsAndSchemaFromRaw(n *Namespace, data map[string]an
 			if indexes[pred] == "vector" && valType != pb.Posting_VFLOAT {
 				return fmt.Errorf("vector index can only be applied to []float values")
 			}
-			addIndex(u, indexes[pred])
+			addIndex(u, indexes[pred], false)
 		}
 
 		sch.Preds = append(sch.Preds, u)
@@ -282,19 +285,29 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 	return gid, nil
 }
 
-func addIndex(u *pb.SchemaUpdate, index string) bool {
+func addIndex(u *pb.SchemaUpdate, index string, uniqueConstraintExists bool) bool {
 	u.Directive = pb.SchemaUpdate_INDEX
 	switch index {
 	case "unique":
 		u.Tokenizer = []string{"exact"}
-		return true
+		uniqueConstraintExists = true
 	case "term":
 		u.Tokenizer = []string{"term"}
-		return true
+		uniqueConstraintExists = true
 	case "vector":
-		u.Tokenizer = []string{"hnsw"}
+		u.IndexSpecs = []*pb.VectorIndexSpec{
+			{
+				Name: "hnsw",
+				Options: []*pb.OptionPair{
+					{
+						Key:   "metric",
+						Value: "cosine",
+					},
+				},
+			},
+		}
 	default:
-		return false
+		return uniqueConstraintExists
 	}
-	return false
+	return uniqueConstraintExists
 }

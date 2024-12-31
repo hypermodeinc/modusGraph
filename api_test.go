@@ -605,7 +605,7 @@ func TestVectorIndexInsert(t *testing.T) {
 
 }
 
-func TestVectorIndexSearch(t *testing.T) {
+func TestVectorIndexSearchUntyped(t *testing.T) {
 	ctx := context.Background()
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
@@ -640,12 +640,72 @@ func TestVectorIndexSearch(t *testing.T) {
 
 	const query = `
 		{
-			vector(func: similar_to(vtest, 1, "[4.1,5.1,6.1]")) {
-					vtest
+			vector(func: similar_to(vec, 5, "[4.1,5.1,6.1]")) {
+					vec
 			}
 		}`
 
 	resp, err := db1.Query(ctx, query)
 	require.NoError(t, err)
-	require.JSONEq(t, `{"vector":[{"vtest":[4,5,6]}]}`, string(resp.GetJson()))
+	require.JSONEq(t, `{
+        "vector":[
+            {"vec":[4,5,6]},
+            {"vec":[7,8,9]},
+            {"vec":[1.5,2.5,3.5]},
+            {"vec":[10,20,30]},
+            {"vec":[2.2,4.4,6.6]}
+        ]
+    }`, string(resp.GetJson()))
+}
+
+type Document struct {
+	Gid     uint64    `json:"gid,omitempty"`
+	Text    string    `json:"text,omitempty"`
+	TextVec []float32 `json:"textVec,omitempty" db:"constraint=vector"`
+}
+
+func TestVectorIndexSearchTyped(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	documents := []Document{
+		{Text: "apple", TextVec: []float32{1.0, 0.0, 0.0}},
+		{Text: "banana", TextVec: []float32{0.0, 1.0, 0.0}},
+		{Text: "carrot", TextVec: []float32{0.0, 0.0, 1.0}},
+		{Text: "dog", TextVec: []float32{1.0, 1.0, 0.0}},
+		{Text: "elephant", TextVec: []float32{0.0, 1.0, 1.0}},
+		{Text: "fox", TextVec: []float32{1.0, 0.0, 1.0}},
+		{Text: "gorilla", TextVec: []float32{1.0, 1.0, 1.0}},
+	}
+
+	for _, doc := range documents {
+		_, _, err = modusdb.Create(db, &doc, db1.ID())
+		require.NoError(t, err)
+	}
+
+	const query = `
+		{
+			documents(func: similar_to(Document.textVec, 5, "[0.1,0.1,0.1]")) {
+					Document.text
+			}
+		}`
+
+	resp, err := db1.Query(ctx, query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+		"documents":[
+			{"Document.text":"apple"},
+			{"Document.text":"dog"},
+			{"Document.text":"elephant"},
+			{"Document.text":"fox"},
+			{"Document.text":"gorilla"}
+		]
+	}`, string(resp.GetJson()))
 }
