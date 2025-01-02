@@ -113,7 +113,8 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	return 0, obj, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
 }
 
-func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryParams, withReverse bool) ([]uint64, []T, error) {
+func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryParams,
+	withReverse bool) ([]uint64, []T, error) {
 	var obj T
 	t := reflect.TypeOf(obj)
 	fieldToJsonTags, _, jsonToReverseEdgeTags, err := getFieldTags(t)
