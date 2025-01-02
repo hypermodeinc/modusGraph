@@ -16,14 +16,19 @@
    <a href="https://discord.gg/4z4GshR7fq">Discord</a>
 <p>
 
-**ModusDB a high-performance transactional database system.** It's designed to be type-first,
-schema-agnostic, and portable. ModusDB provides type-first APIs that makes it simple to build new
-apps, paired with support for advanced use cases through the Dgraph Query Language (DQL). And, it's
-really fast.
+**ModusDB is a high-performance, transactional database system.** It's designed to be type-first,
+schema-agnostic, and portable. ModusDB provides object-oriented APIs that makes it simple to build
+new apps, paired with support for advanced use cases through the Dgraph Query Language (DQL). A
+dynamic schema allows for natural relations to be expressed in your data with performance that
+scales with your use case.
 
-ModusDB is available as a Go package for running in-process. When paired with
-[modus functions](https://github.com/hypermodeinc/modus), it's never been easier to build a complete
-backend.
+ModusDB is available as a Go package for running in-process, providing low-latency reads, writes,
+and vector searches. The modus framework is optimized for apps that require sub-second response
+times. We’ve made trade-offs to prioritize speed and simplicity.
+
+We designed modusDB to augment [modus functions](https://github.com/hypermodeinc/modus) with simple
+to use data and vector storage. When paired together, you can build a complete AI semantic search or
+retrieval-augmented generation (RAG) feature with a single framework.
 
 ## Quickstart
 
@@ -71,15 +76,6 @@ func main() {
 }
 ```
 
-## What's it good for?
-
-We designed modusDB to augment [modus functions](https://github.com/hypermodeinc/modus) with simple
-to use data and vector storage. When paired together, you can build a complete AI semantic search or
-retrieval-augmented generation (RAG) feature with a single framework.
-
-The modus framework is optimized for apps that require sub-second response times. We’ve made
-trade-offs to prioritize speed and simplicity.
-
 ## Open Source
 
 The modus framework, including modusDB, is developed by [Hypermode](https://hypermode.com/) as an
@@ -90,7 +86,6 @@ like to get involved.
 
 Modus and its components are Copyright 2025 Hypermode Inc., and licensed under the terms of the
 Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for a complete copy of the license.
-
 If you have any questions about modus licensing, or need an alternate license or other arrangement,
 please contact us at hello@hypermode.com.
 
