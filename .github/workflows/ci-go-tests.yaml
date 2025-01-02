@@ -8,8 +8,8 @@ on:
       - reopened
       - ready_for_review
     paths:
-      - '**/*.go'
-      - '**/go.mod'
+      - "**/*.go"
+      - "**/go.mod"
 
 permissions:
   contents: read
@@ -25,7 +25,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
           cache-dependency-path: go.sum
 
       - name: Run Unit Tests
