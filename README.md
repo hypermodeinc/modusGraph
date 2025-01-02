@@ -11,7 +11,8 @@
 </div>
 
 <p align="center">
-   <a href="https://docs.hypermode.com/">Docs</a>" · "
+   <a href="https://docs.hypermode.com/">Docs</a>
+   <span> · </span>
    <a href="https://discord.com/invite/MAZgkhP6C6">Discord</a>
 <p>
 
@@ -99,8 +100,8 @@ like to get involved.
 
 ## Acknowledgements
 
-ModusDB builds heavily upon packages from the open source projects of Dgraph (graph query processing
-and transaction management), Badger (data storage), and Ristretto (cache). We expect the
+ModusDB builds heavily upon packages from the open source projects of [Dgraph](https://github.com/dgraph-io/dgraph) (graph query processing
+and transaction management), [Badger](https://github.com/dgraph-io/badger) (data storage), and [Ristretto](https://github.com/dgraph-io/ristretto) (cache). We expect the
 architecture and implementations of modusDB and Dgraph to expand in differentiation over time as the
 projects optimize for different core use cases, while maintaining Dgraph Query Language (DQL)
 compatibility.
