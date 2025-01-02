@@ -7,7 +7,7 @@ import (
 	"github.com/dgraph-io/dgraph/v24/schema"
 )
 
-func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
+func Create[T any](db *DB, object T, ns ...uint64) (uint64, T, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	if len(ns) > 1 {
@@ -25,7 +25,7 @@ func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
 
 	dms := make([]*dql.Mutation, 0)
 	sch := &schema.ParsedSchema{}
-	err = generateCreateDqlMutationsAndSchema[T](ctx, n, *object, gid, &dms, sch)
+	err = generateCreateDqlMutationsAndSchema[T](ctx, n, object, gid, &dms, sch)
 	if err != nil {
 		return 0, object, err
 	}
@@ -43,7 +43,7 @@ func Create[T any](db *DB, object *T, ns ...uint64) (uint64, *T, error) {
 	return getByGid[T](ctx, n, gid)
 }
 
-func Upsert[T any](db *DB, object *T, ns ...uint64) (uint64, *T, bool, error) {
+func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 
 	var wasFound bool
 	db.mutex.Lock()
@@ -51,80 +51,78 @@ func Upsert[T any](db *DB, object *T, ns ...uint64) (uint64, *T, bool, error) {
 	if len(ns) > 1 {
 		return 0, object, false, fmt.Errorf("only one namespace is allowed")
 	}
-	if object == nil {
-		return 0, nil, false, fmt.Errorf("object is nil")
-	}
 
 	ctx, n, err := getDefaultNamespace(db, ns...)
 	if err != nil {
 		return 0, object, false, err
 	}
 
-	gid, cf, err := getUniqueConstraint[T](*object)
+	gid, cf, err := getUniqueConstraint[T](object)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, object, false, err
 	}
 
 	dms := make([]*dql.Mutation, 0)
 	sch := &schema.ParsedSchema{}
-	err = generateCreateDqlMutationsAndSchema[T](ctx, n, *object, gid, &dms, sch)
+	err = generateCreateDqlMutationsAndSchema[T](ctx, n, object, gid, &dms, sch)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, object, false, err
 	}
 
 	err = n.alterSchemaWithParsed(ctx, sch)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, object, false, err
 	}
 
 	if gid != 0 {
-		gid, _, err = getByGidWithObject[T](ctx, n, gid, *object)
+		gid, _, err = getByGidWithObject[T](ctx, n, gid, object)
 		if err != nil && err != ErrNoObjFound {
-			return 0, nil, false, err
+			return 0, object, false, err
 		}
 		wasFound = err == nil
 	} else if cf != nil {
-		gid, _, err = getByConstrainedFieldWithObject[T](ctx, n, *cf, *object)
+		gid, _, err = getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
 		if err != nil && err != ErrNoObjFound {
-			return 0, nil, false, err
+			return 0, object, false, err
 		}
 		wasFound = err == nil
 	}
 	if gid == 0 {
 		gid, err = db.z.nextUID()
 		if err != nil {
-			return 0, nil, false, err
+			return 0, object, false, err
 		}
 	}
 
 	dms = make([]*dql.Mutation, 0)
-	err = generateCreateDqlMutationsAndSchema[T](ctx, n, *object, gid, &dms, sch)
+	err = generateCreateDqlMutationsAndSchema[T](ctx, n, object, gid, &dms, sch)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, object, false, err
 	}
 
 	err = applyDqlMutations(ctx, db, dms)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, object, false, err
 	}
 
 	gid, object, err = getByGid[T](ctx, n, gid)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, object, false, err
 	}
 
 	return gid, object, wasFound, nil
 }
 
-func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, *T, error) {
+func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
+	var obj T
 	if len(ns) > 1 {
-		return 0, nil, fmt.Errorf("only one namespace is allowed")
+		return 0, obj, fmt.Errorf("only one namespace is allowed")
 	}
 	ctx, n, err := getDefaultNamespace(db, ns...)
 	if err != nil {
-		return 0, nil, err
+		return 0, obj, err
 	}
 	if uid, ok := any(uniqueField).(uint64); ok {
 		return getByGid[T](ctx, n, uid)
@@ -134,30 +132,31 @@ func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, *T,
 		return getByConstrainedField[T](ctx, n, cf)
 	}
 
-	return 0, nil, fmt.Errorf("invalid unique field type")
+	return 0, obj, fmt.Errorf("invalid unique field type")
 }
 
-func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, *T, error) {
+func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
+	var zeroObj T
 	if len(ns) > 1 {
-		return 0, nil, fmt.Errorf("only one namespace is allowed")
+		return 0, zeroObj, fmt.Errorf("only one namespace is allowed")
 	}
 	ctx, n, err := getDefaultNamespace(db, ns...)
 	if err != nil {
-		return 0, nil, err
+		return 0, zeroObj, err
 	}
 	if uid, ok := any(uniqueField).(uint64); ok {
 		uid, obj, err := getByGid[T](ctx, n, uid)
 		if err != nil {
-			return 0, nil, err
+			return 0, zeroObj, err
 		}
 
 		dms := generateDeleteDqlMutations(n, uid)
 
 		err = applyDqlMutations(ctx, db, dms)
 		if err != nil {
-			return 0, nil, err
+			return 0, zeroObj, err
 		}
 
 		return uid, obj, nil
@@ -166,116 +165,18 @@ func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, 
 	if cf, ok := any(uniqueField).(ConstrainedField); ok {
 		uid, obj, err := getByConstrainedField[T](ctx, n, cf)
 		if err != nil {
-			return 0, nil, err
+			return 0, zeroObj, err
 		}
 
 		dms := generateDeleteDqlMutations(n, uid)
 
 		err = applyDqlMutations(ctx, db, dms)
 		if err != nil {
-			return 0, nil, err
+			return 0, zeroObj, err
 		}
 
 		return uid, obj, nil
 	}
 
-	return 0, nil, fmt.Errorf("invalid unique field type")
-}
-
-func RawCreate(db *DB, data map[string]any, indexes map[string]string, ns ...uint64) (uint64, error) {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-	if len(ns) > 1 {
-		return 0, fmt.Errorf("only one namespace is allowed")
-	}
-	ctx, n, err := getDefaultNamespace(db, ns...)
-	if err != nil {
-		return 0, err
-	}
-
-	gid, err := db.z.nextUID()
-	if err != nil {
-		return 0, err
-	}
-
-	dms := make([]*dql.Mutation, 0)
-	sch := &schema.ParsedSchema{}
-
-	err = generateCreateDqlMutationsAndSchemaFromRaw(n, data, indexes, gid, &dms, sch)
-	if err != nil {
-		return 0, err
-	}
-
-	err = n.alterSchemaWithParsed(ctx, sch)
-	if err != nil {
-		return 0, err
-	}
-
-	err = applyDqlMutations(ctx, db, dms)
-	if err != nil {
-		return 0, err
-	}
-
-	return gid, nil
-}
-
-func RawGet[R UniqueField](db *DB, uniqueField R, fields []string, ns ...uint64) (uint64, map[string]any, error) {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-	if len(ns) > 1 {
-		return 0, nil, fmt.Errorf("only one namespace is allowed")
-	}
-	ctx, n, err := getDefaultNamespace(db, ns...)
-	if err != nil {
-		return 0, nil, err
-	}
-	if uid, ok := any(uniqueField).(uint64); ok {
-		return getByGidRaw(ctx, n, uid, fields)
-	}
-
-	if cf, ok := any(uniqueField).(ConstrainedField); ok {
-		return getByConstrainedFieldRaw(ctx, n, cf, fields)
-	}
-
-	return 0, nil, fmt.Errorf("invalid unique field type")
-}
-
-func RawDelete[R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, error) {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-	if len(ns) > 1 {
-		return 0, fmt.Errorf("only one namespace is allowed")
-	}
-	ctx, n, err := getDefaultNamespace(db, ns...)
-	if err != nil {
-		return 0, err
-	}
-	if uid, ok := any(uniqueField).(uint64); ok {
-		dms := generateDeleteDqlMutations(n, uid)
-
-		err = applyDqlMutations(ctx, db, dms)
-		if err != nil {
-			return 0, err
-		}
-
-		return uid, nil
-	}
-
-	if cf, ok := any(uniqueField).(ConstrainedField); ok {
-		uid, _, err := getByConstrainedFieldRaw(ctx, n, cf, nil)
-		if err != nil {
-			return 0, err
-		}
-
-		dms := generateDeleteDqlMutations(n, uid)
-
-		err = applyDqlMutations(ctx, db, dms)
-		if err != nil {
-			return 0, err
-		}
-
-		return uid, nil
-	}
-
-	return 0, fmt.Errorf("invalid unique field type")
+	return 0, zeroObj, fmt.Errorf("invalid unique field type")
 }

@@ -22,7 +22,7 @@ func TestFirstTimeUser(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	gid, user, err := modusdb.Create(db, &User{
+	gid, user, err := modusdb.Create(db, User{
 		Name:    "A",
 		Age:     10,
 		ClerkId: "123",
@@ -59,7 +59,7 @@ func TestFirstTimeUser(t *testing.T) {
 	_, queriedUser3, err := modusdb.Get[User](db, gid)
 	require.Error(t, err)
 	require.Equal(t, "no object found", err.Error())
-	require.Nil(t, queriedUser3)
+	require.Equal(t, queriedUser3, User{})
 
 }
 
@@ -74,7 +74,7 @@ func TestCreateApi(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	user := &User{
+	user := User{
 		Name:    "B",
 		Age:     20,
 		ClerkId: "123",
@@ -131,7 +131,7 @@ func TestCreateApiWithNonStruct(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	user := &User{
+	user := User{
 		Name: "B",
 		Age:  20,
 	}
@@ -152,7 +152,7 @@ func TestGetApi(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	user := &User{
+	user := User{
 		Name:    "B",
 		Age:     20,
 		ClerkId: "123",
@@ -181,7 +181,7 @@ func TestGetApiWithConstrainedField(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	user := &User{
+	user := User{
 		Name:    "B",
 		Age:     20,
 		ClerkId: "123",
@@ -213,7 +213,7 @@ func TestDeleteApi(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	user := &User{
+	user := User{
 		Name:    "B",
 		Age:     20,
 		ClerkId: "123",
@@ -228,7 +228,7 @@ func TestDeleteApi(t *testing.T) {
 	_, queriedUser, err := modusdb.Get[User](db, gid, db1.ID())
 	require.Error(t, err)
 	require.Equal(t, "no object found", err.Error())
-	require.Nil(t, queriedUser)
+	require.Equal(t, queriedUser, User{})
 
 	_, queriedUser, err = modusdb.Get[User](db, modusdb.ConstrainedField{
 		Key:   "clerk_id",
@@ -236,7 +236,7 @@ func TestDeleteApi(t *testing.T) {
 	}, db1.ID())
 	require.Error(t, err)
 	require.Equal(t, "no object found", err.Error())
-	require.Nil(t, queriedUser)
+	require.Equal(t, queriedUser, User{})
 }
 
 func TestUpsertApi(t *testing.T) {
@@ -250,7 +250,7 @@ func TestUpsertApi(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	user := &User{
+	user := User{
 		Name:    "B",
 		Age:     20,
 		ClerkId: "123",
@@ -298,7 +298,7 @@ func TestNestedObjectMutation(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	branch := &Branch{
+	branch := Branch{
 		Name:    "B",
 		ClerkId: "123",
 		Proj: Project{
@@ -352,7 +352,7 @@ func TestLinkingObjectsByConstrainedFields(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	projGid, project, err := modusdb.Create(db, &Project{
+	projGid, project, err := modusdb.Create(db, Project{
 		Name:    "P",
 		ClerkId: "456",
 	}, db1.ID())
@@ -361,7 +361,7 @@ func TestLinkingObjectsByConstrainedFields(t *testing.T) {
 	require.Equal(t, "P", project.Name)
 	require.Equal(t, project.Gid, projGid)
 
-	branch := &Branch{
+	branch := Branch{
 		Name:    "B",
 		ClerkId: "123",
 		Proj: Project{
@@ -415,7 +415,7 @@ func TestLinkingObjectsByGid(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	projGid, project, err := modusdb.Create(db, &Project{
+	projGid, project, err := modusdb.Create(db, Project{
 		Name:    "P",
 		ClerkId: "456",
 	}, db1.ID())
@@ -424,7 +424,7 @@ func TestLinkingObjectsByGid(t *testing.T) {
 	require.Equal(t, "P", project.Name)
 	require.Equal(t, project.Gid, projGid)
 
-	branch := &Branch{
+	branch := Branch{
 		Name:    "B",
 		ClerkId: "123",
 		Proj: Project{
@@ -489,7 +489,7 @@ func TestNestedObjectMutationWithBadType(t *testing.T) {
 
 	require.NoError(t, db1.DropData(ctx))
 
-	branch := &BadBranch{
+	branch := BadBranch{
 		Name:    "B",
 		ClerkId: "123",
 		Proj: BadProject{
@@ -502,7 +502,7 @@ func TestNestedObjectMutationWithBadType(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, fmt.Sprintf(modusdb.NoUniqueConstr, "BadProject"), err.Error())
 
-	proj := &BadProject{
+	proj := BadProject{
 		Name:    "P",
 		ClerkId: "456",
 	}
@@ -511,148 +511,6 @@ func TestNestedObjectMutationWithBadType(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, fmt.Sprintf(modusdb.NoUniqueConstr, "BadProject"), err.Error())
 
-}
-
-func TestRawAPIs(t *testing.T) {
-	ctx := context.Background()
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
-	require.NoError(t, err)
-	defer db.Close()
-
-	db1, err := db.CreateNamespace()
-	require.NoError(t, err)
-
-	require.NoError(t, db1.DropData(ctx))
-
-	gid, err := modusdb.RawCreate(db, map[string]any{
-		"name":     "B",
-		"age":      20,
-		"clerk_id": "123",
-	}, map[string]string{
-		"clerk_id": "unique",
-	}, db1.ID())
-
-	require.NoError(t, err)
-
-	query := `{
-		me(func: has(name)) {
-			uid
-			name
-			age
-			clerk_id
-		}
-	}`
-
-	resp, err := db1.Query(ctx, query)
-	require.NoError(t, err)
-	require.JSONEq(t, `{"me":[{"uid":"0x2","name":"B","age":20,"clerk_id":"123"}]}`,
-		string(resp.GetJson()))
-
-	getGid, maps, err := modusdb.RawGet(db, gid, []string{"name", "age", "clerk_id"}, db1.ID())
-	require.NoError(t, err)
-	require.Equal(t, gid, getGid)
-	require.Equal(t, "B", maps["name"])
-
-	//TODO figure out why it comes back as a float64
-	// schema and value are correctly set to int, so its a query side issue
-	require.Equal(t, float64(20), maps["age"])
-	require.Equal(t, "123", maps["clerk_id"])
-
-	deleteGid, err := modusdb.RawDelete(db, modusdb.ConstrainedField{
-		Key:   "clerk_id",
-		Value: "123",
-	}, db1.ID())
-	require.NoError(t, err)
-	require.Equal(t, gid, deleteGid)
-}
-
-func TestVectorIndexInsert(t *testing.T) {
-	ctx := context.Background()
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
-	require.NoError(t, err)
-	defer db.Close()
-
-	db1, err := db.CreateNamespace()
-	require.NoError(t, err)
-
-	require.NoError(t, db1.DropData(ctx))
-
-	_, err = modusdb.RawCreate(db, map[string]any{
-		"name":     "B",
-		"age":      20,
-		"clerk_id": "123",
-		"vec":      []float64{1.0, 2.0, 3.0},
-	}, map[string]string{
-		"clerk_id": "unique",
-		"vec":      "vector",
-	}, db1.ID())
-
-	require.NoError(t, err)
-
-	query := `{
-		me(func: has(name)) {
-			uid
-			name
-			age
-			clerk_id
-			vec
-		}
-	}`
-	resp, err := db1.Query(ctx, query)
-	require.NoError(t, err)
-	require.JSONEq(t, `{"me":[{"uid":"0x2","name":"B","age":20,"clerk_id":"123","vec":[1,2,3]}]}`,
-		string(resp.GetJson()))
-
-}
-
-func TestVectorIndexSearchUntyped(t *testing.T) {
-	ctx := context.Background()
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
-	require.NoError(t, err)
-	defer db.Close()
-
-	db1, err := db.CreateNamespace()
-	require.NoError(t, err)
-
-	require.NoError(t, db1.DropData(ctx))
-
-	vectors := [][]float64{
-		{1.0, 2.0, 3.0},    // Sequential
-		{4.0, 5.0, 6.0},    // Sequential continued
-		{7.0, 8.0, 9.0},    // Sequential continued
-		{0.1, 0.2, 0.3},    // Small decimals
-		{1.5, 2.5, 3.5},    // Half steps
-		{1.0, 2.0, 3.0},    // Duplicate
-		{10.0, 20.0, 30.0}, // Tens
-		{0.5, 1.0, 1.5},    // Half increments
-		{2.2, 4.4, 6.6},    // Multiples of 2.2
-	}
-
-	for _, vec := range vectors {
-		_, err = modusdb.RawCreate(db, map[string]any{
-			"vec": vec,
-		}, map[string]string{
-			"vec": "vector",
-		}, db1.ID())
-		require.NoError(t, err)
-	}
-
-	const query = `
-		{
-			vector(func: similar_to(vec, 3, "[4.1,5.1,6.1]")) {
-					vec
-			}
-		}`
-
-	resp, err := db1.Query(ctx, query)
-	require.NoError(t, err)
-	require.JSONEq(t, `{
-        "vector":[
-            {"vec":[4,5,6]},
-            {"vec":[7,8,9]},
-            {"vec":[1.5,2.5,3.5]}
-        ]
-    }`, string(resp.GetJson()))
 }
 
 type Document struct {
@@ -683,7 +541,7 @@ func TestVectorIndexSearchTyped(t *testing.T) {
 	}
 
 	for _, doc := range documents {
-		_, _, err = modusdb.Create(db, &doc, db1.ID())
+		_, _, err = modusdb.Create(db, doc, db1.ID())
 		require.NoError(t, err)
 	}
 
