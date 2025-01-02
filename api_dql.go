@@ -8,8 +8,6 @@ import (
 
 type QueryFunc func() string
 
-type PaginationFunc func() string
-
 const (
 	objQuery = `
     {
@@ -162,8 +160,8 @@ func formatObjQuery(qf QueryFunc, extraFields string) string {
 	return fmt.Sprintf(objQuery, qf(), extraFields)
 }
 
-func formatObjsQuery(typeName string, qf QueryFunc, pf PaginationFunc, extraFields string) string {
-	return fmt.Sprintf(objsQuery, typeName, pf(), qf(), extraFields)
+func formatObjsQuery(typeName string, qf QueryFunc, paginationAndSorting string, extraFields string) string {
+	return fmt.Sprintf(objsQuery, typeName, paginationAndSorting, qf(), extraFields)
 }
 
 // Helper function to combine multiple filters
@@ -171,7 +169,7 @@ func filtersToQueryFunc(typeName string, filter Filter) QueryFunc {
 	return filterToQueryFunc(typeName, filter)
 }
 
-func paginationToQueryFunc(p Pagination) PaginationFunc {
+func paginationToQueryFunc(p Pagination) string {
 	paginationStr := ""
 	if p.Limit > 0 {
 		paginationStr += ", " + fmt.Sprintf("first: %d", p.Limit)
@@ -181,10 +179,32 @@ func paginationToQueryFunc(p Pagination) PaginationFunc {
 	} else if p.After != "" {
 		paginationStr += ", " + fmt.Sprintf("after: %s", p.After)
 	}
-	return func() string {
-		if paginationStr == "" {
-			return ""
-		}
-		return paginationStr
+	if paginationStr == "" {
+		return ""
 	}
+	return paginationStr
+}
+
+func sortingToQueryFunc(typeName string, s Sorting) string {
+	if s.OrderAscField == "" && s.OrderDescField == "" {
+		return ""
+	}
+
+	var parts []string
+	first, second := s.OrderDescField, s.OrderAscField
+	firstOp, secondOp := "orderdesc", "orderasc"
+
+	if !s.OrderDescFirst {
+		first, second = s.OrderAscField, s.OrderDescField
+		firstOp, secondOp = "orderasc", "orderdesc"
+	}
+
+	if first != "" {
+		parts = append(parts, fmt.Sprintf("%s: %s", firstOp, getPredicateName(typeName, first)))
+	}
+	if second != "" {
+		parts = append(parts, fmt.Sprintf("%s: %s", secondOp, getPredicateName(typeName, second)))
+	}
+
+	return ", " + strings.Join(parts, ", ")
 }

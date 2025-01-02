@@ -30,6 +30,7 @@ type ConstrainedField struct {
 type QueryParams struct {
 	Filter     Filter
 	Pagination Pagination
+	Sorting    Sorting
 }
 
 type Pagination struct {
@@ -45,6 +46,12 @@ type Filter struct {
 	And    *Filter
 	Or     *Filter
 	Not    *Filter
+}
+
+type Sorting struct {
+	OrderAscField  string
+	OrderDescField string
+	OrderDescFirst bool
 }
 
 type StringPredicate struct {

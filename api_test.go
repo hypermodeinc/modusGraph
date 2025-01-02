@@ -311,6 +311,50 @@ func TestQueryApi(t *testing.T) {
 		Filter: modusdb.Filter{
 			Field: "age",
 			String: modusdb.StringPredicate{
+				// The reason its a string even for int is bc i cant tell if
+				// user wants to compare with 0 the number or didn't provide a value
+				// TODO: fix this
+				GreaterOrEqual: fmt.Sprintf("%d", 20),
+			},
+		},
+	}, db1.ID())
+
+	require.NoError(t, err)
+	require.Len(t, queriedUsers, 3)
+	require.Len(t, gids, 3)
+	require.Equal(t, "C", queriedUsers[0].Name)
+	require.Equal(t, "D", queriedUsers[1].Name)
+	require.Equal(t, "E", queriedUsers[2].Name)
+}
+
+func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	users := []User{
+		{Name: "A", Age: 10, ClerkId: "123"},
+		{Name: "B", Age: 20, ClerkId: "123"},
+		{Name: "C", Age: 30, ClerkId: "123"},
+		{Name: "D", Age: 40, ClerkId: "123"},
+		{Name: "E", Age: 50, ClerkId: "123"},
+	}
+
+	for _, user := range users {
+		_, _, err = modusdb.Create(db, user, db1.ID())
+		require.NoError(t, err)
+	}
+
+	gids, queriedUsers, err := modusdb.Query[User](db, modusdb.QueryParams{
+		Filter: modusdb.Filter{
+			Field: "age",
+			String: modusdb.StringPredicate{
 				GreaterOrEqual: fmt.Sprintf("%d", 20),
 			},
 		},
@@ -326,6 +370,23 @@ func TestQueryApi(t *testing.T) {
 	require.Equal(t, "C", queriedUsers[0].Name)
 	require.Equal(t, "D", queriedUsers[1].Name)
 	require.Equal(t, "E", queriedUsers[2].Name)
+
+	gids, queriedUsers, err = modusdb.Query[User](db, modusdb.QueryParams{
+		Pagination: modusdb.Pagination{
+			Limit:  3,
+			Offset: 1,
+		},
+		Sorting: modusdb.Sorting{
+			OrderAscField: "age",
+		},
+	}, db1.ID())
+
+	require.NoError(t, err)
+	require.Len(t, queriedUsers, 3)
+	require.Len(t, gids, 3)
+	require.Equal(t, "B", queriedUsers[0].Name)
+	require.Equal(t, "C", queriedUsers[1].Name)
+	require.Equal(t, "D", queriedUsers[2].Name)
 }
 
 type Project struct {

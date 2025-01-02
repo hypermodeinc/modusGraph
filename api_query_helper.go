@@ -122,7 +122,9 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 	}
 
 	filterQueryFunc := filtersToQueryFunc(t.Name(), queryParams.Filter)
-	paginationQueryFunc := paginationToQueryFunc(queryParams.Pagination)
+	pagination := paginationToQueryFunc(queryParams.Pagination)
+	sorting := sortingToQueryFunc(t.Name(), queryParams.Sorting)
+	paginationAndSorting := fmt.Sprintf("%s %s", pagination, sorting)
 
 	readFromQuery := ""
 	if withReverse {
@@ -137,7 +139,7 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 		}
 	}
 
-	query := formatObjsQuery(t.Name(), filterQueryFunc, paginationQueryFunc, readFromQuery)
+	query := formatObjsQuery(t.Name(), filterQueryFunc, paginationAndSorting, readFromQuery)
 
 	resp, err := n.queryWithLock(ctx, query)
 	if err != nil {
