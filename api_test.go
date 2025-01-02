@@ -320,11 +320,12 @@ func TestQueryApi(t *testing.T) {
 	}, db1.ID())
 
 	require.NoError(t, err)
-	require.Len(t, queriedUsers, 3)
-	require.Len(t, gids, 3)
-	require.Equal(t, "C", queriedUsers[0].Name)
-	require.Equal(t, "D", queriedUsers[1].Name)
-	require.Equal(t, "E", queriedUsers[2].Name)
+	require.Len(t, queriedUsers, 4)
+	require.Len(t, gids, 4)
+	require.Equal(t, "B", queriedUsers[0].Name)
+	require.Equal(t, "C", queriedUsers[1].Name)
+	require.Equal(t, "D", queriedUsers[2].Name)
+	require.Equal(t, "E", queriedUsers[3].Name)
 }
 
 func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
