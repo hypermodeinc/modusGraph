@@ -135,7 +135,7 @@ func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, 
 	return 0, obj, fmt.Errorf("invalid unique field type")
 }
 
-func Query[T any](db *DB, filters []Filter, ns ...uint64) ([]uint64, []T, error) {
+func Query[T any](db *DB, queryParams QueryParams, ns ...uint64) ([]uint64, []T, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	if len(ns) > 1 {
@@ -146,7 +146,7 @@ func Query[T any](db *DB, filters []Filter, ns ...uint64) ([]uint64, []T, error)
 		return nil, nil, err
 	}
 
-	return executeQuery[T](ctx, n, filters, false)
+	return executeQuery[T](ctx, n, queryParams, false)
 }
 
 func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, error) {

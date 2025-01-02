@@ -27,6 +27,17 @@ type ConstrainedField struct {
 	Value any
 }
 
+type QueryParams struct {
+	Filters    []Filter
+	Pagination Pagination
+}
+
+type Pagination struct {
+	Limit  int64
+	Offset int64
+	After  string
+}
+
 type Filter struct {
 	Field  string
 	String StringPredicate

@@ -113,7 +113,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	return 0, obj, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
 }
 
-func executeQuery[T any](ctx context.Context, n *Namespace, filters []Filter, withReverse bool) ([]uint64, []T, error) {
+func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryParams, withReverse bool) ([]uint64, []T, error) {
 	var obj T
 	t := reflect.TypeOf(obj)
 	fieldToJsonTags, _, jsonToReverseEdgeTags, err := getFieldTags(t)
@@ -121,7 +121,8 @@ func executeQuery[T any](ctx context.Context, n *Namespace, filters []Filter, wi
 		return nil, nil, err
 	}
 
-	filterQueryFunc := filtersToQueryFunc(t.Name(), filters)
+	filterQueryFunc := filtersToQueryFunc(t.Name(), queryParams.Filters)
+	paginationQueryFunc := paginationToQueryFunc(queryParams.Pagination)
 
 	readFromQuery := ""
 	if withReverse {
@@ -136,7 +137,7 @@ func executeQuery[T any](ctx context.Context, n *Namespace, filters []Filter, wi
 		}
 	}
 
-	query := formatObjsQuery(t.Name(), filterQueryFunc, readFromQuery)
+	query := formatObjsQuery(t.Name(), filterQueryFunc, paginationQueryFunc, readFromQuery)
 
 	resp, err := n.queryWithLock(ctx, query)
 	if err != nil {

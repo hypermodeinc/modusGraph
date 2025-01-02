@@ -8,6 +8,8 @@ import (
 
 type QueryFunc func() string
 
+type PaginationFunc func() string
+
 const (
 	objQuery = `
     {
@@ -26,7 +28,7 @@ const (
 
 	objsQuery = `
     {
-      objs(func: type("%s")) @filter(%s) {
+      objs(func: type("%s")%s) @filter(%s) {
         uid
         expand(_all_) {
             uid
@@ -160,8 +162,8 @@ func formatObjQuery(qf QueryFunc, extraFields string) string {
 	return fmt.Sprintf(objQuery, qf(), extraFields)
 }
 
-func formatObjsQuery(typeName string, qf QueryFunc, extraFields string) string {
-	return fmt.Sprintf(objsQuery, typeName, qf(), extraFields)
+func formatObjsQuery(typeName string, qf QueryFunc, pf PaginationFunc, extraFields string) string {
+	return fmt.Sprintf(objsQuery, typeName, pf(), qf(), extraFields)
 }
 
 // Helper function to combine multiple filters
@@ -176,4 +178,22 @@ func filtersToQueryFunc(typeName string, filters []Filter) QueryFunc {
 	}
 
 	return And(queryFuncs...)
+}
+
+func paginationToQueryFunc(p Pagination) PaginationFunc {
+	paginationStr := ""
+	if p.Limit > 0 {
+		paginationStr += ", " + fmt.Sprintf("first: %d", p.Limit)
+	}
+	if p.Offset > 0 {
+		paginationStr += ", " + fmt.Sprintf("offset: %d", p.Offset)
+	} else if p.After != "" {
+		paginationStr += ", " + fmt.Sprintf("after: %s", p.After)
+	}
+	return func() string {
+		if paginationStr == "" {
+			return ""
+		}
+		return paginationStr
+	}
 }

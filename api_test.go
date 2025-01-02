@@ -297,7 +297,7 @@ func TestQueryApi(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	gids, queriedUsers, err := modusdb.Query[User](db, []modusdb.Filter{}, db1.ID())
+	gids, queriedUsers, err := modusdb.Query[User](db, modusdb.QueryParams{}, db1.ID())
 	require.NoError(t, err)
 	require.Len(t, queriedUsers, 5)
 	require.Len(t, gids, 5)
@@ -307,22 +307,27 @@ func TestQueryApi(t *testing.T) {
 	require.Equal(t, "D", queriedUsers[3].Name)
 	require.Equal(t, "E", queriedUsers[4].Name)
 
-	gids, queriedUsers, err = modusdb.Query[User](db, []modusdb.Filter{
-		{
-			Field: "age",
-			String: modusdb.StringPredicate{
-				GreaterOrEqual: fmt.Sprintf("%d", 20),
+	gids, queriedUsers, err = modusdb.Query[User](db, modusdb.QueryParams{
+		Filters: []modusdb.Filter{
+			{
+				Field: "age",
+				String: modusdb.StringPredicate{
+					GreaterOrEqual: fmt.Sprintf("%d", 20),
+				},
 			},
+		},
+		Pagination: modusdb.Pagination{
+			Limit:  3,
+			Offset: 1,
 		},
 	}, db1.ID())
 
 	require.NoError(t, err)
-	require.Len(t, queriedUsers, 4)
-	require.Len(t, gids, 4)
-	require.Equal(t, "B", queriedUsers[0].Name)
-	require.Equal(t, "C", queriedUsers[1].Name)
-	require.Equal(t, "D", queriedUsers[2].Name)
-	require.Equal(t, "E", queriedUsers[3].Name)
+	require.Len(t, queriedUsers, 3)
+	require.Len(t, gids, 3)
+	require.Equal(t, "C", queriedUsers[0].Name)
+	require.Equal(t, "D", queriedUsers[1].Name)
+	require.Equal(t, "E", queriedUsers[2].Name)
 }
 
 type Project struct {
@@ -662,12 +667,14 @@ func TestVectorIndexSearchWithQuery(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	gids, docs, err := modusdb.Query[Document](db, []modusdb.Filter{
-		{
-			Field: "textVec",
-			Vector: modusdb.VectorPredicate{
-				SimilarTo: []float32{0.1, 0.1, 0.1},
-				TopK:      5,
+	gids, docs, err := modusdb.Query[Document](db, modusdb.QueryParams{
+		Filters: []modusdb.Filter{
+			{
+				Field: "textVec",
+				Vector: modusdb.VectorPredicate{
+					SimilarTo: []float32{0.1, 0.1, 0.1},
+					TopK:      5,
+				},
 			},
 		},
 	}, db1.ID())
