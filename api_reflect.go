@@ -197,9 +197,3 @@ func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
 
 	return 0, nil, fmt.Errorf(NoUniqueConstr, t.Name())
 }
-
-func isMapStringAny[T any]() bool {
-	var zeroObj T
-	t := reflect.TypeOf(zeroObj)
-	return t.Kind() == reflect.Map && t.Key().Kind() == reflect.String && t.Elem().Kind() == reflect.Interface
-}
