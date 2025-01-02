@@ -23,12 +23,12 @@ dynamic schema allows for natural relations to be expressed in your data with pe
 scales with your use case.
 
 ModusDB is available as a Go package for running in-process, providing low-latency reads, writes,
-and vector searches. The modus framework is optimized for apps that require sub-second response
-times. We’ve made trade-offs to prioritize speed and simplicity.
+and vector searches. We’ve made trade-offs to prioritize speed and simplicity.
 
-We designed modusDB to augment [modus functions](https://github.com/hypermodeinc/modus) with simple
-to use data and vector storage. When paired together, you can build a complete AI semantic search or
-retrieval-augmented generation (RAG) feature with a single framework.
+The modus framework is optimized for apps that require sub-second response times. ModusDB augments
+[modus functions](https://github.com/hypermodeinc/modus) with simple to use data and vector storage.
+When paired together, you can build a complete AI semantic search or retrieval-augmented generation
+(RAG) feature with a single framework.
 
 ## Quickstart
 
