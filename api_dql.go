@@ -169,7 +169,7 @@ func filtersToQueryFunc(typeName string, filter Filter) QueryFunc {
 	return filterToQueryFunc(typeName, filter)
 }
 
-func paginationToQueryFunc(p Pagination) string {
+func paginationToQueryString(p Pagination) string {
 	paginationStr := ""
 	if p.Limit > 0 {
 		paginationStr += ", " + fmt.Sprintf("first: %d", p.Limit)
@@ -185,7 +185,7 @@ func paginationToQueryFunc(p Pagination) string {
 	return paginationStr
 }
 
-func sortingToQueryFunc(typeName string, s Sorting) string {
+func sortingToQueryString(typeName string, s Sorting) string {
 	if s.OrderAscField == "" && s.OrderDescField == "" {
 		return ""
 	}

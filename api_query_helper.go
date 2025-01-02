@@ -132,10 +132,10 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 	if queryParams.Pagination != nil || queryParams.Sorting != nil {
 		var pagination, sorting string
 		if queryParams.Pagination != nil {
-			pagination = paginationToQueryFunc(*queryParams.Pagination)
+			pagination = paginationToQueryString(*queryParams.Pagination)
 		}
 		if queryParams.Sorting != nil {
-			sorting = sortingToQueryFunc(t.Name(), *queryParams.Sorting)
+			sorting = sortingToQueryString(t.Name(), *queryParams.Sorting)
 		}
 		paginationAndSorting = fmt.Sprintf("%s %s", pagination, sorting)
 	}
