@@ -13,7 +13,7 @@
 <p align="center">
    <a href="https://docs.hypermode.com/">Docs</a>
    <span> · </span>
-   <a href="https://discord.com/invite/MAZgkhP6C6">Discord</a>
+   <a href="https://discord.gg/4z4GshR7fq">Discord</a>
 <p>
 
 **ModusDB a high-performance transactional database system.** It's designed to be type-first,
