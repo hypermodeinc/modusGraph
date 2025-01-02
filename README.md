@@ -25,10 +25,10 @@ scales with your use case.
 ModusDB is available as a Go package for running in-process, providing low-latency reads, writes,
 and vector searches. We’ve made trade-offs to prioritize speed and simplicity.
 
-The modus framework is optimized for apps that require sub-second response times. ModusDB augments
-[modus functions](https://github.com/hypermodeinc/modus) with simple to use data and vector storage.
-When paired together, you can build a complete AI semantic search or retrieval-augmented generation
-(RAG) feature with a single framework.
+The [modus framework](https://github.com/hypermodeinc/modus) is optimized for apps that require
+sub-second response times. ModusDB augments polyglot functions with simple to use data and vector
+storage. When paired together, you can build a complete AI semantic search or retrieval-augmented
+generation (RAG) feature with a single framework.
 
 ## Quickstart
 
