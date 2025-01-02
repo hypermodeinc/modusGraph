@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
@@ -28,15 +29,9 @@ type ConstrainedField struct {
 }
 
 type QueryParams struct {
-	Filter     Filter
-	Pagination Pagination
-	Sorting    Sorting
-}
-
-type Pagination struct {
-	Limit  int64
-	Offset int64
-	After  string
+	Filter     *Filter
+	Pagination *Pagination
+	Sorting    *Sorting
 }
 
 type Filter struct {
@@ -46,6 +41,12 @@ type Filter struct {
 	And    *Filter
 	Or     *Filter
 	Not    *Filter
+}
+
+type Pagination struct {
+	Limit  int64
+	Offset int64
+	After  string
 }
 
 type Sorting struct {
@@ -60,10 +61,10 @@ type StringPredicate struct {
 	LessOrEqual    string
 	GreaterThan    string
 	GreaterOrEqual string
-	AllOfTerms     string
-	AnyOfTerms     string
-	AllOfText      string
-	AnyOfText      string
+	AllOfTerms     []string
+	AnyOfTerms     []string
+	AllOfText      []string
+	AnyOfText      []string
 	RegExp         string
 }
 
@@ -203,17 +204,17 @@ func filterToQueryFunc(typeName string, f Filter) QueryFunc {
 	if f.String.Equals != "" {
 		return buildEqQuery(getPredicateName(typeName, f.Field), f.String.Equals)
 	}
-	if f.String.AllOfTerms != "" {
-		return buildAllOfTermsQuery(getPredicateName(typeName, f.Field), f.String.AllOfTerms)
+	if len(f.String.AllOfTerms) != 0 {
+		return buildAllOfTermsQuery(getPredicateName(typeName, f.Field), strings.Join(f.String.AllOfTerms, " "))
 	}
-	if f.String.AnyOfTerms != "" {
-		return buildAnyOfTermsQuery(getPredicateName(typeName, f.Field), f.String.AnyOfTerms)
+	if len(f.String.AnyOfTerms) != 0 {
+		return buildAnyOfTermsQuery(getPredicateName(typeName, f.Field), strings.Join(f.String.AnyOfTerms, " "))
 	}
-	if f.String.AllOfText != "" {
-		return buildAllOfTextQuery(getPredicateName(typeName, f.Field), f.String.AllOfText)
+	if len(f.String.AllOfText) != 0 {
+		return buildAllOfTextQuery(getPredicateName(typeName, f.Field), strings.Join(f.String.AllOfText, " "))
 	}
-	if f.String.AnyOfText != "" {
-		return buildAnyOfTextQuery(getPredicateName(typeName, f.Field), f.String.AnyOfText)
+	if len(f.String.AnyOfText) != 0 {
+		return buildAnyOfTextQuery(getPredicateName(typeName, f.Field), strings.Join(f.String.AnyOfText, " "))
 	}
 	if f.String.RegExp != "" {
 		return buildRegExpQuery(getPredicateName(typeName, f.Field), f.String.RegExp)

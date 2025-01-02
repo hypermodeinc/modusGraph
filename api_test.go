@@ -308,7 +308,7 @@ func TestQueryApi(t *testing.T) {
 	require.Equal(t, "E", queriedUsers[4].Name)
 
 	gids, queriedUsers, err = modusdb.Query[User](db, modusdb.QueryParams{
-		Filter: modusdb.Filter{
+		Filter: &modusdb.Filter{
 			Field: "age",
 			String: modusdb.StringPredicate{
 				// The reason its a string even for int is bc i cant tell if
@@ -353,13 +353,13 @@ func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 	}
 
 	gids, queriedUsers, err := modusdb.Query[User](db, modusdb.QueryParams{
-		Filter: modusdb.Filter{
+		Filter: &modusdb.Filter{
 			Field: "age",
 			String: modusdb.StringPredicate{
 				GreaterOrEqual: fmt.Sprintf("%d", 20),
 			},
 		},
-		Pagination: modusdb.Pagination{
+		Pagination: &modusdb.Pagination{
 			Limit:  3,
 			Offset: 1,
 		},
@@ -373,11 +373,11 @@ func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 	require.Equal(t, "E", queriedUsers[2].Name)
 
 	gids, queriedUsers, err = modusdb.Query[User](db, modusdb.QueryParams{
-		Pagination: modusdb.Pagination{
+		Pagination: &modusdb.Pagination{
 			Limit:  3,
 			Offset: 1,
 		},
-		Sorting: modusdb.Sorting{
+		Sorting: &modusdb.Sorting{
 			OrderAscField: "age",
 		},
 	}, db1.ID())
@@ -728,8 +728,7 @@ func TestVectorIndexSearchWithQuery(t *testing.T) {
 	}
 
 	gids, docs, err := modusdb.Query[Document](db, modusdb.QueryParams{
-		Filter: modusdb.Filter{
-
+		Filter: &modusdb.Filter{
 			Field: "textVec",
 			Vector: modusdb.VectorPredicate{
 				SimilarTo: []float32{0.1, 0.1, 0.1},

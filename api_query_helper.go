@@ -122,10 +122,16 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 		return nil, nil, err
 	}
 
-	filterQueryFunc := filtersToQueryFunc(t.Name(), queryParams.Filter)
-	pagination := paginationToQueryFunc(queryParams.Pagination)
-	sorting := sortingToQueryFunc(t.Name(), queryParams.Sorting)
-	paginationAndSorting := fmt.Sprintf("%s %s", pagination, sorting)
+	var filterQueryFunc QueryFunc
+	var paginationAndSorting string
+	if queryParams.Filter != nil {
+		filterQueryFunc = filtersToQueryFunc(t.Name(), *queryParams.Filter)
+	}
+	if queryParams.Pagination != nil || queryParams.Sorting != nil {
+		pagination := paginationToQueryFunc(*queryParams.Pagination)
+		sorting := sortingToQueryFunc(t.Name(), *queryParams.Sorting)
+		paginationAndSorting = fmt.Sprintf("%s %s", pagination, sorting)
+	}
 
 	readFromQuery := ""
 	if withReverse {
