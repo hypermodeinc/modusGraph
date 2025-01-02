@@ -22,15 +22,6 @@ const (
     }
     `
 
-	unstructuredQuery = `
-    {
-      obj(%s) {
-        uid
-        %s
-      }
-    }
-    `
-
 	funcUid = `func: uid(%d)`
 	funcEq  = `func: eq(%s, %s)`
 	// funcSimilarTo = `func: similar_to(%s, %d, "%s")`
@@ -62,8 +53,4 @@ func buildEqQuery(key string, value any) QueryFunc {
 
 func formatObjQuery(qf QueryFunc, extraFields string) string {
 	return fmt.Sprintf(objQuery, qf(), extraFields)
-}
-
-func formatUnstructuredQuery(qf QueryFunc, extraFields string) string {
-	return fmt.Sprintf(unstructuredQuery, qf(), extraFields)
 }
