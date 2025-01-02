@@ -44,6 +44,9 @@ const (
 	funcSimilarTo  = `similar_to(%s, %d, "[%s]")`
 	funcAllOfTerms = `allofterms(%s, "%s")`
 	funcAnyOfTerms = `anyofterms(%s, "%s")`
+	funcAllOfText  = `alloftext(%s, "%s")`
+	funcAnyOfText  = `anyoftext(%s, "%s")`
+	funcRegExp     = `regexp(%s, /%s/)`
 	funcLe         = `le(%s, %s)`
 	funcGe         = `ge(%s, %s)`
 	funcGt         = `gt(%s, %s)`
@@ -73,17 +76,33 @@ func buildSimilarToQuery(indexAttr string, topK int64, vec []float32) QueryFunc 
 	}
 }
 
-func buildAllOfTermsQuery(attr string, terms []string) QueryFunc {
-	termsStr := strings.Join(terms, " ")
+func buildAllOfTermsQuery(attr string, terms string) QueryFunc {
 	return func() string {
-		return fmt.Sprintf(funcAllOfTerms, attr, termsStr)
+		return fmt.Sprintf(funcAllOfTerms, attr, terms)
 	}
 }
 
-func buildAnyOfTermsQuery(attr string, terms []string) QueryFunc {
-	termsStr := strings.Join(terms, " ")
+func buildAnyOfTermsQuery(attr string, terms string) QueryFunc {
 	return func() string {
-		return fmt.Sprintf(funcAnyOfTerms, attr, termsStr)
+		return fmt.Sprintf(funcAnyOfTerms, attr, terms)
+	}
+}
+
+func buildAllOfTextQuery(attr, text string) QueryFunc {
+	return func() string {
+		return fmt.Sprintf(funcAllOfText, attr, text)
+	}
+}
+
+func buildAnyOfTextQuery(attr, text string) QueryFunc {
+	return func() string {
+		return fmt.Sprintf(funcAnyOfText, attr, text)
+	}
+}
+
+func buildRegExpQuery(attr, pattern string) QueryFunc {
+	return func() string {
+		return fmt.Sprintf(funcRegExp, attr, pattern)
 	}
 }
 

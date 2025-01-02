@@ -183,7 +183,7 @@ func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
 				return gid, nil, nil
 			}
 		}
-		if jsonToDbTags[jsonName] != nil && jsonToDbTags[jsonName].constraint == "unique" {
+		if jsonToDbTags[jsonName] != nil && isValidUniqueIndex(jsonToDbTags[jsonName].constraint) {
 			// check if value is zero or nil
 			if value == reflect.Zero(reflect.TypeOf(value)).Interface() || value == nil {
 				continue
@@ -196,4 +196,8 @@ func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
 	}
 
 	return 0, nil, fmt.Errorf(NoUniqueConstr, t.Name())
+}
+
+func isValidUniqueIndex(name string) bool {
+	return name == "hash" || name == "exact" || name == "term" || name == "fulltext"
 }

@@ -38,12 +38,15 @@ type Filter struct {
 
 type StringPredicate struct {
 	Equals         string
-	AllOf          []string
-	AnyOf          []string
 	LessThan       string
 	LessOrEqual    string
 	GreaterThan    string
 	GreaterOrEqual string
+	AllOfTerms     string
+	AnyOfTerms     string
+	AllOfText      string
+	AnyOfText      string
+	RegExp         string
 }
 
 type VectorPredicate struct {
@@ -182,11 +185,20 @@ func filterToQueryFunc(typeName string, f Filter) QueryFunc {
 	if f.String.Equals != "" {
 		return buildEqQuery(getPredicateName(typeName, f.Field), f.String.Equals)
 	}
-	if f.String.AllOf != nil {
-		return buildAllOfTermsQuery(getPredicateName(typeName, f.Field), f.String.AllOf)
+	if f.String.AllOfTerms != "" {
+		return buildAllOfTermsQuery(getPredicateName(typeName, f.Field), f.String.AllOfTerms)
 	}
-	if f.String.AnyOf != nil {
-		return buildAnyOfTermsQuery(getPredicateName(typeName, f.Field), f.String.AnyOf)
+	if f.String.AnyOfTerms != "" {
+		return buildAnyOfTermsQuery(getPredicateName(typeName, f.Field), f.String.AnyOfTerms)
+	}
+	if f.String.AllOfText != "" {
+		return buildAllOfTextQuery(getPredicateName(typeName, f.Field), f.String.AllOfText)
+	}
+	if f.String.AnyOfText != "" {
+		return buildAnyOfTextQuery(getPredicateName(typeName, f.Field), f.String.AnyOfText)
+	}
+	if f.String.RegExp != "" {
+		return buildRegExpQuery(getPredicateName(typeName, f.Field), f.String.RegExp)
 	}
 	if f.String.LessThan != "" {
 		return buildLtQuery(getPredicateName(typeName, f.Field), f.String.LessThan)
