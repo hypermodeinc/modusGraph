@@ -273,6 +273,58 @@ func TestUpsertApi(t *testing.T) {
 	require.Equal(t, "123", queriedUser.ClerkId)
 }
 
+func TestQueryApi(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	users := []User{
+		{Name: "A", Age: 10, ClerkId: "123"},
+		{Name: "B", Age: 20, ClerkId: "123"},
+		{Name: "C", Age: 30, ClerkId: "123"},
+		{Name: "D", Age: 40, ClerkId: "123"},
+		{Name: "E", Age: 50, ClerkId: "123"},
+	}
+
+	for _, user := range users {
+		_, _, err = modusdb.Create(db, user, db1.ID())
+		require.NoError(t, err)
+	}
+
+	gids, queriedUsers, err := modusdb.Query[User](db, []modusdb.Filter{}, db1.ID())
+	require.NoError(t, err)
+	require.Len(t, queriedUsers, 5)
+	require.Len(t, gids, 5)
+	require.Equal(t, "A", queriedUsers[0].Name)
+	require.Equal(t, "B", queriedUsers[1].Name)
+	require.Equal(t, "C", queriedUsers[2].Name)
+	require.Equal(t, "D", queriedUsers[3].Name)
+	require.Equal(t, "E", queriedUsers[4].Name)
+
+	gids, queriedUsers, err = modusdb.Query[User](db, []modusdb.Filter{
+		{
+			Field: "age",
+			String: modusdb.StringPredicate{
+				GreaterOrEqual: fmt.Sprintf("%d", 20),
+			},
+		},
+	}, db1.ID())
+
+	require.NoError(t, err)
+	require.Len(t, queriedUsers, 4)
+	require.Len(t, gids, 4)
+	require.Equal(t, "B", queriedUsers[0].Name)
+	require.Equal(t, "C", queriedUsers[1].Name)
+	require.Equal(t, "D", queriedUsers[2].Name)
+	require.Equal(t, "E", queriedUsers[3].Name)
+}
+
 type Project struct {
 	Gid     uint64 `json:"gid,omitempty"`
 	Name    string `json:"name,omitempty"`

@@ -145,54 +145,6 @@ func formatObjsQuery(typeName string, qf QueryFunc, extraFields string) string {
 	return fmt.Sprintf(objsQuery, typeName, qf(), extraFields)
 }
 
-func filterToQueryFunc(typeName string, f Filter) QueryFunc {
-	// Handle logical operators first
-	if f.And != nil {
-		return And(filterToQueryFunc(typeName, *f.And))
-	}
-	if f.Or != nil {
-		return Or(filterToQueryFunc(typeName, *f.Or))
-	}
-	if f.Not != nil {
-		return Not(filterToQueryFunc(typeName, *f.Not))
-	}
-
-	// Handle field predicates
-	if f.StringHash.Equals != "" {
-		return buildEqQuery(getPredicateName(typeName, f.Field), f.StringHash.Equals)
-	}
-	if f.StringTerm.Equals != "" {
-		return buildEqQuery(getPredicateName(typeName, f.Field), f.StringTerm.Equals)
-	}
-	if f.StringTerm.AllOfTerms != nil {
-		return buildAllOfTermsQuery(getPredicateName(typeName, f.Field), f.StringTerm.AllOfTerms)
-	}
-	if f.StringTerm.AnyOfTerms != nil {
-		return buildAnyOfTermsQuery(getPredicateName(typeName, f.Field), f.StringTerm.AnyOfTerms)
-	}
-	if f.StringExact.Equals != "" {
-		return buildEqQuery(getPredicateName(typeName, f.Field), f.StringExact.Equals)
-	}
-	if f.StringExact.LessThan != "" {
-		return buildLtQuery(getPredicateName(typeName, f.Field), f.StringExact.LessThan)
-	}
-	if f.StringExact.LessOrEqual != "" {
-		return buildLeQuery(getPredicateName(typeName, f.Field), f.StringExact.LessOrEqual)
-	}
-	if f.StringExact.GreaterThan != "" {
-		return buildGtQuery(getPredicateName(typeName, f.Field), f.StringExact.GreaterThan)
-	}
-	if f.StringExact.GreaterOrEqual != "" {
-		return buildGeQuery(getPredicateName(typeName, f.Field), f.StringExact.GreaterOrEqual)
-	}
-	if f.Vector.SimilarTo != nil {
-		return buildSimilarToQuery(getPredicateName(typeName, f.Field), f.Vector.TopK, f.Vector.SimilarTo)
-	}
-
-	// Return empty query if no conditions match
-	return func() string { return "" }
-}
-
 // Helper function to combine multiple filters
 func filtersToQueryFunc(typeName string, filters []Filter) QueryFunc {
 	if len(filters) == 0 {

@@ -28,28 +28,18 @@ type ConstrainedField struct {
 }
 
 type Filter struct {
-	Field       string
-	StringHash  StringHashPredicate
-	StringTerm  StringTermPredicate
-	StringExact StringExactPredicate
-	Vector      VectorPredicate
-	And         *Filter
-	Or          *Filter
-	Not         *Filter
+	Field  string
+	String StringPredicate
+	Vector VectorPredicate
+	And    *Filter
+	Or     *Filter
+	Not    *Filter
 }
 
-type StringHashPredicate struct {
-	Equals string
-}
-
-type StringTermPredicate struct {
-	Equals     string
-	AllOfTerms []string
-	AnyOfTerms []string
-}
-
-type StringExactPredicate struct {
+type StringPredicate struct {
 	Equals         string
+	AllOf          []string
+	AnyOf          []string
 	LessThan       string
 	LessOrEqual    string
 	GreaterThan    string
@@ -174,4 +164,46 @@ func valueToApiVal(v any) (*api.Value, error) {
 	default:
 		return nil, fmt.Errorf("unsupported type %T", v)
 	}
+}
+
+func filterToQueryFunc(typeName string, f Filter) QueryFunc {
+	// Handle logical operators first
+	if f.And != nil {
+		return And(filterToQueryFunc(typeName, *f.And))
+	}
+	if f.Or != nil {
+		return Or(filterToQueryFunc(typeName, *f.Or))
+	}
+	if f.Not != nil {
+		return Not(filterToQueryFunc(typeName, *f.Not))
+	}
+
+	// Handle field predicates
+	if f.String.Equals != "" {
+		return buildEqQuery(getPredicateName(typeName, f.Field), f.String.Equals)
+	}
+	if f.String.AllOf != nil {
+		return buildAllOfTermsQuery(getPredicateName(typeName, f.Field), f.String.AllOf)
+	}
+	if f.String.AnyOf != nil {
+		return buildAnyOfTermsQuery(getPredicateName(typeName, f.Field), f.String.AnyOf)
+	}
+	if f.String.LessThan != "" {
+		return buildLtQuery(getPredicateName(typeName, f.Field), f.String.LessThan)
+	}
+	if f.String.LessOrEqual != "" {
+		return buildLeQuery(getPredicateName(typeName, f.Field), f.String.LessOrEqual)
+	}
+	if f.String.GreaterThan != "" {
+		return buildGtQuery(getPredicateName(typeName, f.Field), f.String.GreaterThan)
+	}
+	if f.String.GreaterOrEqual != "" {
+		return buildGeQuery(getPredicateName(typeName, f.Field), f.String.GreaterOrEqual)
+	}
+	if f.Vector.SimilarTo != nil {
+		return buildSimilarToQuery(getPredicateName(typeName, f.Field), f.Vector.TopK, f.Vector.SimilarTo)
+	}
+
+	// Return empty query if no conditions match
+	return func() string { return "" }
 }
