@@ -237,11 +237,14 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 func addIndex(u *pb.SchemaUpdate, index string, uniqueConstraintExists bool) bool {
 	u.Directive = pb.SchemaUpdate_INDEX
 	switch index {
-	case "unique":
+	case "exact":
 		u.Tokenizer = []string{"exact"}
 		uniqueConstraintExists = true
 	case "term":
 		u.Tokenizer = []string{"term"}
+		uniqueConstraintExists = true
+	case "hash":
+		u.Tokenizer = []string{"hash"}
 		uniqueConstraintExists = true
 	case "vector":
 		u.IndexSpecs = []*pb.VectorIndexSpec{

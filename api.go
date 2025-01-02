@@ -135,6 +135,20 @@ func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, 
 	return 0, obj, fmt.Errorf("invalid unique field type")
 }
 
+func Query[T any](db *DB, filters []Filter, ns ...uint64) ([]uint64, []T, error) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	if len(ns) > 1 {
+		return nil, nil, fmt.Errorf("only one namespace is allowed")
+	}
+	ctx, n, err := getDefaultNamespace(db, ns...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return executeQuery[T](ctx, n, filters, false)
+}
+
 func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()

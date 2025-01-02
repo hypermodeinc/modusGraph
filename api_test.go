@@ -14,7 +14,7 @@ type User struct {
 	Gid     uint64 `json:"gid,omitempty"`
 	Name    string `json:"name,omitempty"`
 	Age     int    `json:"age,omitempty"`
-	ClerkId string `json:"clerk_id,omitempty" db:"constraint=unique"`
+	ClerkId string `json:"clerk_id,omitempty" db:"constraint=exact"`
 }
 
 func TestFirstTimeUser(t *testing.T) {
@@ -276,14 +276,14 @@ func TestUpsertApi(t *testing.T) {
 type Project struct {
 	Gid     uint64 `json:"gid,omitempty"`
 	Name    string `json:"name,omitempty"`
-	ClerkId string `json:"clerk_id,omitempty" db:"constraint=unique"`
+	ClerkId string `json:"clerk_id,omitempty" db:"constraint=exact"`
 	// Branches []Branch `json:"branches,omitempty" readFrom:"type=Branch,field=proj"`
 }
 
 type Branch struct {
 	Gid     uint64  `json:"gid,omitempty"`
 	Name    string  `json:"name,omitempty"`
-	ClerkId string  `json:"clerk_id,omitempty" db:"constraint=unique"`
+	ClerkId string  `json:"clerk_id,omitempty" db:"constraint=exact"`
 	Proj    Project `json:"proj,omitempty"`
 }
 
@@ -474,7 +474,7 @@ type BadProject struct {
 type BadBranch struct {
 	Gid     uint64     `json:"gid,omitempty"`
 	Name    string     `json:"name,omitempty"`
-	ClerkId string     `json:"clerk_id,omitempty" db:"constraint=unique"`
+	ClerkId string     `json:"clerk_id,omitempty" db:"constraint=exact"`
 	Proj    BadProject `json:"proj,omitempty"`
 }
 
@@ -563,4 +563,69 @@ func TestVectorIndexSearchTyped(t *testing.T) {
 			{"Document.text":"gorilla"}
 		]
 	}`, string(resp.GetJson()))
+
+	const query2 = `
+		{
+			documents(func: type("Document")) @filter(similar_to(Document.textVec, 5, "[0.1,0.1,0.1]")) {
+					Document.text
+			}
+		}`
+
+	resp, err = db1.Query(ctx, query2)
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+		"documents":[
+			{"Document.text":"apple"},
+			{"Document.text":"dog"},
+			{"Document.text":"elephant"},
+			{"Document.text":"fox"},
+			{"Document.text":"gorilla"}
+		]
+	}`, string(resp.GetJson()))
+}
+
+func TestVectorIndexSearchWithQuery(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	documents := []Document{
+		{Text: "apple", TextVec: []float32{0.1, 0.1, 0.0}},
+		{Text: "banana", TextVec: []float32{0.0, 1.0, 0.0}},
+		{Text: "carrot", TextVec: []float32{0.0, 0.0, 1.0}},
+		{Text: "dog", TextVec: []float32{1.0, 1.0, 0.0}},
+		{Text: "elephant", TextVec: []float32{0.0, 1.0, 1.0}},
+		{Text: "fox", TextVec: []float32{1.0, 0.0, 1.0}},
+		{Text: "gorilla", TextVec: []float32{1.0, 1.0, 1.0}},
+	}
+
+	for _, doc := range documents {
+		_, _, err = modusdb.Create(db, doc, db1.ID())
+		require.NoError(t, err)
+	}
+
+	gids, docs, err := modusdb.Query[Document](db, []modusdb.Filter{
+		{
+			Field: "textVec",
+			Vector: modusdb.VectorPredicate{
+				SimilarTo: []float32{0.1, 0.1, 0.1},
+				TopK:      5,
+			},
+		},
+	}, db1.ID())
+
+	require.NoError(t, err)
+	require.Len(t, docs, 5)
+	require.Len(t, gids, 5)
+	require.Equal(t, "apple", docs[0].Text)
+	require.Equal(t, "dog", docs[1].Text)
+	require.Equal(t, "elephant", docs[2].Text)
+	require.Equal(t, "fox", docs[3].Text)
+	require.Equal(t, "gorilla", docs[4].Text)
 }

@@ -27,6 +27,40 @@ type ConstrainedField struct {
 	Value any
 }
 
+type Filter struct {
+	Field       string
+	StringHash  StringHashPredicate
+	StringTerm  StringTermPredicate
+	StringExact StringExactPredicate
+	Vector      VectorPredicate
+	And         *Filter
+	Or          *Filter
+	Not         *Filter
+}
+
+type StringHashPredicate struct {
+	Equals string
+}
+
+type StringTermPredicate struct {
+	Equals     string
+	AllOfTerms []string
+	AnyOfTerms []string
+}
+
+type StringExactPredicate struct {
+	Equals         string
+	LessThan       string
+	LessOrEqual    string
+	GreaterThan    string
+	GreaterOrEqual string
+}
+
+type VectorPredicate struct {
+	SimilarTo []float32
+	TopK      int64
+}
+
 type ModusDbOption func(*modusDbOptions)
 
 type modusDbOptions struct {

@@ -102,14 +102,6 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 		return 0, obj, err
 	}
 
-	// // Convert to *interface{} then to *T
-	// if ifacePtr, ok := finalObject.(*interface{}); ok {
-	// 	if typedPtr, ok := (*ifacePtr).(*T); ok {
-	// 		return gid, typedPtr, nil
-	// 	}
-	// }
-
-	// If conversion fails, try direct conversion
 	if typedPtr, ok := finalObject.(*T); ok {
 		return gid, *typedPtr, nil
 	}
@@ -119,4 +111,81 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	}
 
 	return 0, obj, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
+}
+
+func executeQuery[T any](ctx context.Context, n *Namespace, filters []Filter, withReverse bool) ([]uint64, []T, error) {
+	var obj T
+	t := reflect.TypeOf(obj)
+	fieldToJsonTags, _, jsonToReverseEdgeTags, err := getFieldTags(t)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	filterQueryFunc := filtersToQueryFunc(t.Name(), filters)
+
+	readFromQuery := ""
+	if withReverse {
+		for jsonTag, reverseEdgeTag := range jsonToReverseEdgeTags {
+			readFromQuery += fmt.Sprintf(`
+		%s: ~%s {
+			uid
+			expand(_all_)
+			dgraph.type
+		}
+		`, getPredicateName(t.Name(), jsonTag), reverseEdgeTag)
+		}
+	}
+
+	query := formatObjsQuery(t.Name(), filterQueryFunc, readFromQuery)
+
+	resp, err := n.queryWithLock(ctx, query)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	dynamicType := createDynamicStruct(t, fieldToJsonTags, 1)
+
+	var result struct {
+		Objs []any `json:"objs"`
+	}
+
+	var tempMap map[string][]any
+	if err := json.Unmarshal(resp.Json, &tempMap); err != nil {
+		return nil, nil, err
+	}
+
+	// Determine the number of elements
+	numElements := len(tempMap["objs"])
+
+	// Append the interface the correct number of times
+	for i := 0; i < numElements; i++ {
+		result.Objs = append(result.Objs, reflect.New(dynamicType).Interface())
+	}
+
+	// Unmarshal the JSON response into the dynamic struct
+	if err := json.Unmarshal(resp.Json, &result); err != nil {
+		return nil, nil, err
+	}
+
+	var gids []uint64
+	var objs []T
+	for _, obj := range result.Objs {
+		finalObject := reflect.New(t).Interface()
+		gid, err := mapDynamicToFinal(obj, finalObject)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if typedPtr, ok := finalObject.(*T); ok {
+			gids = append(gids, gid)
+			objs = append(objs, *typedPtr)
+		} else if dirType, ok := finalObject.(T); ok {
+			gids = append(gids, gid)
+			objs = append(objs, dirType)
+		} else {
+			return nil, nil, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
+		}
+	}
+
+	return gids, objs, nil
 }
