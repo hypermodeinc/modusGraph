@@ -80,36 +80,25 @@ retrieval-augmented generation (RAG) feature with a single framework.
 The modus framework is optimized for apps that require sub-second response times. We’ve made
 trade-offs to prioritize speed and simplicity.
 
-## Hosting
-
-We designed Hypermode to be the best place to run your modus app. Hypermode hosting plans include
-features you might expect, such as support, telemetry, and high availability. They also include
-specialty features such as model hosting that are purposefully designed to work in tandem with modus
-apps.
-
-As modus is a free, open-source framework, you’re welcome to run your modus apps (including modusDB)
-on your own hardware or on any hosting platform that meets your needs.
-
 ## Open Source
 
-The modus framework, including modusDB is developed by [Hypermode](https://hypermode.com/) as an
+The modus framework, including modusDB, is developed by [Hypermode](https://hypermode.com/) as an
 open-source project, integral but independent from Hypermode.
 
 We welcome external contributions. See the [CONTRIBUTING.md](./CONTRIBUTING.md) file if you would
 like to get involved.
-
-## Acknowledgements
-
-ModusDB builds heavily upon packages from the open source projects of [Dgraph](https://github.com/dgraph-io/dgraph) (graph query processing
-and transaction management), [Badger](https://github.com/dgraph-io/badger) (data storage), and [Ristretto](https://github.com/dgraph-io/ristretto) (cache). We expect the
-architecture and implementations of modusDB and Dgraph to expand in differentiation over time as the
-projects optimize for different core use cases, while maintaining Dgraph Query Language (DQL)
-compatibility.
-
-## License
 
 Modus and its components are Copyright 2025 Hypermode Inc., and licensed under the terms of the
 Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for a complete copy of the license.
 
 If you have any questions about modus licensing, or need an alternate license or other arrangement,
 please contact us at hello@hypermode.com.
+
+## Acknowledgements
+
+ModusDB builds heavily upon packages from the open source projects of
+[Dgraph](https://github.com/dgraph-io/dgraph) (graph query processing and transaction management),
+[Badger](https://github.com/dgraph-io/badger) (data storage), and
+[Ristretto](https://github.com/dgraph-io/ristretto) (cache). We expect the architecture and
+implementations of modusDB and Dgraph to expand in differentiation over time as the projects
+optimize for different core use cases, while maintaining Dgraph Query Language (DQL) compatibility.
