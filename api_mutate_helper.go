@@ -239,16 +239,17 @@ func addIndex(u *pb.SchemaUpdate, index string, uniqueConstraintExists bool) boo
 	switch index {
 	case "exact":
 		u.Tokenizer = []string{"exact"}
-		uniqueConstraintExists = true
 	case "term":
 		u.Tokenizer = []string{"term"}
-		uniqueConstraintExists = true
 	case "hash":
 		u.Tokenizer = []string{"hash"}
+	case "unique":
+		u.Tokenizer = []string{"exact"}
+		u.Unique = true
+		u.Upsert = true
 		uniqueConstraintExists = true
 	case "fulltext":
 		u.Tokenizer = []string{"fulltext"}
-		uniqueConstraintExists = true
 	case "trigram":
 		u.Tokenizer = []string{"trigram"}
 	case "vector":

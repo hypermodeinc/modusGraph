@@ -14,7 +14,7 @@ type User struct {
 	Gid     uint64 `json:"gid,omitempty"`
 	Name    string `json:"name,omitempty"`
 	Age     int    `json:"age,omitempty"`
-	ClerkId string `json:"clerk_id,omitempty" db:"constraint=exact"`
+	ClerkId string `json:"clerk_id,omitempty" db:"constraint=unique"`
 }
 
 func TestFirstTimeUser(t *testing.T) {
@@ -393,14 +393,14 @@ func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 type Project struct {
 	Gid     uint64 `json:"gid,omitempty"`
 	Name    string `json:"name,omitempty"`
-	ClerkId string `json:"clerk_id,omitempty" db:"constraint=exact"`
+	ClerkId string `json:"clerk_id,omitempty" db:"constraint=unique"`
 	// Branches []Branch `json:"branches,omitempty" readFrom:"type=Branch,field=proj"`
 }
 
 type Branch struct {
 	Gid     uint64  `json:"gid,omitempty"`
 	Name    string  `json:"name,omitempty"`
-	ClerkId string  `json:"clerk_id,omitempty" db:"constraint=exact"`
+	ClerkId string  `json:"clerk_id,omitempty" db:"constraint=unique"`
 	Proj    Project `json:"proj,omitempty"`
 }
 
@@ -591,7 +591,7 @@ type BadProject struct {
 type BadBranch struct {
 	Gid     uint64     `json:"gid,omitempty"`
 	Name    string     `json:"name,omitempty"`
-	ClerkId string     `json:"clerk_id,omitempty" db:"constraint=exact"`
+	ClerkId string     `json:"clerk_id,omitempty" db:"constraint=unique"`
 	Proj    BadProject `json:"proj,omitempty"`
 }
 

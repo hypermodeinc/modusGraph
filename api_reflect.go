@@ -199,5 +199,5 @@ func getUniqueConstraint[T any](object T) (uint64, *ConstrainedField, error) {
 }
 
 func isValidUniqueIndex(name string) bool {
-	return name == "hash" || name == "exact" || name == "term" || name == "fulltext"
+	return name == "unique"
 }
