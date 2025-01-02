@@ -121,7 +121,7 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 		return nil, nil, err
 	}
 
-	filterQueryFunc := filtersToQueryFunc(t.Name(), queryParams.Filters)
+	filterQueryFunc := filtersToQueryFunc(t.Name(), queryParams.Filter)
 	paginationQueryFunc := paginationToQueryFunc(queryParams.Pagination)
 
 	readFromQuery := ""

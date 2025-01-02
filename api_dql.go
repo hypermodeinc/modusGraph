@@ -167,17 +167,8 @@ func formatObjsQuery(typeName string, qf QueryFunc, pf PaginationFunc, extraFiel
 }
 
 // Helper function to combine multiple filters
-func filtersToQueryFunc(typeName string, filters []Filter) QueryFunc {
-	if len(filters) == 0 {
-		return func() string { return "" }
-	}
-
-	queryFuncs := make([]QueryFunc, len(filters))
-	for i, filter := range filters {
-		queryFuncs[i] = filterToQueryFunc(typeName, filter)
-	}
-
-	return And(queryFuncs...)
+func filtersToQueryFunc(typeName string, filter Filter) QueryFunc {
+	return filterToQueryFunc(typeName, filter)
 }
 
 func paginationToQueryFunc(p Pagination) PaginationFunc {

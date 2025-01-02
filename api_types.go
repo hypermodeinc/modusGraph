@@ -28,7 +28,7 @@ type ConstrainedField struct {
 }
 
 type QueryParams struct {
-	Filters    []Filter
+	Filter     Filter
 	Pagination Pagination
 }
 

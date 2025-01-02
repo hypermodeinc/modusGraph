@@ -308,12 +308,10 @@ func TestQueryApi(t *testing.T) {
 	require.Equal(t, "E", queriedUsers[4].Name)
 
 	gids, queriedUsers, err = modusdb.Query[User](db, modusdb.QueryParams{
-		Filters: []modusdb.Filter{
-			{
-				Field: "age",
-				String: modusdb.StringPredicate{
-					GreaterOrEqual: fmt.Sprintf("%d", 20),
-				},
+		Filter: modusdb.Filter{
+			Field: "age",
+			String: modusdb.StringPredicate{
+				GreaterOrEqual: fmt.Sprintf("%d", 20),
 			},
 		},
 		Pagination: modusdb.Pagination{
@@ -668,13 +666,12 @@ func TestVectorIndexSearchWithQuery(t *testing.T) {
 	}
 
 	gids, docs, err := modusdb.Query[Document](db, modusdb.QueryParams{
-		Filters: []modusdb.Filter{
-			{
-				Field: "textVec",
-				Vector: modusdb.VectorPredicate{
-					SimilarTo: []float32{0.1, 0.1, 0.1},
-					TopK:      5,
-				},
+		Filter: modusdb.Filter{
+
+			Field: "textVec",
+			Vector: modusdb.VectorPredicate{
+				SimilarTo: []float32{0.1, 0.1, 0.1},
+				TopK:      5,
 			},
 		},
 	}, db1.ID())
