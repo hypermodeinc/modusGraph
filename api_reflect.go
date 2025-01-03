@@ -82,7 +82,7 @@ func createDynamicStruct(t reflect.Type, fieldToJsonTags map[string]string, dept
 		field, _ := t.FieldByName(fieldName)
 		if fieldName != "Gid" {
 			if field.Type.Kind() == reflect.Struct {
-				if depth <= 2 {
+				if depth <= 1 {
 					nestedFieldToJsonTags, _, _, _ := getFieldTags(field.Type)
 					nestedType := createDynamicStruct(field.Type, nestedFieldToJsonTags, depth+1)
 					fields = append(fields, reflect.StructField{
@@ -149,9 +149,14 @@ func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
 			gidStr := dynamicValue.String()
 			gid, _ = strconv.ParseUint(gidStr, 0, 64)
 		} else if dynamicField.Name == "DgraphType" {
-			_, ok := dynamicValue.Interface().([]string)
-			if !ok {
-				return 0, ErrNoObjFound
+			fieldArrInterface := dynamicValue.Interface()
+			fieldArr, ok := fieldArrInterface.([]string)
+			if ok {
+				if len(fieldArr) == 0 {
+					return 0, ErrNoObjFound
+				}
+			} else {
+				return 0, fmt.Errorf("DgraphType field should be an array of strings")
 			}
 		} else {
 			finalField = vFinal.FieldByName(dynamicField.Name)
