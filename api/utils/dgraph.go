@@ -132,7 +132,8 @@ func ValueToApiVal(v any) (*api.Value, error) {
 	}
 }
 
-func HandleConstraints(u *pb.SchemaUpdate, jsonToDbTags map[string]*DbTag, jsonName string, valType pb.Posting_ValType, uniqueConstraintFound bool) (bool, error) {
+func HandleConstraints(u *pb.SchemaUpdate, jsonToDbTags map[string]*DbTag, jsonName string,
+	valType pb.Posting_ValType, uniqueConstraintFound bool) (bool, error) {
 	if jsonToDbTags[jsonName] == nil {
 		return uniqueConstraintFound, nil
 	}

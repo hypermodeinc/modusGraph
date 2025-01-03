@@ -11,7 +11,8 @@ import (
 	"github.com/hypermodeinc/modusdb/api/utils"
 )
 
-func HandleReverseEdge(jsonName string, value reflect.Type, nsId uint64, sch *schema.ParsedSchema, jsonToReverseEdgeTags map[string]string) error {
+func HandleReverseEdge(jsonName string, value reflect.Type, nsId uint64, sch *schema.ParsedSchema,
+	jsonToReverseEdgeTags map[string]string) error {
 	if jsonToReverseEdgeTags[jsonName] == "" {
 		return nil
 	}
@@ -36,7 +37,8 @@ func HandleReverseEdge(jsonName string, value reflect.Type, nsId uint64, sch *sc
 	return nil
 }
 
-func CreateNQuadAndSchema(value any, gid uint64, jsonName string, t reflect.Type, nsId uint64) (*api.NQuad, *pb.SchemaUpdate, error) {
+func CreateNQuadAndSchema(value any, gid uint64, jsonName string, t reflect.Type,
+	nsId uint64) (*api.NQuad, *pb.SchemaUpdate, error) {
 	valType, err := utils.ValueToPosting_ValType(value)
 	if err != nil {
 		return nil, nil, err
