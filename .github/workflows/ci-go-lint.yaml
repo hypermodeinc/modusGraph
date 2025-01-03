@@ -10,6 +10,7 @@ on:
     paths:
       - "**/*.go"
       - "**/go.mod"
+      - .github/workflows/*
 
 permissions:
   contents: read
