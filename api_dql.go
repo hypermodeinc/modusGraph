@@ -48,6 +48,14 @@ const (
     }
   `
 
+	reverseEdgeQuery = `
+  %s: ~%s {
+			gid: uid
+			expand(_all_)
+			dgraph.type
+		}
+  `
+
 	funcUid        = `uid(%d)`
 	funcEq         = `eq(%s, %s)`
 	funcSimilarTo  = `similar_to(%s, %d, "[%s]")`

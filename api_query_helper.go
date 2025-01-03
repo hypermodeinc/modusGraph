@@ -54,13 +54,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	readFromQuery := ""
 	if withReverse {
 		for jsonTag, reverseEdgeTag := range jsonToReverseEdgeTags {
-			readFromQuery += fmt.Sprintf(`
-		%s: ~%s {
-			gid: uid
-			expand(_all_)
-			dgraph.type
-		}
-		`, getPredicateName(t.Name(), jsonTag), reverseEdgeTag)
+			readFromQuery += fmt.Sprintf(reverseEdgeQuery, getPredicateName(t.Name(), jsonTag), reverseEdgeTag)
 		}
 	}
 
@@ -152,13 +146,7 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 	readFromQuery := ""
 	if withReverse {
 		for jsonTag, reverseEdgeTag := range jsonToReverseEdgeTags {
-			readFromQuery += fmt.Sprintf(`
-		%s: ~%s {
-			uid
-			expand(_all_)
-			dgraph.type
-		}
-		`, getPredicateName(t.Name(), jsonTag), reverseEdgeTag)
+			readFromQuery += fmt.Sprintf(reverseEdgeQuery, getPredicateName(t.Name(), jsonTag), reverseEdgeTag)
 		}
 	}
 

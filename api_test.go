@@ -413,7 +413,7 @@ type Branch struct {
 	Proj    Project `json:"proj,omitempty"`
 }
 
-func TestReverseEdgeQuery(t *testing.T) {
+func TestReverseEdgeGet(t *testing.T) {
 	ctx := context.Background()
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
@@ -470,6 +470,71 @@ func TestReverseEdgeQuery(t *testing.T) {
 	require.Len(t, queriedProject.Branches, 2)
 	require.Equal(t, "B", queriedProject.Branches[0].Name)
 	require.Equal(t, "B2", queriedProject.Branches[1].Name)
+
+	queryBranchesGids, queriedBranches, err := modusdb.Query[Branch](db, modusdb.QueryParams{}, db1.ID())
+	require.NoError(t, err)
+	require.Len(t, queriedBranches, 2)
+	require.Len(t, queryBranchesGids, 2)
+	require.Equal(t, "B", queriedBranches[0].Name)
+	require.Equal(t, "B2", queriedBranches[1].Name)
+
+	// If i query a branch and get the project, i shouldn't automatically have access to retrieve data about the branches of that project
+	require.Len(t, queriedBranches[0].Proj.Branches, 0)
+}
+
+func TestReverseEdgeQuery(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	projects := []Project{
+		{Name: "P1", ClerkId: "456"},
+		{Name: "P2", ClerkId: "789"},
+	}
+
+	branchCounter := 1
+	clerkCounter := 100
+
+	for _, project := range projects {
+		projGid, project, err := modusdb.Create(db, project, db1.ID())
+		require.NoError(t, err)
+		require.Equal(t, project.Name, project.Name)
+		require.Equal(t, project.Gid, projGid)
+
+		branches := []Branch{
+			{Name: fmt.Sprintf("B%d", branchCounter), ClerkId: fmt.Sprintf("%d", clerkCounter), Proj: Project{Gid: projGid}},
+			{Name: fmt.Sprintf("B%d", branchCounter+1), ClerkId: fmt.Sprintf("%d", clerkCounter+1), Proj: Project{Gid: projGid}},
+		}
+		branchCounter += 2
+		clerkCounter += 2
+
+		for _, branch := range branches {
+			branchGid, branch, err := modusdb.Create(db, branch, db1.ID())
+			require.NoError(t, err)
+			require.Equal(t, branch.Name, branch.Name)
+			require.Equal(t, branch.Gid, branchGid)
+			require.Equal(t, projGid, branch.Proj.Gid)
+		}
+	}
+
+	queriedProjectsGids, queriedProjects, err := modusdb.Query[Project](db, modusdb.QueryParams{}, db1.ID())
+	require.NoError(t, err)
+	require.Len(t, queriedProjects, 2)
+	require.Len(t, queriedProjectsGids, 2)
+	require.Equal(t, "P1", queriedProjects[0].Name)
+	require.Equal(t, "P2", queriedProjects[1].Name)
+	require.Len(t, queriedProjects[0].Branches, 2)
+	require.Len(t, queriedProjects[1].Branches, 2)
+	require.Equal(t, "B1", queriedProjects[0].Branches[0].Name)
+	require.Equal(t, "B2", queriedProjects[0].Branches[1].Name)
+	require.Equal(t, "B3", queriedProjects[1].Branches[0].Name)
+	require.Equal(t, "B4", queriedProjects[1].Branches[1].Name)
 }
 
 func TestNestedObjectMutation(t *testing.T) {

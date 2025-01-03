@@ -155,7 +155,7 @@ func Query[T any](db *DB, queryParams QueryParams, ns ...uint64) ([]uint64, []T,
 		return nil, nil, err
 	}
 
-	return executeQuery[T](ctx, n, queryParams, false)
+	return executeQuery[T](ctx, n, queryParams, true)
 }
 
 func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, error) {
