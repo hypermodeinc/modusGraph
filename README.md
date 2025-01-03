@@ -1,4 +1,3 @@
-<!-- markdownlint-disable first-line-heading -->
 <div align="center">
 
 [![modus](https://github.com/user-attachments/assets/1a6020bd-d041-4dd0-b4a9-ce01dc015b65)](https://github.com/hypermodeinc/modusdb)
