@@ -1,5 +1,3 @@
-<!-- markdownlint-disable first-line-heading -->
-
 **Description**
 
 Please explain the changes you made here.

@@ -3,5 +3,6 @@
   "no-inline-html": false,
   "no-bare-urls": false,
   "no-space-in-emphasis": false,
-  "no-emphasis-as-heading": false
+  "no-emphasis-as-heading": false,
+  "first-line-heading": false
 }
