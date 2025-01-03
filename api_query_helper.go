@@ -67,7 +67,8 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	if ok {
 		query = dql_query.FormatObjQuery(dql_query.BuildUidQuery(gid), readFromQuery)
 	} else if cf, ok = any(args[0]).(ConstrainedField); ok {
-		query = dql_query.FormatObjQuery(dql_query.BuildEqQuery(utils.GetPredicateName(t.Name(), cf.Key), cf.Value), readFromQuery)
+		query = dql_query.FormatObjQuery(dql_query.BuildEqQuery(utils.GetPredicateName(t.Name(),
+			cf.Key), cf.Value), readFromQuery)
 	} else {
 		return 0, obj, fmt.Errorf("invalid unique field type")
 	}

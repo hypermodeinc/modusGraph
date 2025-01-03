@@ -211,34 +211,44 @@ func filterToQueryFunc(typeName string, f Filter) dql_query.QueryFunc {
 		return dql_query.BuildEqQuery(utils.GetPredicateName(typeName, f.Field), f.String.Equals)
 	}
 	if len(f.String.AllOfTerms) != 0 {
-		return dql_query.BuildAllOfTermsQuery(utils.GetPredicateName(typeName, f.Field), strings.Join(f.String.AllOfTerms, " "))
+		return dql_query.BuildAllOfTermsQuery(utils.GetPredicateName(typeName,
+			f.Field), strings.Join(f.String.AllOfTerms, " "))
 	}
 	if len(f.String.AnyOfTerms) != 0 {
-		return dql_query.BuildAnyOfTermsQuery(utils.GetPredicateName(typeName, f.Field), strings.Join(f.String.AnyOfTerms, " "))
+		return dql_query.BuildAnyOfTermsQuery(utils.GetPredicateName(typeName,
+			f.Field), strings.Join(f.String.AnyOfTerms, " "))
 	}
 	if len(f.String.AllOfText) != 0 {
-		return dql_query.BuildAllOfTextQuery(utils.GetPredicateName(typeName, f.Field), strings.Join(f.String.AllOfText, " "))
+		return dql_query.BuildAllOfTextQuery(utils.GetPredicateName(typeName,
+			f.Field), strings.Join(f.String.AllOfText, " "))
 	}
 	if len(f.String.AnyOfText) != 0 {
-		return dql_query.BuildAnyOfTextQuery(utils.GetPredicateName(typeName, f.Field), strings.Join(f.String.AnyOfText, " "))
+		return dql_query.BuildAnyOfTextQuery(utils.GetPredicateName(typeName,
+			f.Field), strings.Join(f.String.AnyOfText, " "))
 	}
 	if f.String.RegExp != "" {
-		return dql_query.BuildRegExpQuery(utils.GetPredicateName(typeName, f.Field), f.String.RegExp)
+		return dql_query.BuildRegExpQuery(utils.GetPredicateName(typeName,
+			f.Field), f.String.RegExp)
 	}
 	if f.String.LessThan != "" {
-		return dql_query.BuildLtQuery(utils.GetPredicateName(typeName, f.Field), f.String.LessThan)
+		return dql_query.BuildLtQuery(utils.GetPredicateName(typeName,
+			f.Field), f.String.LessThan)
 	}
 	if f.String.LessOrEqual != "" {
-		return dql_query.BuildLeQuery(utils.GetPredicateName(typeName, f.Field), f.String.LessOrEqual)
+		return dql_query.BuildLeQuery(utils.GetPredicateName(typeName,
+			f.Field), f.String.LessOrEqual)
 	}
 	if f.String.GreaterThan != "" {
-		return dql_query.BuildGtQuery(utils.GetPredicateName(typeName, f.Field), f.String.GreaterThan)
+		return dql_query.BuildGtQuery(utils.GetPredicateName(typeName,
+			f.Field), f.String.GreaterThan)
 	}
 	if f.String.GreaterOrEqual != "" {
-		return dql_query.BuildGeQuery(utils.GetPredicateName(typeName, f.Field), f.String.GreaterOrEqual)
+		return dql_query.BuildGeQuery(utils.GetPredicateName(typeName,
+			f.Field), f.String.GreaterOrEqual)
 	}
 	if f.Vector.SimilarTo != nil {
-		return dql_query.BuildSimilarToQuery(utils.GetPredicateName(typeName, f.Field), f.Vector.TopK, f.Vector.SimilarTo)
+		return dql_query.BuildSimilarToQuery(utils.GetPredicateName(typeName,
+			f.Field), f.Vector.TopK, f.Vector.SimilarTo)
 	}
 
 	// Return empty query if no conditions match
