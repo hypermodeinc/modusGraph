@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   ci-go-lint:
-    runs-on: ubuntu-24.04
+    runs-on: warp-ubuntu-latest-arm64-2x
 
     steps:
       - uses: actions/checkout@v4

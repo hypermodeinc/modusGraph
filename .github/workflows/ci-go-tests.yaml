@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   ci-go-tests:
-    runs-on: ubuntu-24.04
+    runs-on: warp-ubuntu-latest-arm64-16x
 
     steps:
       - uses: actions/checkout@v4
