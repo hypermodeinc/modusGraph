@@ -413,6 +413,34 @@ type Branch struct {
 	Proj    Project `json:"proj,omitempty"`
 }
 
+func TestReverseEdgeMutation(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	projGid, project, err := modusdb.Create(db, Project{
+		Name:    "P",
+		ClerkId: "456",
+		Branches: []Branch{
+			{Name: "B", ClerkId: "123"},
+			{Name: "B2", ClerkId: "456"},
+		},
+	}, db1.ID())
+	require.NoError(t, err)
+
+	require.Equal(t, "P", project.Name)
+	require.Equal(t, project.Gid, projGid)
+
+	//modifying a read-only field will be a no-op
+	require.Len(t, project.Branches, 0)
+}
+
 func TestReverseEdgeGet(t *testing.T) {
 	ctx := context.Background()
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
