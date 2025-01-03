@@ -192,3 +192,19 @@ func MapDynamicToFinal(dynamic any, final any, isNested bool) (uint64, error) {
 	}
 	return gid, nil
 }
+
+func ConvertDynamicToTyped[T any](obj any, t reflect.Type) (uint64, T, error) {
+	var result T
+	finalObject := reflect.New(t).Interface()
+	gid, err := MapDynamicToFinal(obj, finalObject, false)
+	if err != nil {
+		return 0, result, err
+	}
+
+	if typedPtr, ok := finalObject.(*T); ok {
+		return gid, *typedPtr, nil
+	} else if dirType, ok := finalObject.(T); ok {
+		return gid, dirType, nil
+	}
+	return 0, result, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
+}

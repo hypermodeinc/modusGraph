@@ -1,4 +1,4 @@
-package dql_query
+package query_gen
 
 import (
 	"fmt"

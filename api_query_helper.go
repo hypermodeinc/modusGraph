@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/hypermodeinc/modusdb/api/dql_query"
+	"github.com/hypermodeinc/modusdb/api/query_gen"
 	"github.com/hypermodeinc/modusdb/api/utils"
 )
 
@@ -57,7 +57,8 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	readFromQuery := ""
 	if withReverse {
 		for jsonTag, reverseEdgeTag := range jsonToReverseEdgeTags {
-			readFromQuery += fmt.Sprintf(dql_query.ReverseEdgeQuery, utils.GetPredicateName(t.Name(), jsonTag), reverseEdgeTag)
+			readFromQuery += fmt.Sprintf(query_gen.ReverseEdgeQuery,
+				utils.GetPredicateName(t.Name(), jsonTag), reverseEdgeTag)
 		}
 	}
 
@@ -65,9 +66,9 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	var query string
 	gid, ok := any(args[0]).(uint64)
 	if ok {
-		query = dql_query.FormatObjQuery(dql_query.BuildUidQuery(gid), readFromQuery)
+		query = query_gen.FormatObjQuery(query_gen.BuildUidQuery(gid), readFromQuery)
 	} else if cf, ok = any(args[0]).(ConstrainedField); ok {
-		query = dql_query.FormatObjQuery(dql_query.BuildEqQuery(utils.GetPredicateName(t.Name(),
+		query = query_gen.FormatObjQuery(query_gen.BuildEqQuery(utils.GetPredicateName(t.Name(),
 			cf.Key), cf.Value), readFromQuery)
 	} else {
 		return 0, obj, fmt.Errorf("invalid unique field type")
@@ -102,22 +103,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 		return 0, obj, utils.ErrNoObjFound
 	}
 
-	// Map the dynamic struct to the final type T
-	finalObject := reflect.New(t).Interface()
-	gid, err = utils.MapDynamicToFinal(result.Obj[0], finalObject, false)
-	if err != nil {
-		return 0, obj, err
-	}
-
-	if typedPtr, ok := finalObject.(*T); ok {
-		return gid, *typedPtr, nil
-	}
-
-	if dirType, ok := finalObject.(T); ok {
-		return gid, dirType, nil
-	}
-
-	return 0, obj, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
+	return utils.ConvertDynamicToTyped[T](result.Obj[0], t)
 }
 
 func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryParams,
@@ -129,7 +115,7 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 		return nil, nil, err
 	}
 
-	var filterQueryFunc dql_query.QueryFunc = func() string {
+	var filterQueryFunc query_gen.QueryFunc = func() string {
 		return ""
 	}
 	var paginationAndSorting string
@@ -150,11 +136,11 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 	readFromQuery := ""
 	if withReverse {
 		for jsonTag, reverseEdgeTag := range jsonToReverseEdgeTags {
-			readFromQuery += fmt.Sprintf(dql_query.ReverseEdgeQuery, utils.GetPredicateName(t.Name(), jsonTag), reverseEdgeTag)
+			readFromQuery += fmt.Sprintf(query_gen.ReverseEdgeQuery, utils.GetPredicateName(t.Name(), jsonTag), reverseEdgeTag)
 		}
 	}
 
-	query := dql_query.FormatObjsQuery(t.Name(), filterQueryFunc, paginationAndSorting, readFromQuery)
+	query := query_gen.FormatObjsQuery(t.Name(), filterQueryFunc, paginationAndSorting, readFromQuery)
 
 	resp, err := n.queryWithLock(ctx, query)
 	if err != nil {
@@ -188,21 +174,12 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 	var gids []uint64
 	var objs []T
 	for _, obj := range result.Objs {
-		finalObject := reflect.New(t).Interface()
-		gid, err := utils.MapDynamicToFinal(obj, finalObject, false)
+		gid, typedObj, err := utils.ConvertDynamicToTyped[T](obj, t)
 		if err != nil {
 			return nil, nil, err
 		}
-
-		if typedPtr, ok := finalObject.(*T); ok {
-			gids = append(gids, gid)
-			objs = append(objs, *typedPtr)
-		} else if dirType, ok := finalObject.(T); ok {
-			gids = append(gids, gid)
-			objs = append(objs, dirType)
-		} else {
-			return nil, nil, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
-		}
+		gids = append(gids, gid)
+		objs = append(objs, typedObj)
 	}
 
 	return gids, objs, nil

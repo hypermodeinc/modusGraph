@@ -35,7 +35,7 @@ func Create[T any](db *DB, object T, ns ...uint64) (uint64, T, error) {
 
 	dms := make([]*dql.Mutation, 0)
 	sch := &schema.ParsedSchema{}
-	err = generateCreateDqlMutationsAndSchema[T](ctx, n, object, gid, &dms, sch)
+	err = generateSetDqlMutationsAndSchema[T](ctx, n, object, gid, &dms, sch)
 	if err != nil {
 		return 0, object, err
 	}
@@ -74,7 +74,7 @@ func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 
 	dms := make([]*dql.Mutation, 0)
 	sch := &schema.ParsedSchema{}
-	err = generateCreateDqlMutationsAndSchema[T](ctx, n, object, gid, &dms, sch)
+	err = generateSetDqlMutationsAndSchema[T](ctx, n, object, gid, &dms, sch)
 	if err != nil {
 		return 0, object, false, err
 	}
@@ -105,7 +105,7 @@ func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 	}
 
 	dms = make([]*dql.Mutation, 0)
-	err = generateCreateDqlMutationsAndSchema[T](ctx, n, object, gid, &dms, sch)
+	err = generateSetDqlMutationsAndSchema[T](ctx, n, object, gid, &dms, sch)
 	if err != nil {
 		return 0, object, false, err
 	}
