@@ -171,15 +171,15 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 		return nil, nil, err
 	}
 
-	var gids []uint64
-	var objs []T
-	for _, obj := range result.Objs {
+	gids := make([]uint64, len(result.Objs))
+	objs := make([]T, len(result.Objs))
+	for i, obj := range result.Objs {
 		gid, typedObj, err := utils.ConvertDynamicToTyped[T](obj, t)
 		if err != nil {
 			return nil, nil, err
 		}
-		gids = append(gids, gid)
-		objs = append(objs, typedObj)
+		gids[i] = gid
+		objs[i] = typedObj
 	}
 
 	return gids, objs, nil
