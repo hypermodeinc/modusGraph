@@ -22,6 +22,7 @@ import (
 	"github.com/dgraph-io/dgraph/v24/schema"
 	"github.com/dgraph-io/dgraph/v24/worker"
 	"github.com/dgraph-io/dgraph/v24/x"
+	"github.com/hypermodeinc/modusdb/api/utils"
 )
 
 func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, object T,
@@ -31,11 +32,11 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 		return fmt.Errorf("expected struct, got %s", t.Kind())
 	}
 
-	fieldToJsonTags, jsonToDbTags, jsonToReverseEdgeTags, err := getFieldTags(t)
+	fieldToJsonTags, jsonToDbTags, jsonToReverseEdgeTags, err := utils.GetFieldTags(t)
 	if err != nil {
 		return err
 	}
-	jsonTagToValue := getJsonTagToValues(object, fieldToJsonTags)
+	jsonTagToValue := utils.GetJsonTagToValues(object, fieldToJsonTags)
 
 	nquads := make([]*api.NQuad, 0)
 	uniqueConstraintFound := false
@@ -53,13 +54,13 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 			reverseEdge := jsonToReverseEdgeTags[jsonName]
 			typeName := strings.Split(reverseEdge, ".")[0]
 			u := &pb.SchemaUpdate{
-				Predicate: addNamespace(n.id, reverseEdge),
+				Predicate: utils.AddNamespace(n.id, reverseEdge),
 				ValueType: pb.Posting_UID,
 				Directive: pb.SchemaUpdate_REVERSE,
 			}
 			sch.Preds = append(sch.Preds, u)
 			sch.Types = append(sch.Types, &pb.TypeUpdate{
-				TypeName: addNamespace(n.id, typeName),
+				TypeName: utils.AddNamespace(n.id, typeName),
 				Fields:   []*pb.SchemaUpdate{u},
 			})
 			continue
@@ -101,11 +102,11 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 		nquad = &api.NQuad{
 			Namespace: n.ID(),
 			Subject:   fmt.Sprint(gid),
-			Predicate: getPredicateName(t.Name(), jsonName),
+			Predicate: utils.GetPredicateName(t.Name(), jsonName),
 		}
 
 		u := &pb.SchemaUpdate{
-			Predicate: addNamespace(n.id, getPredicateName(t.Name(), jsonName)),
+			Predicate: utils.AddNamespace(n.id, utils.GetPredicateName(t.Name(), jsonName)),
 			ValueType: valType,
 		}
 
@@ -117,7 +118,7 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 		}
 
 		if jsonToDbTags[jsonName] != nil {
-			constraint := jsonToDbTags[jsonName].constraint
+			constraint := jsonToDbTags[jsonName].Constraint
 			if constraint == "vector" && valType != pb.Posting_VFLOAT {
 				return fmt.Errorf("vector index can only be applied to []float values")
 			}
@@ -128,10 +129,10 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 		nquads = append(nquads, nquad)
 	}
 	if !uniqueConstraintFound {
-		return fmt.Errorf(NoUniqueConstr, t.Name())
+		return fmt.Errorf(utils.NoUniqueConstr, t.Name())
 	}
 	sch.Types = append(sch.Types, &pb.TypeUpdate{
-		TypeName: addNamespace(n.id, t.Name()),
+		TypeName: utils.AddNamespace(n.id, t.Name()),
 		Fields:   sch.Preds,
 	})
 
@@ -209,7 +210,7 @@ func applyDqlMutations(ctx context.Context, db *DB, dms []*dql.Mutation) error {
 }
 
 func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) (uint64, error) {
-	gid, cf, err := getUniqueConstraint[T](object)
+	gid, cf, err := GetUniqueConstraint[T](object)
 	if err != nil {
 		return 0, err
 	}
@@ -227,7 +228,7 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 	}
 	if gid != 0 {
 		gid, _, err = getByGidWithObject[T](ctx, n, gid, object)
-		if err != nil && err != ErrNoObjFound {
+		if err != nil && err != utils.ErrNoObjFound {
 			return 0, err
 		}
 		if err == nil {
@@ -235,7 +236,7 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 		}
 	} else if cf != nil {
 		gid, _, err = getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
-		if err != nil && err != ErrNoObjFound {
+		if err != nil && err != utils.ErrNoObjFound {
 			return 0, err
 		}
 		if err == nil {

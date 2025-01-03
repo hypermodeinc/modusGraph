@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hypermodeinc/modusdb"
+	"github.com/hypermodeinc/modusdb/api/utils"
 )
 
 type User struct {
@@ -767,7 +768,7 @@ func TestNestedObjectMutationWithBadType(t *testing.T) {
 
 	_, _, err = modusdb.Create(db, branch, db1.ID())
 	require.Error(t, err)
-	require.Equal(t, fmt.Sprintf(modusdb.NoUniqueConstr, "BadProject"), err.Error())
+	require.Equal(t, fmt.Sprintf(utils.NoUniqueConstr, "BadProject"), err.Error())
 
 	proj := BadProject{
 		Name:    "P",
@@ -776,7 +777,7 @@ func TestNestedObjectMutationWithBadType(t *testing.T) {
 
 	_, _, err = modusdb.Create(db, proj, db1.ID())
 	require.Error(t, err)
-	require.Equal(t, fmt.Sprintf(modusdb.NoUniqueConstr, "BadProject"), err.Error())
+	require.Equal(t, fmt.Sprintf(utils.NoUniqueConstr, "BadProject"), err.Error())
 
 }
 

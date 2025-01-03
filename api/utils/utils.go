@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package modusdb
+package utils
 
 import (
 	"fmt"
@@ -15,10 +15,15 @@ import (
 	"github.com/dgraph-io/dgraph/v24/x"
 )
 
-func getPredicateName(typeName, fieldName string) string {
+var (
+	ErrNoObjFound  = fmt.Errorf("no object found")
+	NoUniqueConstr = "unique constraint not defined for any field on type %s"
+)
+
+func GetPredicateName(typeName, fieldName string) string {
 	return fmt.Sprint(typeName, ".", fieldName)
 }
 
-func addNamespace(ns uint64, pred string) string {
+func AddNamespace(ns uint64, pred string) string {
 	return x.NamespaceAttr(ns, pred)
 }

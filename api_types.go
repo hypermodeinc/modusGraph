@@ -20,13 +20,10 @@ import (
 	"github.com/dgraph-io/dgraph/v24/protos/pb"
 	"github.com/dgraph-io/dgraph/v24/types"
 	"github.com/dgraph-io/dgraph/v24/x"
+	"github.com/hypermodeinc/modusdb/api/dql_query"
+	"github.com/hypermodeinc/modusdb/api/utils"
 	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/wkb"
-)
-
-var (
-	ErrNoObjFound  = fmt.Errorf("no object found")
-	NoUniqueConstr = "unique constraint not defined for any field on type %s"
 )
 
 type UniqueField interface {
@@ -197,53 +194,98 @@ func valueToApiVal(v any) (*api.Value, error) {
 	}
 }
 
-func filterToQueryFunc(typeName string, f Filter) QueryFunc {
+func filterToQueryFunc(typeName string, f Filter) dql_query.QueryFunc {
 	// Handle logical operators first
 	if f.And != nil {
-		return And(filterToQueryFunc(typeName, *f.And))
+		return dql_query.And(filterToQueryFunc(typeName, *f.And))
 	}
 	if f.Or != nil {
-		return Or(filterToQueryFunc(typeName, *f.Or))
+		return dql_query.Or(filterToQueryFunc(typeName, *f.Or))
 	}
 	if f.Not != nil {
-		return Not(filterToQueryFunc(typeName, *f.Not))
+		return dql_query.Not(filterToQueryFunc(typeName, *f.Not))
 	}
 
 	// Handle field predicates
 	if f.String.Equals != "" {
-		return buildEqQuery(getPredicateName(typeName, f.Field), f.String.Equals)
+		return dql_query.BuildEqQuery(utils.GetPredicateName(typeName, f.Field), f.String.Equals)
 	}
 	if len(f.String.AllOfTerms) != 0 {
-		return buildAllOfTermsQuery(getPredicateName(typeName, f.Field), strings.Join(f.String.AllOfTerms, " "))
+		return dql_query.BuildAllOfTermsQuery(utils.GetPredicateName(typeName, f.Field), strings.Join(f.String.AllOfTerms, " "))
 	}
 	if len(f.String.AnyOfTerms) != 0 {
-		return buildAnyOfTermsQuery(getPredicateName(typeName, f.Field), strings.Join(f.String.AnyOfTerms, " "))
+		return dql_query.BuildAnyOfTermsQuery(utils.GetPredicateName(typeName, f.Field), strings.Join(f.String.AnyOfTerms, " "))
 	}
 	if len(f.String.AllOfText) != 0 {
-		return buildAllOfTextQuery(getPredicateName(typeName, f.Field), strings.Join(f.String.AllOfText, " "))
+		return dql_query.BuildAllOfTextQuery(utils.GetPredicateName(typeName, f.Field), strings.Join(f.String.AllOfText, " "))
 	}
 	if len(f.String.AnyOfText) != 0 {
-		return buildAnyOfTextQuery(getPredicateName(typeName, f.Field), strings.Join(f.String.AnyOfText, " "))
+		return dql_query.BuildAnyOfTextQuery(utils.GetPredicateName(typeName, f.Field), strings.Join(f.String.AnyOfText, " "))
 	}
 	if f.String.RegExp != "" {
-		return buildRegExpQuery(getPredicateName(typeName, f.Field), f.String.RegExp)
+		return dql_query.BuildRegExpQuery(utils.GetPredicateName(typeName, f.Field), f.String.RegExp)
 	}
 	if f.String.LessThan != "" {
-		return buildLtQuery(getPredicateName(typeName, f.Field), f.String.LessThan)
+		return dql_query.BuildLtQuery(utils.GetPredicateName(typeName, f.Field), f.String.LessThan)
 	}
 	if f.String.LessOrEqual != "" {
-		return buildLeQuery(getPredicateName(typeName, f.Field), f.String.LessOrEqual)
+		return dql_query.BuildLeQuery(utils.GetPredicateName(typeName, f.Field), f.String.LessOrEqual)
 	}
 	if f.String.GreaterThan != "" {
-		return buildGtQuery(getPredicateName(typeName, f.Field), f.String.GreaterThan)
+		return dql_query.BuildGtQuery(utils.GetPredicateName(typeName, f.Field), f.String.GreaterThan)
 	}
 	if f.String.GreaterOrEqual != "" {
-		return buildGeQuery(getPredicateName(typeName, f.Field), f.String.GreaterOrEqual)
+		return dql_query.BuildGeQuery(utils.GetPredicateName(typeName, f.Field), f.String.GreaterOrEqual)
 	}
 	if f.Vector.SimilarTo != nil {
-		return buildSimilarToQuery(getPredicateName(typeName, f.Field), f.Vector.TopK, f.Vector.SimilarTo)
+		return dql_query.BuildSimilarToQuery(utils.GetPredicateName(typeName, f.Field), f.Vector.TopK, f.Vector.SimilarTo)
 	}
 
 	// Return empty query if no conditions match
 	return func() string { return "" }
+}
+
+// Helper function to combine multiple filters
+func filtersToQueryFunc(typeName string, filter Filter) dql_query.QueryFunc {
+	return filterToQueryFunc(typeName, filter)
+}
+
+func paginationToQueryString(p Pagination) string {
+	paginationStr := ""
+	if p.Limit > 0 {
+		paginationStr += ", " + fmt.Sprintf("first: %d", p.Limit)
+	}
+	if p.Offset > 0 {
+		paginationStr += ", " + fmt.Sprintf("offset: %d", p.Offset)
+	} else if p.After != "" {
+		paginationStr += ", " + fmt.Sprintf("after: %s", p.After)
+	}
+	if paginationStr == "" {
+		return ""
+	}
+	return paginationStr
+}
+
+func sortingToQueryString(typeName string, s Sorting) string {
+	if s.OrderAscField == "" && s.OrderDescField == "" {
+		return ""
+	}
+
+	var parts []string
+	first, second := s.OrderDescField, s.OrderAscField
+	firstOp, secondOp := "orderdesc", "orderasc"
+
+	if !s.OrderDescFirst {
+		first, second = s.OrderAscField, s.OrderDescField
+		firstOp, secondOp = "orderasc", "orderdesc"
+	}
+
+	if first != "" {
+		parts = append(parts, fmt.Sprintf("%s: %s", firstOp, utils.GetPredicateName(typeName, first)))
+	}
+	if second != "" {
+		parts = append(parts, fmt.Sprintf("%s: %s", secondOp, utils.GetPredicateName(typeName, second)))
+	}
+
+	return ", " + strings.Join(parts, ", ")
 }
