@@ -184,3 +184,16 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 
 	return gids, objs, nil
 }
+
+func getExistingObject[T any](ctx context.Context, n *Namespace, gid uint64, cf *ConstrainedField, object T) (uint64, error) {
+	var err error
+	if gid != 0 {
+		gid, _, err = getByGidWithObject[T](ctx, n, gid, object)
+	} else if cf != nil {
+		gid, _, err = getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return gid, nil
+}

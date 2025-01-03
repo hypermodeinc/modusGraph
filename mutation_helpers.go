@@ -54,16 +54,8 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 	if err != nil {
 		return 0, err
 	}
-	if gid != 0 {
-		gid, _, err = getByGidWithObject[T](ctx, n, gid, object)
-		if err != nil && err != utils.ErrNoObjFound {
-			return 0, err
-		}
-		if err == nil {
-			return gid, nil
-		}
-	} else if cf != nil {
-		gid, _, err = getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
+	if gid != 0 || cf != nil {
+		gid, err = getExistingObject(ctx, n, gid, cf, object)
 		if err != nil && err != utils.ErrNoObjFound {
 			return 0, err
 		}

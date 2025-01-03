@@ -84,19 +84,14 @@ func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 		return 0, object, false, err
 	}
 
-	if gid != 0 {
-		gid, _, err = getByGidWithObject[T](ctx, n, gid, object)
-		if err != nil && err != utils.ErrNoObjFound {
-			return 0, object, false, err
-		}
-		wasFound = err == nil
-	} else if cf != nil {
-		gid, _, err = getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
+	if gid != 0 || cf != nil {
+		gid, err = getExistingObject[T](ctx, n, gid, cf, object)
 		if err != nil && err != utils.ErrNoObjFound {
 			return 0, object, false, err
 		}
 		wasFound = err == nil
 	}
+
 	if gid == 0 {
 		gid, err = db.z.nextUID()
 		if err != nil {
