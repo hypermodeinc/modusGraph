@@ -413,7 +413,7 @@ type Branch struct {
 	Proj    Project `json:"proj,omitempty"`
 }
 
-func TestReverseEdgeMutation(t *testing.T) {
+func TestReverseEdgeGet(t *testing.T) {
 	ctx := context.Background()
 	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
@@ -437,29 +437,8 @@ func TestReverseEdgeMutation(t *testing.T) {
 	require.Equal(t, "P", project.Name)
 	require.Equal(t, project.Gid, projGid)
 
-	//modifying a read-only field will be a no-op
+	// modifying a read-only field will be a no-op
 	require.Len(t, project.Branches, 0)
-}
-
-func TestReverseEdgeGet(t *testing.T) {
-	ctx := context.Background()
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
-	require.NoError(t, err)
-	defer db.Close()
-
-	db1, err := db.CreateNamespace()
-	require.NoError(t, err)
-
-	require.NoError(t, db1.DropData(ctx))
-
-	projGid, project, err := modusdb.Create(db, Project{
-		Name:    "P",
-		ClerkId: "456",
-	}, db1.ID())
-	require.NoError(t, err)
-
-	require.Equal(t, "P", project.Name)
-	require.Equal(t, project.Gid, projGid)
 
 	branch1 := Branch{
 		Name:    "B",
@@ -506,8 +485,18 @@ func TestReverseEdgeGet(t *testing.T) {
 	require.Equal(t, "B", queriedBranches[0].Name)
 	require.Equal(t, "B2", queriedBranches[1].Name)
 
-	// max depth is 2
+	// max depth is 2, so we should not see the branches within project
 	require.Len(t, queriedBranches[0].Proj.Branches, 0)
+
+	_, _, err = modusdb.Delete[Project](db, projGid, db1.ID())
+	require.NoError(t, err)
+
+	queryBranchesGids, queriedBranches, err = modusdb.Query[Branch](db, modusdb.QueryParams{}, db1.ID())
+	require.NoError(t, err)
+	require.Len(t, queriedBranches, 2)
+	require.Len(t, queryBranchesGids, 2)
+	require.Equal(t, "B", queriedBranches[0].Name)
+	require.Equal(t, "B2", queriedBranches[1].Name)
 }
 
 func TestReverseEdgeQuery(t *testing.T) {

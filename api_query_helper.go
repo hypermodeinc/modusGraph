@@ -100,7 +100,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 
 	// Map the dynamic struct to the final type T
 	finalObject := reflect.New(t).Interface()
-	gid, err = mapDynamicToFinal(result.Obj[0], finalObject)
+	gid, err = mapDynamicToFinal(result.Obj[0], finalObject, false)
 	if err != nil {
 		return 0, obj, err
 	}
@@ -185,7 +185,7 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 	var objs []T
 	for _, obj := range result.Objs {
 		finalObject := reflect.New(t).Interface()
-		gid, err := mapDynamicToFinal(obj, finalObject)
+		gid, err := mapDynamicToFinal(obj, finalObject, false)
 		if err != nil {
 			return nil, nil, err
 		}

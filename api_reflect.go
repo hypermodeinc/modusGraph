@@ -131,7 +131,7 @@ func createDynamicStruct(t reflect.Type, fieldToJsonTags map[string]string, dept
 	return reflect.StructOf(fields)
 }
 
-func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
+func mapDynamicToFinal(dynamic any, final any, isNested bool) (uint64, error) {
 	vFinal := reflect.ValueOf(final).Elem()
 	vDynamic := reflect.ValueOf(dynamic).Elem()
 
@@ -153,7 +153,11 @@ func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
 			fieldArr, ok := fieldArrInterface.([]string)
 			if ok {
 				if len(fieldArr) == 0 {
-					return 0, ErrNoObjFound
+					if !isNested {
+						return 0, ErrNoObjFound
+					} else {
+						continue
+					}
 				}
 			} else {
 				return 0, fmt.Errorf("DgraphType field should be an array of strings")
@@ -162,14 +166,14 @@ func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
 			finalField = vFinal.FieldByName(dynamicField.Name)
 		}
 		if dynamicFieldType.Kind() == reflect.Struct {
-			_, err := mapDynamicToFinal(dynamicValue.Addr().Interface(), finalField.Addr().Interface())
+			_, err := mapDynamicToFinal(dynamicValue.Addr().Interface(), finalField.Addr().Interface(), true)
 			if err != nil {
 				return 0, err
 			}
 		} else if dynamicFieldType.Kind() == reflect.Ptr &&
 			dynamicFieldType.Elem().Kind() == reflect.Struct {
 			// if field is a pointer, find if the underlying is a struct
-			_, err := mapDynamicToFinal(dynamicValue.Interface(), finalField.Interface())
+			_, err := mapDynamicToFinal(dynamicValue.Interface(), finalField.Interface(), true)
 			if err != nil {
 				return 0, err
 			}
@@ -178,7 +182,7 @@ func mapDynamicToFinal(dynamic any, final any) (uint64, error) {
 			for j := 0; j < dynamicValue.Len(); j++ {
 				sliceElem := dynamicValue.Index(j).Addr().Interface()
 				finalSliceElem := reflect.New(finalField.Type().Elem()).Elem()
-				_, err := mapDynamicToFinal(sliceElem, finalSliceElem.Addr().Interface())
+				_, err := mapDynamicToFinal(sliceElem, finalSliceElem.Addr().Interface(), true)
 				if err != nil {
 					return 0, err
 				}
