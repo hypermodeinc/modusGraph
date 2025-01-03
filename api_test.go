@@ -478,7 +478,7 @@ func TestReverseEdgeGet(t *testing.T) {
 	require.Equal(t, "B", queriedBranches[0].Name)
 	require.Equal(t, "B2", queriedBranches[1].Name)
 
-	// If i query a branch and get the project, i shouldn't automatically have access to retrieve data about the branches of that project
+	// max depth is 2
 	require.Len(t, queriedBranches[0].Proj.Branches, 0)
 }
 
