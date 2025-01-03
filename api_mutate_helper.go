@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/dgraph/v24/dql"
@@ -39,18 +40,34 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 	nquads := make([]*api.NQuad, 0)
 	uniqueConstraintFound := false
 	for jsonName, value := range jsonTagToValue {
+		var val *api.Value
+		var valType pb.Posting_ValType
+
+		reflectValueType := reflect.TypeOf(value)
+		var nquad *api.NQuad
+
 		if jsonToReverseEdgeTags[jsonName] != "" {
+			if reflectValueType.Kind() != reflect.Slice || reflectValueType.Elem().Kind() != reflect.Struct {
+				return fmt.Errorf("reverse edge %s should be a slice of structs", jsonName)
+			}
+			reverseEdge := jsonToReverseEdgeTags[jsonName]
+			typeName := strings.Split(reverseEdge, ".")[0]
+			u := &pb.SchemaUpdate{
+				Predicate: addNamespace(n.id, reverseEdge),
+				ValueType: pb.Posting_UID,
+				Directive: pb.SchemaUpdate_REVERSE,
+			}
+			sch.Preds = append(sch.Preds, u)
+			sch.Types = append(sch.Types, &pb.TypeUpdate{
+				TypeName: addNamespace(n.id, typeName),
+				Fields:   []*pb.SchemaUpdate{u},
+			})
 			continue
 		}
 		if jsonName == "gid" {
 			uniqueConstraintFound = true
 			continue
 		}
-		var val *api.Value
-		var valType pb.Posting_ValType
-
-		reflectValueType := reflect.TypeOf(value)
-		var nquad *api.NQuad
 
 		if reflectValueType.Kind() == reflect.Struct {
 			value = reflect.ValueOf(value).Interface()
@@ -87,16 +104,18 @@ func generateCreateDqlMutationsAndSchema[T any](ctx context.Context, n *Namespac
 			Predicate: getPredicateName(t.Name(), jsonName),
 		}
 
-		if valType == pb.Posting_UID {
-			nquad.ObjectId = fmt.Sprint(value)
-		} else {
-			nquad.ObjectValue = val
-		}
-
 		u := &pb.SchemaUpdate{
 			Predicate: addNamespace(n.id, getPredicateName(t.Name(), jsonName)),
 			ValueType: valType,
 		}
+
+		if valType == pb.Posting_UID {
+			nquad.ObjectId = fmt.Sprint(value)
+			u.Directive = pb.SchemaUpdate_REVERSE
+		} else {
+			nquad.ObjectValue = val
+		}
+
 		if jsonToDbTags[jsonName] != nil {
 			constraint := jsonToDbTags[jsonName].constraint
 			if constraint == "vector" && valType != pb.Posting_VFLOAT {

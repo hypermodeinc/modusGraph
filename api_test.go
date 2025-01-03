@@ -400,10 +400,10 @@ func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 }
 
 type Project struct {
-	Gid     uint64 `json:"gid,omitempty"`
-	Name    string `json:"name,omitempty"`
-	ClerkId string `json:"clerk_id,omitempty" db:"constraint=unique"`
-	// Branches []Branch `json:"branches,omitempty" readFrom:"type=Branch,field=proj"`
+	Gid      uint64   `json:"gid,omitempty"`
+	Name     string   `json:"name,omitempty"`
+	ClerkId  string   `json:"clerk_id,omitempty" db:"constraint=unique"`
+	Branches []Branch `json:"branches,omitempty" readFrom:"type=Branch,field=proj"`
 }
 
 type Branch struct {
@@ -411,6 +411,65 @@ type Branch struct {
 	Name    string  `json:"name,omitempty"`
 	ClerkId string  `json:"clerk_id,omitempty" db:"constraint=unique"`
 	Proj    Project `json:"proj,omitempty"`
+}
+
+func TestReverseEdgeQuery(t *testing.T) {
+	ctx := context.Background()
+	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	db1, err := db.CreateNamespace()
+	require.NoError(t, err)
+
+	require.NoError(t, db1.DropData(ctx))
+
+	projGid, project, err := modusdb.Create(db, Project{
+		Name:    "P",
+		ClerkId: "456",
+	}, db1.ID())
+	require.NoError(t, err)
+
+	require.Equal(t, "P", project.Name)
+	require.Equal(t, project.Gid, projGid)
+
+	branch1 := Branch{
+		Name:    "B",
+		ClerkId: "123",
+		Proj: Project{
+			Gid: projGid,
+		},
+	}
+
+	branch1Gid, branch1, err := modusdb.Create(db, branch1, db1.ID())
+	require.NoError(t, err)
+
+	require.Equal(t, "B", branch1.Name)
+	require.Equal(t, branch1.Gid, branch1Gid)
+	require.Equal(t, projGid, branch1.Proj.Gid)
+	require.Equal(t, "P", branch1.Proj.Name)
+
+	branch2 := Branch{
+		Name:    "B2",
+		ClerkId: "456",
+		Proj: Project{
+			Gid: projGid,
+		},
+	}
+
+	branch2Gid, branch2, err := modusdb.Create(db, branch2, db1.ID())
+	require.NoError(t, err)
+	require.Equal(t, "B2", branch2.Name)
+	require.Equal(t, branch2.Gid, branch2Gid)
+	require.Equal(t, projGid, branch2.Proj.Gid)
+
+	getProjGid, queriedProject, err := modusdb.Get[Project](db, projGid, db1.ID())
+	require.NoError(t, err)
+	require.Equal(t, projGid, getProjGid)
+	require.Equal(t, "P", queriedProject.Name)
+	require.Len(t, queriedProject.Branches, 2)
+	require.Equal(t, "B", queriedProject.Branches[0].Name)
+	require.Equal(t, "B2", queriedProject.Branches[1].Name)
 }
 
 func TestNestedObjectMutation(t *testing.T) {

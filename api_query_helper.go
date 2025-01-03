@@ -56,7 +56,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 		for jsonTag, reverseEdgeTag := range jsonToReverseEdgeTags {
 			readFromQuery += fmt.Sprintf(`
 		%s: ~%s {
-			uid
+			gid: uid
 			expand(_all_)
 			dgraph.type
 		}
