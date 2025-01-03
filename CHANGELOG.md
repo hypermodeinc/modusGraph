@@ -2,7 +2,8 @@
 
 ## UNRELEASED
 
-- feat: add readfrom json tag to support reverse edges [#49](https://github.com/hypermodeinc/modusDB/pull/49)
+- feat: add readfrom json tag to support reverse edges
+  [#49](https://github.com/hypermodeinc/modusDB/pull/49)
 
 ## 2025-01-02 - Version 0.1.0
 
