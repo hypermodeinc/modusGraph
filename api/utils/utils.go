@@ -20,6 +20,19 @@ var (
 	NoUniqueConstr = "unique constraint not defined for any field on type %s"
 )
 
+type keyValue struct {
+	key   string
+	value any
+}
+
+func (kv *keyValue) Key() string {
+	return kv.key
+}
+
+func (kv *keyValue) Value() any {
+	return kv.value
+}
+
 func GetPredicateName(typeName, fieldName string) string {
 	return fmt.Sprint(typeName, ".", fieldName)
 }

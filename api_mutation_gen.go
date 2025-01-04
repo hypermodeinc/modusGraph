@@ -44,7 +44,7 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, 
 		var nquad *api.NQuad
 
 		if jsonToReverseEdgeTags[jsonName] != "" {
-			if err := mutations.HandleReverseEdge(jsonName, reflectValueType, n.id, sch, jsonToReverseEdgeTags); err != nil {
+			if err := mutations.HandleReverseEdge(jsonName, reflectValueType, n.ID(), sch, jsonToReverseEdgeTags); err != nil {
 				return err
 			}
 			continue
@@ -82,7 +82,7 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, 
 	}
 
 	sch.Types = append(sch.Types, &pb.TypeUpdate{
-		TypeName: utils.AddNamespace(n.id, t.Name()),
+		TypeName: utils.AddNamespace(n.ID(), t.Name()),
 		Fields:   sch.Preds,
 	})
 

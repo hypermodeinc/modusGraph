@@ -67,9 +67,16 @@ func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 		return 0, object, false, err
 	}
 
-	gid, cf, err := GetUniqueConstraint[T](object)
+	gid, cfKeyValue, err := utils.GetUniqueConstraint[T](object)
 	if err != nil {
 		return 0, object, false, err
+	}
+	var cf *ConstrainedField
+	if cfKeyValue != nil {
+		cf = &ConstrainedField{
+			Key:   cfKeyValue.Key(),
+			Value: cfKeyValue.Value(),
+		}
 	}
 
 	dms := make([]*dql.Mutation, 0)

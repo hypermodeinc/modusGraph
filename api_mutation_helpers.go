@@ -38,9 +38,13 @@ func processPointerValue(ctx context.Context, value any, n *Namespace) (any, err
 }
 
 func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) (uint64, error) {
-	gid, cf, err := GetUniqueConstraint[T](object)
+	gid, cfKeyValue, err := utils.GetUniqueConstraint[T](object)
 	if err != nil {
 		return 0, err
+	}
+	var cf *ConstrainedField
+	if cfKeyValue != nil {
+		cf = &ConstrainedField{Key: cfKeyValue.Key(), Value: cfKeyValue.Value()}
 	}
 
 	dms := make([]*dql.Mutation, 0)

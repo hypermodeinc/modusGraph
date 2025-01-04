@@ -208,3 +208,37 @@ func ConvertDynamicToTyped[T any](obj any, t reflect.Type) (uint64, T, error) {
 	}
 	return 0, result, fmt.Errorf("failed to convert type %T to %T", finalObject, obj)
 }
+
+func GetUniqueConstraint[T any](object T) (uint64, *keyValue, error) {
+	t := reflect.TypeOf(object)
+	fieldToJsonTags, jsonToDbTags, _, err := GetFieldTags(t)
+	if err != nil {
+		return 0, nil, err
+	}
+	jsonTagToValue := GetJsonTagToValues(object, fieldToJsonTags)
+
+	for jsonName, value := range jsonTagToValue {
+		if jsonName == "gid" {
+			gid, ok := value.(uint64)
+			if !ok {
+				continue
+			}
+			if gid != 0 {
+				return gid, nil, nil
+			}
+		}
+		if jsonToDbTags[jsonName] != nil && IsValidUniqueIndex(jsonToDbTags[jsonName].Constraint) {
+			// check if value is zero or nil
+			if value == reflect.Zero(reflect.TypeOf(value)).Interface() || value == nil {
+				continue
+			}
+			return 0, &keyValue{key: jsonName, value: value}, nil
+		}
+	}
+
+	return 0, nil, fmt.Errorf(NoUniqueConstr, t.Name())
+}
+
+func IsValidUniqueIndex(name string) bool {
+	return name == "unique"
+}
