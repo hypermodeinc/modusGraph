@@ -10,7 +10,8 @@ import (
 	"github.com/dgraph-io/dgraph/v24/query"
 	"github.com/dgraph-io/dgraph/v24/schema"
 	"github.com/dgraph-io/dgraph/v24/worker"
-	"github.com/hypermodeinc/modusdb/api/utils"
+	"github.com/hypermodeinc/modusdb/internal/apiutils"
+	"github.com/hypermodeinc/modusdb/internal/structreflect"
 )
 
 func processStructValue(ctx context.Context, value any, n *Namespace) (any, error) {
@@ -38,7 +39,7 @@ func processPointerValue(ctx context.Context, value any, n *Namespace) (any, err
 }
 
 func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) (uint64, error) {
-	gid, cfKeyValue, err := utils.GetUniqueConstraint[T](object)
+	gid, cfKeyValue, err := structreflect.GetUniqueConstraint[T](object)
 	if err != nil {
 		return 0, err
 	}
@@ -60,7 +61,7 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 	}
 	if gid != 0 || cf != nil {
 		gid, err = getExistingObject(ctx, n, gid, cf, object)
-		if err != nil && err != utils.ErrNoObjFound {
+		if err != nil && err != apiutils.ErrNoObjFound {
 			return 0, err
 		}
 		if err == nil {

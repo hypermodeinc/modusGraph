@@ -1,4 +1,13 @@
-package utils
+/*
+ * Copyright 2025 Hypermode Inc.
+ * Licensed under the terms of the Apache License, Version 2.0
+ * See the LICENSE file that accompanied this code for further details.
+ *
+ * SPDX-FileCopyrightText: 2025 Hypermode Inc. <hello@hypermode.com>
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package dgraphtypes
 
 import (
 	"encoding/binary"
@@ -8,6 +17,7 @@ import (
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/dgraph/v24/protos/pb"
 	"github.com/dgraph-io/dgraph/v24/types"
+	"github.com/hypermodeinc/modusdb/internal/structreflect"
 	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/wkb"
 )
@@ -132,7 +142,7 @@ func ValueToApiVal(v any) (*api.Value, error) {
 	}
 }
 
-func HandleConstraints(u *pb.SchemaUpdate, jsonToDbTags map[string]*DbTag, jsonName string,
+func HandleConstraints(u *pb.SchemaUpdate, jsonToDbTags map[string]*structreflect.DbTag, jsonName string,
 	valType pb.Posting_ValType, uniqueConstraintFound bool) (bool, error) {
 	if jsonToDbTags[jsonName] == nil {
 		return uniqueConstraintFound, nil

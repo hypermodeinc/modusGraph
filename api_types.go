@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/dgraph/v24/x"
-	"github.com/hypermodeinc/modusdb/api/query_gen"
-	"github.com/hypermodeinc/modusdb/api/utils"
+	"github.com/hypermodeinc/modusdb/internal/apiutils"
+	"github.com/hypermodeinc/modusdb/internal/querygen"
 )
 
 type UniqueField interface {
@@ -103,60 +103,60 @@ func getDefaultNamespace(db *DB, ns ...uint64) (context.Context, *Namespace, err
 	return ctx, n, nil
 }
 
-func filterToQueryFunc(typeName string, f Filter) query_gen.QueryFunc {
+func filterToQueryFunc(typeName string, f Filter) querygen.QueryFunc {
 	// Handle logical operators first
 	if f.And != nil {
-		return query_gen.And(filterToQueryFunc(typeName, *f.And))
+		return querygen.And(filterToQueryFunc(typeName, *f.And))
 	}
 	if f.Or != nil {
-		return query_gen.Or(filterToQueryFunc(typeName, *f.Or))
+		return querygen.Or(filterToQueryFunc(typeName, *f.Or))
 	}
 	if f.Not != nil {
-		return query_gen.Not(filterToQueryFunc(typeName, *f.Not))
+		return querygen.Not(filterToQueryFunc(typeName, *f.Not))
 	}
 
 	// Handle field predicates
 	if f.String.Equals != "" {
-		return query_gen.BuildEqQuery(utils.GetPredicateName(typeName, f.Field), f.String.Equals)
+		return querygen.BuildEqQuery(apiutils.GetPredicateName(typeName, f.Field), f.String.Equals)
 	}
 	if len(f.String.AllOfTerms) != 0 {
-		return query_gen.BuildAllOfTermsQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildAllOfTermsQuery(apiutils.GetPredicateName(typeName,
 			f.Field), strings.Join(f.String.AllOfTerms, " "))
 	}
 	if len(f.String.AnyOfTerms) != 0 {
-		return query_gen.BuildAnyOfTermsQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildAnyOfTermsQuery(apiutils.GetPredicateName(typeName,
 			f.Field), strings.Join(f.String.AnyOfTerms, " "))
 	}
 	if len(f.String.AllOfText) != 0 {
-		return query_gen.BuildAllOfTextQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildAllOfTextQuery(apiutils.GetPredicateName(typeName,
 			f.Field), strings.Join(f.String.AllOfText, " "))
 	}
 	if len(f.String.AnyOfText) != 0 {
-		return query_gen.BuildAnyOfTextQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildAnyOfTextQuery(apiutils.GetPredicateName(typeName,
 			f.Field), strings.Join(f.String.AnyOfText, " "))
 	}
 	if f.String.RegExp != "" {
-		return query_gen.BuildRegExpQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildRegExpQuery(apiutils.GetPredicateName(typeName,
 			f.Field), f.String.RegExp)
 	}
 	if f.String.LessThan != "" {
-		return query_gen.BuildLtQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildLtQuery(apiutils.GetPredicateName(typeName,
 			f.Field), f.String.LessThan)
 	}
 	if f.String.LessOrEqual != "" {
-		return query_gen.BuildLeQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildLeQuery(apiutils.GetPredicateName(typeName,
 			f.Field), f.String.LessOrEqual)
 	}
 	if f.String.GreaterThan != "" {
-		return query_gen.BuildGtQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildGtQuery(apiutils.GetPredicateName(typeName,
 			f.Field), f.String.GreaterThan)
 	}
 	if f.String.GreaterOrEqual != "" {
-		return query_gen.BuildGeQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildGeQuery(apiutils.GetPredicateName(typeName,
 			f.Field), f.String.GreaterOrEqual)
 	}
 	if f.Vector.SimilarTo != nil {
-		return query_gen.BuildSimilarToQuery(utils.GetPredicateName(typeName,
+		return querygen.BuildSimilarToQuery(apiutils.GetPredicateName(typeName,
 			f.Field), f.Vector.TopK, f.Vector.SimilarTo)
 	}
 
@@ -165,7 +165,7 @@ func filterToQueryFunc(typeName string, f Filter) query_gen.QueryFunc {
 }
 
 // Helper function to combine multiple filters
-func filtersToQueryFunc(typeName string, filter Filter) query_gen.QueryFunc {
+func filtersToQueryFunc(typeName string, filter Filter) querygen.QueryFunc {
 	return filterToQueryFunc(typeName, filter)
 }
 
@@ -200,10 +200,10 @@ func sortingToQueryString(typeName string, s Sorting) string {
 	}
 
 	if first != "" {
-		parts = append(parts, fmt.Sprintf("%s: %s", firstOp, utils.GetPredicateName(typeName, first)))
+		parts = append(parts, fmt.Sprintf("%s: %s", firstOp, apiutils.GetPredicateName(typeName, first)))
 	}
 	if second != "" {
-		parts = append(parts, fmt.Sprintf("%s: %s", secondOp, utils.GetPredicateName(typeName, second)))
+		parts = append(parts, fmt.Sprintf("%s: %s", secondOp, apiutils.GetPredicateName(typeName, second)))
 	}
 
 	return ", " + strings.Join(parts, ", ")

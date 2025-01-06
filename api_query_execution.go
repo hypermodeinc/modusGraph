@@ -15,8 +15,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/hypermodeinc/modusdb/api/query_gen"
-	"github.com/hypermodeinc/modusdb/api/utils"
+	"github.com/hypermodeinc/modusdb/internal/apiutils"
+	"github.com/hypermodeinc/modusdb/internal/querygen"
+	"github.com/hypermodeinc/modusdb/internal/structreflect"
 )
 
 func getByGid[T any](ctx context.Context, n *Namespace, gid uint64) (uint64, T, error) {
@@ -50,15 +51,15 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	obj T, withReverse bool, args ...R) (uint64, T, error) {
 	t := reflect.TypeOf(obj)
 
-	fieldToJsonTags, jsonToDbTag, jsonToReverseEdgeTags, err := utils.GetFieldTags(t)
+	tagMaps, err := structreflect.GetFieldTags(t)
 	if err != nil {
 		return 0, obj, err
 	}
 	readFromQuery := ""
 	if withReverse {
-		for jsonTag, reverseEdgeTag := range jsonToReverseEdgeTags {
-			readFromQuery += fmt.Sprintf(query_gen.ReverseEdgeQuery,
-				utils.GetPredicateName(t.Name(), jsonTag), reverseEdgeTag)
+		for jsonTag, reverseEdgeTag := range tagMaps.JsonToReverseEdge {
+			readFromQuery += fmt.Sprintf(querygen.ReverseEdgeQuery,
+				apiutils.GetPredicateName(t.Name(), jsonTag), reverseEdgeTag)
 		}
 	}
 
@@ -66,15 +67,15 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	var query string
 	gid, ok := any(args[0]).(uint64)
 	if ok {
-		query = query_gen.FormatObjQuery(query_gen.BuildUidQuery(gid), readFromQuery)
+		query = querygen.FormatObjQuery(querygen.BuildUidQuery(gid), readFromQuery)
 	} else if cf, ok = any(args[0]).(ConstrainedField); ok {
-		query = query_gen.FormatObjQuery(query_gen.BuildEqQuery(utils.GetPredicateName(t.Name(),
+		query = querygen.FormatObjQuery(querygen.BuildEqQuery(apiutils.GetPredicateName(t.Name(),
 			cf.Key), cf.Value), readFromQuery)
 	} else {
 		return 0, obj, fmt.Errorf("invalid unique field type")
 	}
 
-	if jsonToDbTag[cf.Key] != nil && jsonToDbTag[cf.Key].Constraint == "" {
+	if tagMaps.JsonToDb[cf.Key] != nil && tagMaps.JsonToDb[cf.Key].Constraint == "" {
 		return 0, obj, fmt.Errorf("constraint not defined for field %s", cf.Key)
 	}
 
@@ -83,7 +84,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 		return 0, obj, err
 	}
 
-	dynamicType := utils.CreateDynamicStruct(t, fieldToJsonTags, 1)
+	dynamicType := structreflect.CreateDynamicStruct(t, tagMaps.FieldToJson, 1)
 
 	dynamicInstance := reflect.New(dynamicType).Interface()
 
@@ -100,22 +101,22 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 
 	// Check if we have at least one object in the response
 	if len(result.Obj) == 0 {
-		return 0, obj, utils.ErrNoObjFound
+		return 0, obj, apiutils.ErrNoObjFound
 	}
 
-	return utils.ConvertDynamicToTyped[T](result.Obj[0], t)
+	return structreflect.ConvertDynamicToTyped[T](result.Obj[0], t)
 }
 
 func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryParams,
 	withReverse bool) ([]uint64, []T, error) {
 	var obj T
 	t := reflect.TypeOf(obj)
-	fieldToJsonTags, _, jsonToReverseEdgeTags, err := utils.GetFieldTags(t)
+	tagMaps, err := structreflect.GetFieldTags(t)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var filterQueryFunc query_gen.QueryFunc = func() string {
+	var filterQueryFunc querygen.QueryFunc = func() string {
 		return ""
 	}
 	var paginationAndSorting string
@@ -135,19 +136,19 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 
 	readFromQuery := ""
 	if withReverse {
-		for jsonTag, reverseEdgeTag := range jsonToReverseEdgeTags {
-			readFromQuery += fmt.Sprintf(query_gen.ReverseEdgeQuery, utils.GetPredicateName(t.Name(), jsonTag), reverseEdgeTag)
+		for jsonTag, reverseEdgeTag := range tagMaps.JsonToReverseEdge {
+			readFromQuery += fmt.Sprintf(querygen.ReverseEdgeQuery, apiutils.GetPredicateName(t.Name(), jsonTag), reverseEdgeTag)
 		}
 	}
 
-	query := query_gen.FormatObjsQuery(t.Name(), filterQueryFunc, paginationAndSorting, readFromQuery)
+	query := querygen.FormatObjsQuery(t.Name(), filterQueryFunc, paginationAndSorting, readFromQuery)
 
 	resp, err := n.queryWithLock(ctx, query)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	dynamicType := utils.CreateDynamicStruct(t, fieldToJsonTags, 1)
+	dynamicType := structreflect.CreateDynamicStruct(t, tagMaps.FieldToJson, 1)
 
 	var result struct {
 		Objs []any `json:"objs"`
@@ -174,7 +175,7 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 	gids := make([]uint64, len(result.Objs))
 	objs := make([]T, len(result.Objs))
 	for i, obj := range result.Objs {
-		gid, typedObj, err := utils.ConvertDynamicToTyped[T](obj, t)
+		gid, typedObj, err := structreflect.ConvertDynamicToTyped[T](obj, t)
 		if err != nil {
 			return nil, nil, err
 		}

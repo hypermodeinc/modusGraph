@@ -1,81 +1,61 @@
-package utils
+/*
+ * Copyright 2025 Hypermode Inc.
+ * Licensed under the terms of the Apache License, Version 2.0
+ * See the LICENSE file that accompanied this code for further details.
+ *
+ * SPDX-FileCopyrightText: 2025 Hypermode Inc. <hello@hypermode.com>
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package structreflect
 
 import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
+
+	"github.com/hypermodeinc/modusdb/internal/apiutils"
 )
 
-type DbTag struct {
-	Constraint string
-}
+func GetFieldTags(t reflect.Type) (*TagMaps, error) {
+	tags := &TagMaps{
+		FieldToJson:       make(map[string]string),
+		JsonToDb:          make(map[string]*DbTag),
+		JsonToReverseEdge: make(map[string]string),
+	}
 
-func GetFieldTags(t reflect.Type) (fieldToJsonTags map[string]string,
-	jsonToDbTags map[string]*DbTag, jsonToReverseEdgeTags map[string]string, err error) {
-
-	fieldToJsonTags = make(map[string]string)
-	jsonToDbTags = make(map[string]*DbTag)
-	jsonToReverseEdgeTags = make(map[string]string)
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		jsonTag := field.Tag.Get("json")
-		if jsonTag == "" {
-			return nil, nil, nil, fmt.Errorf("field %s has no json tag", field.Name)
-		}
-		jsonName := strings.Split(jsonTag, ",")[0]
-		fieldToJsonTags[field.Name] = jsonName
 
-		reverseEdgeTag := field.Tag.Get("readFrom")
-		if reverseEdgeTag != "" {
-			typeAndField := strings.Split(reverseEdgeTag, ",")
-			if len(typeAndField) != 2 {
-				return nil, nil, nil, fmt.Errorf(`field %s has invalid readFrom tag, 
-				expected format is type=<type>,field=<field>`, field.Name)
-			}
-			t := strings.Split(typeAndField[0], "=")[1]
-			f := strings.Split(typeAndField[1], "=")[1]
-			jsonToReverseEdgeTags[jsonName] = GetPredicateName(t, f)
+		jsonName, err := parseJsonTag(field)
+		if err != nil {
+			return nil, err
+		}
+		tags.FieldToJson[field.Name] = jsonName
+
+		if reverseEdge, err := parseReverseEdgeTag(field); err != nil {
+			return nil, err
+		} else if reverseEdge != "" {
+			tags.JsonToReverseEdge[jsonName] = reverseEdge
 		}
 
-		dbConstraintsTag := field.Tag.Get("db")
-		if dbConstraintsTag != "" {
-			jsonToDbTags[jsonName] = &DbTag{}
-			dbTagsSplit := strings.Split(dbConstraintsTag, ",")
-			for _, dbTag := range dbTagsSplit {
-				split := strings.Split(dbTag, "=")
-				if split[0] == "constraint" {
-					jsonToDbTags[jsonName].Constraint = split[1]
-				}
-			}
+		if dbTag := parseDbTag(field); dbTag != nil {
+			tags.JsonToDb[jsonName] = dbTag
 		}
 	}
-	return fieldToJsonTags, jsonToDbTags, jsonToReverseEdgeTags, nil
+
+	return tags, nil
 }
 
-func GetJsonTagToValues(object any, fieldToJsonTags map[string]string) map[string]any {
-	values := make(map[string]any)
-	v := reflect.ValueOf(object)
-	for v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	for fieldName, jsonName := range fieldToJsonTags {
-		fieldValue := v.FieldByName(fieldName)
-		values[jsonName] = fieldValue.Interface()
-
-	}
-	return values
-}
-
-func CreateDynamicStruct(t reflect.Type, fieldToJsonTags map[string]string, depth int) reflect.Type {
-	fields := make([]reflect.StructField, 0, len(fieldToJsonTags))
-	for fieldName, jsonName := range fieldToJsonTags {
+func CreateDynamicStruct(t reflect.Type, fieldToJson map[string]string, depth int) reflect.Type {
+	fields := make([]reflect.StructField, 0, len(fieldToJson))
+	for fieldName, jsonName := range fieldToJson {
 		field, _ := t.FieldByName(fieldName)
 		if fieldName != "Gid" {
 			if field.Type.Kind() == reflect.Struct {
 				if depth <= 1 {
-					nestedFieldToJsonTags, _, _, _ := GetFieldTags(field.Type)
-					nestedType := CreateDynamicStruct(field.Type, nestedFieldToJsonTags, depth+1)
+					tagMaps, _ := GetFieldTags(field.Type)
+					nestedType := CreateDynamicStruct(field.Type, tagMaps.FieldToJson, depth+1)
 					fields = append(fields, reflect.StructField{
 						Name: field.Name,
 						Type: nestedType,
@@ -84,8 +64,8 @@ func CreateDynamicStruct(t reflect.Type, fieldToJsonTags map[string]string, dept
 				}
 			} else if field.Type.Kind() == reflect.Ptr &&
 				field.Type.Elem().Kind() == reflect.Struct {
-				nestedFieldToJsonTags, _, _, _ := GetFieldTags(field.Type.Elem())
-				nestedType := CreateDynamicStruct(field.Type.Elem(), nestedFieldToJsonTags, depth+1)
+				tagMaps, _ := GetFieldTags(field.Type.Elem())
+				nestedType := CreateDynamicStruct(field.Type.Elem(), tagMaps.FieldToJson, depth+1)
 				fields = append(fields, reflect.StructField{
 					Name: field.Name,
 					Type: reflect.PointerTo(nestedType),
@@ -93,8 +73,8 @@ func CreateDynamicStruct(t reflect.Type, fieldToJsonTags map[string]string, dept
 				})
 			} else if field.Type.Kind() == reflect.Slice &&
 				field.Type.Elem().Kind() == reflect.Struct {
-				nestedFieldToJsonTags, _, _, _ := GetFieldTags(field.Type.Elem())
-				nestedType := CreateDynamicStruct(field.Type.Elem(), nestedFieldToJsonTags, depth+1)
+				tagMaps, _ := GetFieldTags(field.Type.Elem())
+				nestedType := CreateDynamicStruct(field.Type.Elem(), tagMaps.FieldToJson, depth+1)
 				fields = append(fields, reflect.StructField{
 					Name: field.Name,
 					Type: reflect.SliceOf(nestedType),
@@ -145,7 +125,7 @@ func MapDynamicToFinal(dynamic any, final any, isNested bool) (uint64, error) {
 			if ok {
 				if len(fieldArr) == 0 {
 					if !isNested {
-						return 0, ErrNoObjFound
+						return 0, apiutils.ErrNoObjFound
 					} else {
 						continue
 					}
@@ -211,11 +191,11 @@ func ConvertDynamicToTyped[T any](obj any, t reflect.Type) (uint64, T, error) {
 
 func GetUniqueConstraint[T any](object T) (uint64, *keyValue, error) {
 	t := reflect.TypeOf(object)
-	fieldToJsonTags, jsonToDbTags, _, err := GetFieldTags(t)
+	tagMaps, err := GetFieldTags(t)
 	if err != nil {
 		return 0, nil, err
 	}
-	jsonTagToValue := GetJsonTagToValues(object, fieldToJsonTags)
+	jsonTagToValue := GetJsonTagToValues(object, tagMaps.FieldToJson)
 
 	for jsonName, value := range jsonTagToValue {
 		if jsonName == "gid" {
@@ -227,7 +207,7 @@ func GetUniqueConstraint[T any](object T) (uint64, *keyValue, error) {
 				return gid, nil, nil
 			}
 		}
-		if jsonToDbTags[jsonName] != nil && IsValidUniqueIndex(jsonToDbTags[jsonName].Constraint) {
+		if tagMaps.JsonToDb[jsonName] != nil && IsValidUniqueIndex(tagMaps.JsonToDb[jsonName].Constraint) {
 			// check if value is zero or nil
 			if value == reflect.Zero(reflect.TypeOf(value)).Interface() || value == nil {
 				continue
@@ -236,7 +216,7 @@ func GetUniqueConstraint[T any](object T) (uint64, *keyValue, error) {
 		}
 	}
 
-	return 0, nil, fmt.Errorf(NoUniqueConstr, t.Name())
+	return 0, nil, fmt.Errorf(apiutils.NoUniqueConstr, t.Name())
 }
 
 func IsValidUniqueIndex(name string) bool {

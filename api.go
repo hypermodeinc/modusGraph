@@ -14,7 +14,8 @@ import (
 
 	"github.com/dgraph-io/dgraph/v24/dql"
 	"github.com/dgraph-io/dgraph/v24/schema"
-	"github.com/hypermodeinc/modusdb/api/utils"
+	"github.com/hypermodeinc/modusdb/internal/apiutils"
+	"github.com/hypermodeinc/modusdb/internal/structreflect"
 )
 
 func Create[T any](db *DB, object T, ns ...uint64) (uint64, T, error) {
@@ -67,7 +68,7 @@ func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 		return 0, object, false, err
 	}
 
-	gid, cfKeyValue, err := utils.GetUniqueConstraint[T](object)
+	gid, cfKeyValue, err := structreflect.GetUniqueConstraint[T](object)
 	if err != nil {
 		return 0, object, false, err
 	}
@@ -93,7 +94,7 @@ func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 
 	if gid != 0 || cf != nil {
 		gid, err = getExistingObject[T](ctx, n, gid, cf, object)
-		if err != nil && err != utils.ErrNoObjFound {
+		if err != nil && err != apiutils.ErrNoObjFound {
 			return 0, object, false, err
 		}
 		wasFound = err == nil
