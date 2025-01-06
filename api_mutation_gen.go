@@ -46,7 +46,8 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, 
 		var nquad *api.NQuad
 
 		if tagMaps.JsonToReverseEdge[jsonName] != "" {
-			if err := mutations.HandleReverseEdge(jsonName, reflectValueType, n.ID(), sch, tagMaps.JsonToReverseEdge); err != nil {
+			if err := mutations.HandleReverseEdge(jsonName, reflectValueType, n.ID(), sch,
+				tagMaps.JsonToReverseEdge); err != nil {
 				return err
 			}
 			continue
@@ -71,7 +72,8 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, 
 			return err
 		}
 
-		uniqueConstraintFound, err = dgraphtypes.HandleConstraints(u, tagMaps.JsonToDb, jsonName, u.ValueType, uniqueConstraintFound)
+		uniqueConstraintFound, err = dgraphtypes.HandleConstraints(u, tagMaps.JsonToDb,
+			jsonName, u.ValueType, uniqueConstraintFound)
 		if err != nil {
 			return err
 		}
