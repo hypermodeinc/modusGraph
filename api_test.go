@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hypermodeinc/modusdb"
-	"github.com/hypermodeinc/modusdb/internal/apiutils"
+	"github.com/hypermodeinc/modusdb/api/apiutils"
 )
 
 type User struct {

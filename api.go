@@ -14,8 +14,8 @@ import (
 
 	"github.com/dgraph-io/dgraph/v24/dql"
 	"github.com/dgraph-io/dgraph/v24/schema"
-	"github.com/hypermodeinc/modusdb/internal/apiutils"
-	"github.com/hypermodeinc/modusdb/internal/structreflect"
+	"github.com/hypermodeinc/modusdb/api/apiutils"
+	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
 func Create[T any](db *DB, object T, ns ...uint64) (uint64, T, error) {

@@ -19,10 +19,10 @@ import (
 	"github.com/dgraph-io/dgraph/v24/protos/pb"
 	"github.com/dgraph-io/dgraph/v24/schema"
 	"github.com/dgraph-io/dgraph/v24/x"
-	"github.com/hypermodeinc/modusdb/internal/apiutils"
-	"github.com/hypermodeinc/modusdb/internal/dgraphtypes"
-	"github.com/hypermodeinc/modusdb/internal/mutations"
-	"github.com/hypermodeinc/modusdb/internal/structreflect"
+	"github.com/hypermodeinc/modusdb/api/apiutils"
+	"github.com/hypermodeinc/modusdb/api/dgraphtypes"
+	"github.com/hypermodeinc/modusdb/api/mutations"
+	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
 func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, object T,

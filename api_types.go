@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/dgraph/v24/x"
-	"github.com/hypermodeinc/modusdb/internal/apiutils"
-	"github.com/hypermodeinc/modusdb/internal/querygen"
+	"github.com/hypermodeinc/modusdb/api/apiutils"
+	"github.com/hypermodeinc/modusdb/api/querygen"
 )
 
 type UniqueField interface {

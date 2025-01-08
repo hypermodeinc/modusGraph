@@ -10,8 +10,8 @@ import (
 	"github.com/dgraph-io/dgraph/v24/query"
 	"github.com/dgraph-io/dgraph/v24/schema"
 	"github.com/dgraph-io/dgraph/v24/worker"
-	"github.com/hypermodeinc/modusdb/internal/apiutils"
-	"github.com/hypermodeinc/modusdb/internal/structreflect"
+	"github.com/hypermodeinc/modusdb/api/apiutils"
+	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
 func processStructValue(ctx context.Context, value any, n *Namespace) (any, error) {

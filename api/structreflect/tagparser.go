@@ -14,7 +14,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/hypermodeinc/modusdb/internal/apiutils"
+	"github.com/hypermodeinc/modusdb/api/apiutils"
 )
 
 func parseJsonTag(field reflect.StructField) (string, error) {

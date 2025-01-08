@@ -15,9 +15,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/hypermodeinc/modusdb/internal/apiutils"
-	"github.com/hypermodeinc/modusdb/internal/querygen"
-	"github.com/hypermodeinc/modusdb/internal/structreflect"
+	"github.com/hypermodeinc/modusdb/api/apiutils"
+	"github.com/hypermodeinc/modusdb/api/querygen"
+	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
 func getByGid[T any](ctx context.Context, n *Namespace, gid uint64) (uint64, T, error) {

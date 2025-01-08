@@ -14,7 +14,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/hypermodeinc/modusdb/internal/apiutils"
+	"github.com/hypermodeinc/modusdb/api/apiutils"
 )
 
 func GetFieldTags(t reflect.Type) (*TagMaps, error) {
