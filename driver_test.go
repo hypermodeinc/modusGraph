@@ -30,9 +30,9 @@ func TestRestart(t *testing.T) {
 	defer func() { driver.Close() }()
 
 	require.NoError(t, driver.DropAll(context.Background()))
-	require.NoError(t, driver.AlterSchema(context.Background(), "name: string @index(term) ."))
+	require.NoError(t, driver.GetDefaultDB().AlterSchema(context.Background(), "name: string @index(term) ."))
 
-	_, err = driver.Mutate(context.Background(), []*api.Mutation{
+	_, err = driver.GetDefaultDB().Mutate(context.Background(), []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -51,14 +51,14 @@ func TestRestart(t *testing.T) {
 				name
 			}
 		}`
-	qresp, err := driver.Query(context.Background(), query)
+	qresp, err := driver.GetDefaultDB().Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
 
 	driver.Close()
 	driver, err = modusdb.NewDriver(modusdb.NewDefaultConfig(dataDir))
 	require.NoError(t, err)
-	qresp, err = driver.Query(context.Background(), query)
+	qresp, err = driver.GetDefaultDB().Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
 
@@ -71,7 +71,7 @@ func TestSchemaQuery(t *testing.T) {
 	defer driver.Close()
 
 	require.NoError(t, driver.DropAll(context.Background()))
-	require.NoError(t, driver.AlterSchema(context.Background(), `
+	require.NoError(t, driver.GetDefaultDB().AlterSchema(context.Background(), `
 		name: string @index(exact) .
 		age: int .
 		married: bool .
@@ -79,7 +79,7 @@ func TestSchemaQuery(t *testing.T) {
 		dob: datetime .
 	`))
 
-	resp, err := driver.Query(context.Background(), `schema(pred: [name, age]) {type}`)
+	resp, err := driver.GetDefaultDB().Query(context.Background(), `schema(pred: [name, age]) {type}`)
 	require.NoError(t, err)
 
 	require.JSONEq(t,
@@ -100,10 +100,10 @@ func TestBasicVector(t *testing.T) {
 	defer driver.Close()
 
 	require.NoError(t, driver.DropAll(context.Background()))
-	require.NoError(t, driver.AlterSchema(context.Background(),
+	require.NoError(t, driver.GetDefaultDB().AlterSchema(context.Background(),
 		`project_description_v: float32vector @index(hnsw(exponent: "5", metric: "euclidean")) .`))
 
-	uids, err := driver.Mutate(context.Background(), []*api.Mutation{{
+	uids, err := driver.GetDefaultDB().Mutate(context.Background(), []*api.Mutation{{
 		Set: []*api.NQuad{{
 			Subject:   "_:vector",
 			Predicate: "project_description_v",
@@ -119,7 +119,7 @@ func TestBasicVector(t *testing.T) {
 		t.Fatalf("Expected non-zero uid")
 	}
 
-	resp, err := driver.Query(context.Background(), fmt.Sprintf(`query {
+	resp, err := driver.GetDefaultDB().Query(context.Background(), fmt.Sprintf(`query {
 			q (func: uid(%v)) {
 				project_description_v
 			}

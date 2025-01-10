@@ -112,7 +112,7 @@ func BenchmarkDatabaseOperations(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			resp, err := driver.Query(context.Background(), query)
+			resp, err := driver.GetDefaultDB().Query(context.Background(), query)
 			require.NoError(b, err)
 			require.JSONEq(b, expected, string(resp.Json))
 		}

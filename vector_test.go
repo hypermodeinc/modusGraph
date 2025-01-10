@@ -34,7 +34,7 @@ func TestVectorDelete(t *testing.T) {
 	defer driver.Close()
 
 	require.NoError(t, driver.DropAll(context.Background()))
-	require.NoError(t, driver.AlterSchema(context.Background(),
+	require.NoError(t, driver.GetDefaultDB().AlterSchema(context.Background(),
 		fmt.Sprintf(vectorSchemaWithIndex, "vtest", "4", "euclidean")))
 
 	// insert random vectors
@@ -42,7 +42,7 @@ func TestVectorDelete(t *testing.T) {
 	require.NoError(t, err)
 	//nolint:gosec
 	rdf, vectors := dgraphapi.GenerateRandomVectors(int(assignIDs.StartId)-10, int(assignIDs.EndId)-10, 10, "vtest")
-	_, err = driver.Mutate(context.Background(), []*api.Mutation{{SetNquads: []byte(rdf)}})
+	_, err = driver.GetDefaultDB().Mutate(context.Background(), []*api.Mutation{{SetNquads: []byte(rdf)}})
 	require.NoError(t, err)
 
 	// check the count of the vectors inserted
@@ -51,7 +51,7 @@ func TestVectorDelete(t *testing.T) {
 				count(uid)
 			 }
 	 }`
-	resp, err := driver.Query(context.Background(), q1)
+	resp, err := driver.GetDefaultDB().Query(context.Background(), q1)
 	require.NoError(t, err)
 	require.JSONEq(t, fmt.Sprintf(`{"vector":[{"count":%d}]}`, numVectors), string(resp.Json))
 
@@ -68,7 +68,7 @@ func TestVectorDelete(t *testing.T) {
 
 	triples := strings.Split(rdf, "\n")
 	deleteTriple := func(idx int) string {
-		_, err := driver.Mutate(context.Background(), []*api.Mutation{{
+		_, err := driver.GetDefaultDB().Mutate(context.Background(), []*api.Mutation{{
 			DelNquads: []byte(triples[idx]),
 		}})
 		require.NoError(t, err)
@@ -80,7 +80,7 @@ func TestVectorDelete(t *testing.T) {
 		  }
 		}`, uid[1:len(uid)-1])
 
-		res, err := driver.Query(context.Background(), q2)
+		res, err := driver.GetDefaultDB().Query(context.Background(), q2)
 		require.NoError(t, err)
 		require.JSONEq(t, `{"vector":[]}`, string(res.Json))
 		return triples[idx]
@@ -105,8 +105,8 @@ func TestVectorDelete(t *testing.T) {
 	_ = queryVectors(t, driver, fmt.Sprintf(q3, strings.Split(triple, `"`)[1]))
 }
 
-func queryVectors(t *testing.T, db *modusdb.Driver, query string) [][]float32 {
-	resp, err := db.Query(context.Background(), query)
+func queryVectors(t *testing.T, driver *modusdb.Driver, query string) [][]float32 {
+	resp, err := driver.GetDefaultDB().Query(context.Background(), query)
 	require.NoError(t, err)
 
 	var data struct {

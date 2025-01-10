@@ -75,32 +75,32 @@ type VectorPredicate struct {
 type ModusDbOption func(*modusDbOptions)
 
 type modusDbOptions struct {
-	namespace uint64
+	db uint64
 }
 
-func WithNamespace(namespace uint64) ModusDbOption {
+func WithDB(db uint64) ModusDbOption {
 	return func(o *modusDbOptions) {
-		o.namespace = namespace
+		o.db = db
 	}
 }
 
-func getDefaultNamespace(db *Driver, ns ...uint64) (context.Context, *DB, error) {
+func getDefaultDB(driver *Driver, dbId ...uint64) (context.Context, *DB, error) {
 	dbOpts := &modusDbOptions{
-		namespace: db.db0.ID(),
+		db: driver.db0.ID(),
 	}
-	for _, ns := range ns {
-		WithNamespace(ns)(dbOpts)
+	for _, db := range dbId {
+		WithDB(db)(dbOpts)
 	}
 
-	n, err := db.getDBWithLock(dbOpts.namespace)
+	d, err := driver.getDBWithLock(dbOpts.db)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	ctx := context.Background()
-	ctx = x.AttachNamespace(ctx, n.ID())
+	ctx = x.AttachNamespace(ctx, d.ID())
 
-	return ctx, n, nil
+	return ctx, d, nil
 }
 
 func filterToQueryFunc(typeName string, f Filter) querygen.QueryFunc {

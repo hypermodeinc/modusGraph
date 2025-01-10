@@ -14,10 +14,10 @@ import (
 	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
-func processStructValue(ctx context.Context, value any, n *DB) (any, error) {
+func processStructValue(ctx context.Context, value any, db *DB) (any, error) {
 	if reflect.TypeOf(value).Kind() == reflect.Struct {
 		value = reflect.ValueOf(value).Interface()
-		newGid, err := getUidOrMutate(ctx, n.driver, n, value)
+		newGid, err := getUidOrMutate(ctx, db.driver, db, value)
 		if err != nil {
 			return nil, err
 		}
@@ -26,19 +26,19 @@ func processStructValue(ctx context.Context, value any, n *DB) (any, error) {
 	return value, nil
 }
 
-func processPointerValue(ctx context.Context, value any, n *DB) (any, error) {
+func processPointerValue(ctx context.Context, value any, db *DB) (any, error) {
 	reflectValueType := reflect.TypeOf(value)
 	if reflectValueType.Kind() == reflect.Pointer {
 		reflectValueType = reflectValueType.Elem()
 		if reflectValueType.Kind() == reflect.Struct {
 			value = reflect.ValueOf(value).Elem().Interface()
-			return processStructValue(ctx, value, n)
+			return processStructValue(ctx, value, db)
 		}
 	}
 	return value, nil
 }
 
-func getUidOrMutate[T any](ctx context.Context, db *Driver, n *DB, object T) (uint64, error) {
+func getUidOrMutate[T any](ctx context.Context, driver *Driver, db *DB, object T) (uint64, error) {
 	gid, cfKeyValue, err := structreflect.GetUniqueConstraint[T](object)
 	if err != nil {
 		return 0, err
@@ -50,17 +50,17 @@ func getUidOrMutate[T any](ctx context.Context, db *Driver, n *DB, object T) (ui
 
 	dms := make([]*dql.Mutation, 0)
 	sch := &schema.ParsedSchema{}
-	err = generateSetDqlMutationsAndSchema(ctx, n, object, gid, &dms, sch)
+	err = generateSetDqlMutationsAndSchema(ctx, db, object, gid, &dms, sch)
 	if err != nil {
 		return 0, err
 	}
 
-	err = n.alterSchemaWithParsed(ctx, sch)
+	err = driver.alterSchemaWithParsed(ctx, sch)
 	if err != nil {
 		return 0, err
 	}
 	if gid != 0 || cf != nil {
-		gid, err = getExistingObject(ctx, n, gid, cf, object)
+		gid, err = getExistingObject(ctx, db, gid, cf, object)
 		if err != nil && err != apiutils.ErrNoObjFound {
 			return 0, err
 		}
@@ -69,18 +69,18 @@ func getUidOrMutate[T any](ctx context.Context, db *Driver, n *DB, object T) (ui
 		}
 	}
 
-	gid, err = db.z.nextUID()
+	gid, err = driver.z.nextUID()
 	if err != nil {
 		return 0, err
 	}
 
 	dms = make([]*dql.Mutation, 0)
-	err = generateSetDqlMutationsAndSchema(ctx, n, object, gid, &dms, sch)
+	err = generateSetDqlMutationsAndSchema(ctx, db, object, gid, &dms, sch)
 	if err != nil {
 		return 0, err
 	}
 
-	err = applyDqlMutations(ctx, db, dms)
+	err = applyDqlMutations(ctx, driver, dms)
 	if err != nil {
 		return 0, err
 	}
@@ -88,21 +88,21 @@ func getUidOrMutate[T any](ctx context.Context, db *Driver, n *DB, object T) (ui
 	return gid, nil
 }
 
-func applyDqlMutations(ctx context.Context, db *Driver, dms []*dql.Mutation) error {
+func applyDqlMutations(ctx context.Context, driver *Driver, dms []*dql.Mutation) error {
 	edges, err := query.ToDirectedEdges(dms, nil)
 	if err != nil {
 		return err
 	}
 
-	if !db.isOpen.Load() {
+	if !driver.isOpen.Load() {
 		return ErrClosedDriver
 	}
 
-	startTs, err := db.z.nextTs()
+	startTs, err := driver.z.nextTs()
 	if err != nil {
 		return err
 	}
-	commitTs, err := db.z.nextTs()
+	commitTs, err := driver.z.nextTs()
 	if err != nil {
 		return err
 	}
