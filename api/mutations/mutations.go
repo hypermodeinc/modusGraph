@@ -22,8 +22,8 @@ import (
 )
 
 func HandleReverseEdge(jsonName string, value reflect.Type, nsId uint64, sch *schema.ParsedSchema,
-	jsonToReverseEdgeTags map[string]string) error {
-	if jsonToReverseEdgeTags[jsonName] == "" {
+	reverseEdgeStr string) error {
+	if reverseEdgeStr == "" {
 		return nil
 	}
 
@@ -31,10 +31,9 @@ func HandleReverseEdge(jsonName string, value reflect.Type, nsId uint64, sch *sc
 		return fmt.Errorf("reverse edge %s should be a slice of structs", jsonName)
 	}
 
-	reverseEdge := jsonToReverseEdgeTags[jsonName]
-	typeName := strings.Split(reverseEdge, ".")[0]
+	typeName := strings.Split(reverseEdgeStr, ".")[0]
 	u := &pb.SchemaUpdate{
-		Predicate: apiutils.AddNamespace(nsId, reverseEdge),
+		Predicate: apiutils.AddNamespace(nsId, reverseEdgeStr),
 		ValueType: pb.Posting_UID,
 		Directive: pb.SchemaUpdate_REVERSE,
 	}
