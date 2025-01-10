@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/dgraph/v24/dql"
@@ -46,9 +47,33 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, 
 		var nquad *api.NQuad
 
 		if tagMaps.JsonToReverseEdge[jsonName] != "" {
-			if err := mutations.HandleReverseEdge(jsonName, reflectValueType, n.ID(), sch,
-				tagMaps.JsonToReverseEdge); err != nil {
+			reverseEdgeStr := tagMaps.JsonToReverseEdge[jsonName]
+			typeName := strings.Split(reverseEdgeStr, ".")[0]
+			currSchema, err := getSchema(ctx, n)
+			if err != nil {
 				return err
+			}
+
+			typeFound := false
+			predicateFound := false
+			for _, t := range currSchema.Types {
+				if t.Name == typeName {
+					typeFound = true
+					for _, f := range t.Fields {
+						if f.Name == reverseEdgeStr {
+							predicateFound = true
+							break
+						}
+					}
+					break
+				}
+			}
+
+			if !(typeFound && predicateFound) {
+				if err := mutations.HandleReverseEdge(jsonName, reflectValueType, n.ID(), sch,
+					reverseEdgeStr); err != nil {
+					return err
+				}
 			}
 			continue
 		}

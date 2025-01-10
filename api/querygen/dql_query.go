@@ -15,6 +15,19 @@ import (
 	"strings"
 )
 
+type SchemaField struct {
+	Name string `json:"name"`
+}
+
+type SchemaType struct {
+	Name   string        `json:"name,omitempty"`
+	Fields []SchemaField `json:"fields,omitempty"`
+}
+
+type SchemaResponse struct {
+	Types []SchemaType `json:"types,omitempty"`
+}
+
 type QueryFunc func() string
 
 const (
@@ -55,6 +68,10 @@ const (
 			dgraph.type
 		}
   `
+
+	SchemaQuery = `
+	schema{}
+	`
 
 	FuncUid        = `uid(%d)`
 	FuncEq         = `eq(%s, %s)`

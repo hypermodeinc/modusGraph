@@ -199,3 +199,16 @@ func getExistingObject[T any](ctx context.Context, n *Namespace, gid uint64, cf 
 	}
 	return gid, nil
 }
+
+func getSchema(ctx context.Context, n *Namespace) (*querygen.SchemaResponse, error) {
+	resp, err := n.queryWithLock(ctx, querygen.SchemaQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	var schema querygen.SchemaResponse
+	if err := json.Unmarshal(resp.Json, &schema); err != nil {
+		return nil, err
+	}
+	return &schema, nil
+}
