@@ -11,219 +11,189 @@ package modusdb
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"path"
-	"sync"
-	"sync/atomic"
+	"strconv"
 
-	"github.com/dgraph-io/badger/v4"
 	"github.com/dgraph-io/dgo/v240/protos/api"
+	"github.com/dgraph-io/dgraph/v24/dql"
 	"github.com/dgraph-io/dgraph/v24/edgraph"
-	"github.com/dgraph-io/dgraph/v24/posting"
 	"github.com/dgraph-io/dgraph/v24/protos/pb"
+	"github.com/dgraph-io/dgraph/v24/query"
 	"github.com/dgraph-io/dgraph/v24/schema"
 	"github.com/dgraph-io/dgraph/v24/worker"
 	"github.com/dgraph-io/dgraph/v24/x"
-	"github.com/dgraph-io/ristretto/v2/z"
 )
 
-var (
-	// This ensures that we only have one instance of modusDB in this process.
-	singleton atomic.Bool
-
-	ErrSingletonOnly        = errors.New("only one modusDB instance is supported")
-	ErrEmptyDataDir         = errors.New("data directory is required")
-	ErrClosedDB             = errors.New("modusDB instance is closed")
-	ErrNonExistentNamespace = errors.New("namespace does not exist")
-)
-
-// DB is an instance of modusDB.
-// For now, we only support one instance of modusDB per process.
+// DB is one of the namespaces in modusDB.
 type DB struct {
-	mutex  sync.RWMutex
-	isOpen bool
-
-	z *zero
-
-	// points to default / 0 / galaxy namespace
-	defaultNamespace *Namespace
+	id     uint64
+	driver *Driver
 }
 
-// New returns a new modusDB instance.
-func New(conf Config) (*DB, error) {
-	// Ensure that we do not create another instance of modusDB in the same process
-	if !singleton.CompareAndSwap(false, true) {
-		return nil, ErrSingletonOnly
-	}
-
-	if err := conf.validate(); err != nil {
-		return nil, err
-	}
-
-	// setup data directories
-	worker.Config.PostingDir = path.Join(conf.dataDir, "p")
-	worker.Config.WALDir = path.Join(conf.dataDir, "w")
-	x.WorkerConfig.TmpDir = path.Join(conf.dataDir, "t")
-
-	// TODO: optimize these and more options
-	x.WorkerConfig.Badger = badger.DefaultOptions("").FromSuperFlag(worker.BadgerDefaults)
-	x.Config.MaxRetries = 10
-	x.Config.Limit = z.NewSuperFlag("max-pending-queries=100000")
-	x.Config.LimitNormalizeNode = conf.limitNormalizeNode
-
-	// initialize each package
-	edgraph.Init()
-	worker.State.InitStorage()
-	worker.InitForLite(worker.State.Pstore)
-	schema.Init(worker.State.Pstore)
-	posting.Init(worker.State.Pstore, 0) // TODO: set cache size
-
-	db := &DB{isOpen: true}
-	if err := db.reset(); err != nil {
-		return nil, fmt.Errorf("error resetting db: %w", err)
-	}
-
-	x.UpdateHealthStatus(true)
-
-	db.defaultNamespace = &Namespace{id: 0, db: db}
-	return db, nil
+func (db *DB) ID() uint64 {
+	return db.id
 }
 
-func (db *DB) CreateNamespace() (*Namespace, error) {
-	db.mutex.RLock()
-	defer db.mutex.RUnlock()
+// DropData drops all the data in the modusDB instance.
+func (db *DB) DropData(ctx context.Context) error {
+	db.driver.mutex.Lock()
+	defer db.driver.mutex.Unlock()
 
-	if !db.isOpen {
-		return nil, ErrClosedDB
+	if !db.driver.isOpen.Load() {
+		return ErrClosedDriver
 	}
 
-	startTs, err := db.z.nextTs()
+	p := &pb.Proposal{Mutations: &pb.Mutations{
+		GroupId:   1,
+		DropOp:    pb.Mutations_DATA,
+		DropValue: strconv.FormatUint(db.ID(), 10),
+	}}
+
+	if err := worker.ApplyMutations(ctx, p); err != nil {
+		return fmt.Errorf("error applying mutation: %w", err)
+	}
+
+	// TODO: insert drop record
+	// TODO: should we reset back the timestamp as well?
+	return nil
+}
+
+func (db *DB) AlterSchema(ctx context.Context, sch string) error {
+	db.driver.mutex.Lock()
+	defer db.driver.mutex.Unlock()
+
+	if !db.driver.isOpen.Load() {
+		return ErrClosedDriver
+	}
+
+	sc, err := schema.ParseWithNamespace(sch, db.ID())
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("error parsing schema: %w", err)
 	}
-	nsID, err := db.z.nextNS()
+	return db.alterSchemaWithParsed(ctx, sc)
+}
+
+func (db *DB) alterSchemaWithParsed(ctx context.Context, sc *schema.ParsedSchema) error {
+	for _, pred := range sc.Preds {
+		worker.InitTablet(pred.Predicate)
+	}
+
+	startTs, err := db.driver.z.nextTs()
 	if err != nil {
-		return nil, err
-	}
-
-	if err := worker.ApplyInitialSchema(nsID, startTs); err != nil {
-		return nil, fmt.Errorf("error applying initial schema: %w", err)
-	}
-	for _, pred := range schema.State().Predicates() {
-		worker.InitTablet(pred)
-	}
-
-	return &Namespace{id: nsID, db: db}, nil
-}
-
-func (db *DB) GetNamespace(nsID uint64) (*Namespace, error) {
-	db.mutex.RLock()
-	defer db.mutex.RUnlock()
-
-	return db.getNamespaceWithLock(nsID)
-}
-
-func (db *DB) getNamespaceWithLock(nsID uint64) (*Namespace, error) {
-	if !db.isOpen {
-		return nil, ErrClosedDB
-	}
-
-	if nsID > db.z.lastNS {
-		return nil, ErrNonExistentNamespace
-	}
-
-	// TODO: when delete namespace is implemented, check if the namespace exists
-
-	return &Namespace{id: nsID, db: db}, nil
-}
-
-// DropAll drops all the data and schema in the modusDB instance.
-func (db *DB) DropAll(ctx context.Context) error {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
-	if !db.isOpen {
-		return ErrClosedDB
+		return err
 	}
 
 	p := &pb.Proposal{Mutations: &pb.Mutations{
 		GroupId: 1,
-		DropOp:  pb.Mutations_ALL,
+		StartTs: startTs,
+		Schema:  sc.Preds,
+		Types:   sc.Types,
 	}}
 	if err := worker.ApplyMutations(ctx, p); err != nil {
 		return fmt.Errorf("error applying mutation: %w", err)
 	}
-	if err := db.reset(); err != nil {
-		return fmt.Errorf("error resetting db: %w", err)
-	}
-
-	// TODO: insert drop record
 	return nil
-}
-
-func (db *DB) DropData(ctx context.Context) error {
-	return db.defaultNamespace.DropData(ctx)
-}
-
-func (db *DB) AlterSchema(ctx context.Context, sch string) error {
-	return db.defaultNamespace.AlterSchema(ctx, sch)
-}
-
-func (db *DB) Query(ctx context.Context, q string) (*api.Response, error) {
-	return db.defaultNamespace.Query(ctx, q)
 }
 
 func (db *DB) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64, error) {
-	return db.defaultNamespace.Mutate(ctx, ms)
-}
-
-func (db *DB) Load(ctx context.Context, schemaPath, dataPath string) error {
-	return db.defaultNamespace.Load(ctx, schemaPath, dataPath)
-}
-
-func (db *DB) LoadData(inCtx context.Context, dataDir string) error {
-	return db.defaultNamespace.LoadData(inCtx, dataDir)
-}
-
-// Close closes the modusDB instance.
-func (db *DB) Close() {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
-	if !db.isOpen {
-		return
+	if len(ms) == 0 {
+		return nil, nil
 	}
 
-	if !singleton.CompareAndSwap(true, false) {
-		panic("modusDB instance was not properly opened")
+	db.driver.mutex.Lock()
+	defer db.driver.mutex.Unlock()
+	dms := make([]*dql.Mutation, 0, len(ms))
+	for _, mu := range ms {
+		dm, err := edgraph.ParseMutationObject(mu, false)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing mutation: %w", err)
+		}
+		dms = append(dms, dm)
 	}
-
-	db.isOpen = false
-	x.UpdateHealthStatus(false)
-	posting.Cleanup()
-	worker.State.Dispose()
-}
-
-func (db *DB) reset() error {
-	z, restart, err := newZero()
+	newUids, err := query.ExtractBlankUIDs(ctx, dms)
 	if err != nil {
-		return fmt.Errorf("error initializing zero: %w", err)
+		return nil, err
 	}
+	if len(newUids) > 0 {
+		num := &pb.Num{Val: uint64(len(newUids)), Type: pb.Num_UID}
+		res, err := db.driver.z.nextUIDs(num)
+		if err != nil {
+			return nil, err
+		}
 
-	if !restart {
-		if err := worker.ApplyInitialSchema(0, 1); err != nil {
-			return fmt.Errorf("error applying initial schema: %w", err)
+		curId := res.StartId
+		for k := range newUids {
+			x.AssertTruef(curId != 0 && curId <= res.EndId, "not enough uids generated")
+			newUids[k] = curId
+			curId++
 		}
 	}
 
-	if err := schema.LoadFromDb(context.Background()); err != nil {
-		return fmt.Errorf("error loading schema: %w", err)
+	return db.mutateWithDqlMutation(ctx, dms, newUids)
+}
+
+func (db *DB) mutateWithDqlMutation(ctx context.Context, dms []*dql.Mutation,
+	newUids map[string]uint64) (map[string]uint64, error) {
+	edges, err := query.ToDirectedEdges(dms, newUids)
+	if err != nil {
+		return nil, err
 	}
-	for _, pred := range schema.State().Predicates() {
-		worker.InitTablet(pred)
+	ctx = x.AttachNamespace(ctx, db.ID())
+
+	if !db.driver.isOpen.Load() {
+		return nil, ErrClosedDriver
 	}
 
-	db.z = z
-	return nil
+	startTs, err := db.driver.z.nextTs()
+	if err != nil {
+		return nil, err
+	}
+	commitTs, err := db.driver.z.nextTs()
+	if err != nil {
+		return nil, err
+	}
+
+	m := &pb.Mutations{
+		GroupId: 1,
+		StartTs: startTs,
+		Edges:   edges,
+	}
+	m.Edges, err = query.ExpandEdges(ctx, m)
+	if err != nil {
+		return nil, fmt.Errorf("error expanding edges: %w", err)
+	}
+
+	for _, edge := range m.Edges {
+		worker.InitTablet(edge.Attr)
+	}
+
+	p := &pb.Proposal{Mutations: m, StartTs: startTs}
+	if err := worker.ApplyMutations(ctx, p); err != nil {
+		return nil, err
+	}
+
+	return newUids, worker.ApplyCommited(ctx, &pb.OracleDelta{
+		Txns: []*pb.TxnStatus{{StartTs: startTs, CommitTs: commitTs}},
+	})
+}
+
+// Query performs query or mutation or upsert on the given modusDB instance.
+func (db *DB) Query(ctx context.Context, query string) (*api.Response, error) {
+	db.driver.mutex.RLock()
+	defer db.driver.mutex.RUnlock()
+
+	return db.queryWithLock(ctx, query)
+}
+
+func (db *DB) queryWithLock(ctx context.Context, query string) (*api.Response, error) {
+	if !db.driver.isOpen.Load() {
+		return nil, ErrClosedDriver
+	}
+
+	ctx = x.AttachNamespace(ctx, db.ID())
+	return (&edgraph.Server{}).QueryNoAuth(ctx, &api.Request{
+		ReadOnly: true,
+		Query:    query,
+		StartTs:  db.driver.z.readTs(),
+	})
 }

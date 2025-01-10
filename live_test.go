@@ -49,7 +49,7 @@ const (
 
 func TestLiveLoaderSmall(t *testing.T) {
 
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	db, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -90,7 +90,7 @@ func TestLiveLoaderSmall(t *testing.T) {
 }
 
 func TestLiveLoader1Million(t *testing.T) {
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	db, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer db.Close()
 

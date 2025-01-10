@@ -14,10 +14,10 @@ import (
 	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
-func processStructValue(ctx context.Context, value any, n *Namespace) (any, error) {
+func processStructValue(ctx context.Context, value any, n *DB) (any, error) {
 	if reflect.TypeOf(value).Kind() == reflect.Struct {
 		value = reflect.ValueOf(value).Interface()
-		newGid, err := getUidOrMutate(ctx, n.db, n, value)
+		newGid, err := getUidOrMutate(ctx, n.driver, n, value)
 		if err != nil {
 			return nil, err
 		}
@@ -26,7 +26,7 @@ func processStructValue(ctx context.Context, value any, n *Namespace) (any, erro
 	return value, nil
 }
 
-func processPointerValue(ctx context.Context, value any, n *Namespace) (any, error) {
+func processPointerValue(ctx context.Context, value any, n *DB) (any, error) {
 	reflectValueType := reflect.TypeOf(value)
 	if reflectValueType.Kind() == reflect.Pointer {
 		reflectValueType = reflectValueType.Elem()
@@ -38,7 +38,7 @@ func processPointerValue(ctx context.Context, value any, n *Namespace) (any, err
 	return value, nil
 }
 
-func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) (uint64, error) {
+func getUidOrMutate[T any](ctx context.Context, db *Driver, n *DB, object T) (uint64, error) {
 	gid, cfKeyValue, err := structreflect.GetUniqueConstraint[T](object)
 	if err != nil {
 		return 0, err
@@ -88,14 +88,14 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 	return gid, nil
 }
 
-func applyDqlMutations(ctx context.Context, db *DB, dms []*dql.Mutation) error {
+func applyDqlMutations(ctx context.Context, db *Driver, dms []*dql.Mutation) error {
 	edges, err := query.ToDirectedEdges(dms, nil)
 	if err != nil {
 		return err
 	}
 
-	if !db.isOpen {
-		return ErrClosedDB
+	if !db.isOpen.Load() {
+		return ErrClosedDriver
 	}
 
 	startTs, err := db.z.nextTs()

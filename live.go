@@ -34,13 +34,13 @@ const (
 )
 
 type liveLoader struct {
-	n *Namespace
+	n *DB
 
 	blankNodes map[string]string
 	mutex      sync.RWMutex
 }
 
-func (n *Namespace) Load(ctx context.Context, schemaPath, dataPath string) error {
+func (n *DB) Load(ctx context.Context, schemaPath, dataPath string) error {
 	schemaData, err := os.ReadFile(schemaPath)
 	if err != nil {
 		return fmt.Errorf("error reading schema file [%v]: %w", schemaPath, err)
@@ -56,7 +56,7 @@ func (n *Namespace) Load(ctx context.Context, schemaPath, dataPath string) error
 }
 
 // TODO: Add support for CSV file
-func (n *Namespace) LoadData(inCtx context.Context, dataDir string) error {
+func (n *DB) LoadData(inCtx context.Context, dataDir string) error {
 	fs := filestore.NewFileStore(dataDir)
 	files := fs.FindDataFiles(dataDir, []string{".rdf", ".rdf.gz", ".json", ".json.gz"})
 	if len(files) == 0 {
@@ -246,7 +246,7 @@ func (l *liveLoader) uid(ns uint64, val string) (string, error) {
 		return uid, nil
 	}
 
-	asUID, err := l.n.db.LeaseUIDs(1)
+	asUID, err := l.n.driver.LeaseUIDs(1)
 	if err != nil {
 		return "", fmt.Errorf("error allocating UID: %w", err)
 	}

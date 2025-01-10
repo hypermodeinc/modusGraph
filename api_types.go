@@ -84,15 +84,15 @@ func WithNamespace(namespace uint64) ModusDbOption {
 	}
 }
 
-func getDefaultNamespace(db *DB, ns ...uint64) (context.Context, *Namespace, error) {
+func getDefaultNamespace(db *Driver, ns ...uint64) (context.Context, *DB, error) {
 	dbOpts := &modusDbOptions{
-		namespace: db.defaultNamespace.ID(),
+		namespace: db.db0.ID(),
 	}
 	for _, ns := range ns {
 		WithNamespace(ns)(dbOpts)
 	}
 
-	n, err := db.getNamespaceWithLock(dbOpts.namespace)
+	n, err := db.getDBWithLock(dbOpts.namespace)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1,7 +1,7 @@
 /*
  * Copyright 2025 Hypermode Inc.
  * Licensed under the terms of the Apache License, Version 2.0
- * See the LICENSE file that accompanied this code for further details.
+ * See the LICEDBE file that accompanied this code for further details.
  *
  * SPDX-FileCopyrightText: 2025 Hypermode Inc. <hello@hypermode.com>
  * SPDX-License-Identifier: Apache-2.0
@@ -34,7 +34,7 @@ const (
 	zeroStateKey = "0-dgraph.modusdb.zero"
 )
 
-func (db *DB) LeaseUIDs(numUIDs uint64) (*pb.AssignedIds, error) {
+func (db *Driver) LeaseUIDs(numUIDs uint64) (*pb.AssignedIds, error) {
 	num := &pb.Num{Val: numUIDs, Type: pb.Num_UID}
 	return db.z.nextUIDs(num)
 }
@@ -46,7 +46,7 @@ type zero struct {
 	minLeasedTs uint64
 	maxLeasedTs uint64
 
-	lastNS uint64
+	lastDB uint64
 }
 
 func newZero() (*zero, bool, error) {
@@ -62,13 +62,13 @@ func newZero() (*zero, bool, error) {
 		z.maxLeasedUID = initialUID
 		z.minLeasedTs = initialTs
 		z.maxLeasedTs = initialTs
-		z.lastNS = 0
+		z.lastDB = 0
 	} else {
 		z.minLeasedUID = zs.MaxUID
 		z.maxLeasedUID = zs.MaxUID
 		z.minLeasedTs = zs.MaxTxnTs
 		z.maxLeasedTs = zs.MaxTxnTs
-		z.lastNS = zs.MaxNsID
+		z.lastDB = zs.MaxNsID
 	}
 	posting.Oracle().ProcessDelta(&pb.OracleDelta{MaxAssigned: z.minLeasedTs - 1})
 	worker.SetMaxUID(z.minLeasedUID - 1)
@@ -133,12 +133,12 @@ func (z *zero) nextUIDs(num *pb.Num) (*pb.AssignedIds, error) {
 	return resp, nil
 }
 
-func (z *zero) nextNS() (uint64, error) {
-	z.lastNS++
+func (z *zero) nextDB() (uint64, error) {
+	z.lastDB++
 	if err := z.writeZeroState(); err != nil {
 		return 0, fmt.Errorf("error leasing namespace ID: %w", err)
 	}
-	return z.lastNS, nil
+	return z.lastDB, nil
 }
 
 func readZeroState() (*pb.MembershipState, error) {
@@ -165,7 +165,7 @@ func readZeroState() (*pb.MembershipState, error) {
 }
 
 func (z *zero) writeZeroState() error {
-	zeroState := &pb.MembershipState{MaxUID: z.maxLeasedUID, MaxTxnTs: z.maxLeasedTs, MaxNsID: z.lastNS}
+	zeroState := &pb.MembershipState{MaxUID: z.maxLeasedUID, MaxTxnTs: z.maxLeasedTs, MaxNsID: z.lastDB}
 	data, err := proto.Marshal(zeroState)
 	if err != nil {
 		return fmt.Errorf("error marshalling zero state: %w", err)

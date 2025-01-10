@@ -18,18 +18,18 @@ import (
 	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
-func Create[T any](db *DB, object T, ns ...uint64) (uint64, T, error) {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
+func Create[T any](driver *Driver, object T, ns ...uint64) (uint64, T, error) {
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
 	if len(ns) > 1 {
 		return 0, object, fmt.Errorf("only one namespace is allowed")
 	}
-	ctx, n, err := getDefaultNamespace(db, ns...)
+	ctx, n, err := getDefaultNamespace(driver, ns...)
 	if err != nil {
 		return 0, object, err
 	}
 
-	gid, err := db.z.nextUID()
+	gid, err := driver.z.nextUID()
 	if err != nil {
 		return 0, object, err
 	}
@@ -46,7 +46,7 @@ func Create[T any](db *DB, object T, ns ...uint64) (uint64, T, error) {
 		return 0, object, err
 	}
 
-	err = applyDqlMutations(ctx, db, dms)
+	err = applyDqlMutations(ctx, driver, dms)
 	if err != nil {
 		return 0, object, err
 	}
@@ -54,16 +54,16 @@ func Create[T any](db *DB, object T, ns ...uint64) (uint64, T, error) {
 	return getByGid[T](ctx, n, gid)
 }
 
-func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
+func Upsert[T any](driver *Driver, object T, ns ...uint64) (uint64, T, bool, error) {
 
 	var wasFound bool
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
 	if len(ns) > 1 {
 		return 0, object, false, fmt.Errorf("only one namespace is allowed")
 	}
 
-	ctx, n, err := getDefaultNamespace(db, ns...)
+	ctx, n, err := getDefaultNamespace(driver, ns...)
 	if err != nil {
 		return 0, object, false, err
 	}
@@ -101,7 +101,7 @@ func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 	}
 
 	if gid == 0 {
-		gid, err = db.z.nextUID()
+		gid, err = driver.z.nextUID()
 		if err != nil {
 			return 0, object, false, err
 		}
@@ -113,7 +113,7 @@ func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 		return 0, object, false, err
 	}
 
-	err = applyDqlMutations(ctx, db, dms)
+	err = applyDqlMutations(ctx, driver, dms)
 	if err != nil {
 		return 0, object, false, err
 	}
@@ -126,14 +126,14 @@ func Upsert[T any](db *DB, object T, ns ...uint64) (uint64, T, bool, error) {
 	return gid, object, wasFound, nil
 }
 
-func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, error) {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
+func Get[T any, R UniqueField](driver *Driver, uniqueField R, ns ...uint64) (uint64, T, error) {
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
 	var obj T
 	if len(ns) > 1 {
 		return 0, obj, fmt.Errorf("only one namespace is allowed")
 	}
-	ctx, n, err := getDefaultNamespace(db, ns...)
+	ctx, n, err := getDefaultNamespace(driver, ns...)
 	if err != nil {
 		return 0, obj, err
 	}
@@ -148,13 +148,13 @@ func Get[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, 
 	return 0, obj, fmt.Errorf("invalid unique field type")
 }
 
-func Query[T any](db *DB, queryParams QueryParams, ns ...uint64) ([]uint64, []T, error) {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
+func Query[T any](driver *Driver, queryParams QueryParams, ns ...uint64) ([]uint64, []T, error) {
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
 	if len(ns) > 1 {
 		return nil, nil, fmt.Errorf("only one namespace is allowed")
 	}
-	ctx, n, err := getDefaultNamespace(db, ns...)
+	ctx, n, err := getDefaultNamespace(driver, ns...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -162,14 +162,14 @@ func Query[T any](db *DB, queryParams QueryParams, ns ...uint64) ([]uint64, []T,
 	return executeQuery[T](ctx, n, queryParams, true)
 }
 
-func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, T, error) {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
+func Delete[T any, R UniqueField](driver *Driver, uniqueField R, ns ...uint64) (uint64, T, error) {
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
 	var zeroObj T
 	if len(ns) > 1 {
 		return 0, zeroObj, fmt.Errorf("only one namespace is allowed")
 	}
-	ctx, n, err := getDefaultNamespace(db, ns...)
+	ctx, n, err := getDefaultNamespace(driver, ns...)
 	if err != nil {
 		return 0, zeroObj, err
 	}
@@ -181,7 +181,7 @@ func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, 
 
 		dms := generateDeleteDqlMutations(n, uid)
 
-		err = applyDqlMutations(ctx, db, dms)
+		err = applyDqlMutations(ctx, driver, dms)
 		if err != nil {
 			return 0, zeroObj, err
 		}
@@ -197,7 +197,7 @@ func Delete[T any, R UniqueField](db *DB, uniqueField R, ns ...uint64) (uint64, 
 
 		dms := generateDeleteDqlMutations(n, uid)
 
-		err = applyDqlMutations(ctx, db, dms)
+		err = applyDqlMutations(ctx, driver, dms)
 		if err != nil {
 			return 0, zeroObj, err
 		}

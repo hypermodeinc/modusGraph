@@ -26,7 +26,7 @@ import (
 	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
-func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, object T,
+func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *DB, object T,
 	gid uint64, dms *[]*dql.Mutation, sch *schema.ParsedSchema) error {
 	t := reflect.TypeOf(object)
 	if t.Kind() != reflect.Struct {
@@ -134,7 +134,7 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, 
 	return nil
 }
 
-func generateDeleteDqlMutations(n *Namespace, gid uint64) []*dql.Mutation {
+func generateDeleteDqlMutations(n *DB, gid uint64) []*dql.Mutation {
 	return []*dql.Mutation{{
 		Del: []*api.NQuad{
 			{
