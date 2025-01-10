@@ -109,37 +109,15 @@ func TestCreateApi(t *testing.T) {
 	require.JSONEq(t, `{"me":[{"uid":"0x2","User.name":"B","User.age":20,"User.clerk_id":"123"}]}`,
 		string(resp.GetJson()))
 
-	// TODO schema{} should work
 	schemaQuery := `schema{}`
 	resp, err = db1.Query(ctx, schemaQuery)
 	require.NoError(t, err)
 
 	require.JSONEq(t,
-		`{
-            "types": [
-                {
-                    "name": "User",
-                    "fields": [
-                        {"name": "User.name"},
-                        {"name": "User.age"},
-                        {"name": "User.clerk_id"}
-                    ]
-                },
-                {
-                    "name": "dgraph.graphql",
-                    "fields": [
-                        {"name": "dgraph.graphql.schema"},
-                        {"name": "dgraph.graphql.xid"}
-                    ]
-                },
-                {
-                    "name": "dgraph.graphql.persisted_query", 
-                    "fields": [
-                        {"name": "dgraph.graphql.p_query"}
-                    ]
-                }
-            ]
-        }`,
+		`{"types": [{"name": "User","fields": [{"name": "User.name"},{"name": "User.age"},
+		{"name": "User.clerk_id"}]},{"name": "dgraph.graphql","fields": 
+		[{"name": "dgraph.graphql.schema"},{"name": "dgraph.graphql.xid"}]},{"name": 
+		"dgraph.graphql.persisted_query", "fields": [{"name": "dgraph.graphql.p_query"}]}]}`,
 		string(resp.GetJson()))
 }
 
