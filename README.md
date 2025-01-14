@@ -40,7 +40,7 @@ import (
 
 type User struct {
   Gid  uint64 `json:"gid,omitempty"`
-  Id   string `json:"id,omitempty" ns:"constraint=unique"`
+  Id   string `json:"id,omitempty" db:"constraint=unique"`
   Name string `json:"name,omitempty"`
   Age  int    `json:"age,omitempty"`
 }

@@ -26,7 +26,7 @@ func parseJsonTag(field reflect.StructField) (string, error) {
 }
 
 func parseDbTag(field reflect.StructField) *DbTag {
-	dbConstraintsTag := field.Tag.Get("ns")
+	dbConstraintsTag := field.Tag.Get("db")
 	if dbConstraintsTag == "" {
 		return nil
 	}

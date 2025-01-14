@@ -85,7 +85,7 @@ func NewEngine(conf Config) (*Engine, error) {
 	engine := &Engine{}
 	engine.isOpen.Store(true)
 	if err := engine.reset(); err != nil {
-		return nil, fmt.Errorf("error resetting ns: %w", err)
+		return nil, fmt.Errorf("error resetting db: %w", err)
 	}
 
 	x.UpdateHealthStatus(true)
@@ -163,7 +163,7 @@ func (engine *Engine) DropAll(ctx context.Context) error {
 		return fmt.Errorf("error applying mutation: %w", err)
 	}
 	if err := engine.reset(); err != nil {
-		return fmt.Errorf("error resetting ns: %w", err)
+		return fmt.Errorf("error resetting db: %w", err)
 	}
 
 	// TODO: insert drop record
