@@ -34,9 +34,9 @@ const (
 	zeroStateKey = "0-dgraph.modusdb.zero"
 )
 
-func (db *Driver) LeaseUIDs(numUIDs uint64) (*pb.AssignedIds, error) {
+func (ns *Engine) LeaseUIDs(numUIDs uint64) (*pb.AssignedIds, error) {
 	num := &pb.Num{Val: numUIDs, Type: pb.Num_UID}
-	return db.z.nextUIDs(num)
+	return ns.z.nextUIDs(num)
 }
 
 type zero struct {
@@ -46,7 +46,7 @@ type zero struct {
 	minLeasedTs uint64
 	maxLeasedTs uint64
 
-	lastDB uint64
+	lastNamespace uint64
 }
 
 func newZero() (*zero, bool, error) {
@@ -62,13 +62,13 @@ func newZero() (*zero, bool, error) {
 		z.maxLeasedUID = initialUID
 		z.minLeasedTs = initialTs
 		z.maxLeasedTs = initialTs
-		z.lastDB = 0
+		z.lastNamespace = 0
 	} else {
 		z.minLeasedUID = zs.MaxUID
 		z.maxLeasedUID = zs.MaxUID
 		z.minLeasedTs = zs.MaxTxnTs
 		z.maxLeasedTs = zs.MaxTxnTs
-		z.lastDB = zs.MaxNsID
+		z.lastNamespace = zs.MaxNsID
 	}
 	posting.Oracle().ProcessDelta(&pb.OracleDelta{MaxAssigned: z.minLeasedTs - 1})
 	worker.SetMaxUID(z.minLeasedUID - 1)
@@ -133,12 +133,12 @@ func (z *zero) nextUIDs(num *pb.Num) (*pb.AssignedIds, error) {
 	return resp, nil
 }
 
-func (z *zero) nextDB() (uint64, error) {
-	z.lastDB++
+func (z *zero) nextNamespace() (uint64, error) {
+	z.lastNamespace++
 	if err := z.writeZeroState(); err != nil {
 		return 0, fmt.Errorf("error leasing namespace ID: %w", err)
 	}
-	return z.lastDB, nil
+	return z.lastNamespace, nil
 }
 
 func readZeroState() (*pb.MembershipState, error) {
@@ -165,7 +165,7 @@ func readZeroState() (*pb.MembershipState, error) {
 }
 
 func (z *zero) writeZeroState() error {
-	zeroState := &pb.MembershipState{MaxUID: z.maxLeasedUID, MaxTxnTs: z.maxLeasedTs, MaxNsID: z.lastDB}
+	zeroState := &pb.MembershipState{MaxUID: z.maxLeasedUID, MaxTxnTs: z.maxLeasedTs, MaxNsID: z.lastNamespace}
 	data, err := proto.Marshal(zeroState)
 	if err != nil {
 		return fmt.Errorf("error marshalling zero state: %w", err)

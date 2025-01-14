@@ -24,15 +24,15 @@ type User struct {
 	Gid     uint64 `json:"gid,omitempty"`
 	Name    string `json:"name,omitempty"`
 	Age     int    `json:"age,omitempty"`
-	ClerkId string `json:"clerk_id,omitempty" db:"constraint=unique"`
+	ClerkId string `json:"clerk_id,omitempty" ns:"constraint=unique"`
 }
 
 func TestFirstTimeUser(t *testing.T) {
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	gid, user, err := modusdb.Create(driver, User{
+	gid, user, err := modusdb.Create(engine, User{
 		Name:    "A",
 		Age:     10,
 		ClerkId: "123",
@@ -44,7 +44,7 @@ func TestFirstTimeUser(t *testing.T) {
 	require.Equal(t, 10, user.Age)
 	require.Equal(t, "123", user.ClerkId)
 
-	gid, queriedUser, err := modusdb.Get[User](driver, gid)
+	gid, queriedUser, err := modusdb.Get[User](engine, gid)
 
 	require.NoError(t, err)
 	require.Equal(t, queriedUser.Gid, gid)
@@ -52,7 +52,7 @@ func TestFirstTimeUser(t *testing.T) {
 	require.Equal(t, "A", queriedUser.Name)
 	require.Equal(t, "123", queriedUser.ClerkId)
 
-	gid, queriedUser2, err := modusdb.Get[User](driver, modusdb.ConstrainedField{
+	gid, queriedUser2, err := modusdb.Get[User](engine, modusdb.ConstrainedField{
 		Key:   "clerk_id",
 		Value: "123",
 	})
@@ -63,10 +63,10 @@ func TestFirstTimeUser(t *testing.T) {
 	require.Equal(t, "A", queriedUser2.Name)
 	require.Equal(t, "123", queriedUser2.ClerkId)
 
-	_, _, err = modusdb.Delete[User](driver, gid)
+	_, _, err = modusdb.Delete[User](engine, gid)
 	require.NoError(t, err)
 
-	_, queriedUser3, err := modusdb.Get[User](driver, gid)
+	_, queriedUser3, err := modusdb.Get[User](engine, gid)
 	require.Error(t, err)
 	require.Equal(t, "no object found", err.Error())
 	require.Equal(t, queriedUser3, User{})
@@ -75,14 +75,14 @@ func TestFirstTimeUser(t *testing.T) {
 
 func TestCreateApi(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	user := User{
 		Name:    "B",
@@ -90,7 +90,7 @@ func TestCreateApi(t *testing.T) {
 		ClerkId: "123",
 	}
 
-	gid, user, err := modusdb.Create(driver, user, db1.ID())
+	gid, user, err := modusdb.Create(engine, user, ns1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "B", user.Name)
@@ -104,7 +104,7 @@ func TestCreateApi(t *testing.T) {
 			User.clerk_id
 		}
 	}`
-	resp, err := db1.Query(ctx, query)
+	resp, err := ns1.Query(ctx, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"uid":"0x2","User.name":"B","User.age":20,"User.clerk_id":"123"}]}`,
 		string(resp.GetJson()))
@@ -112,35 +112,35 @@ func TestCreateApi(t *testing.T) {
 
 func TestCreateApiWithNonStruct(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	user := User{
 		Name: "B",
 		Age:  20,
 	}
 
-	_, _, err = modusdb.Create[*User](driver, &user, db1.ID())
+	_, _, err = modusdb.Create[*User](engine, &user, ns1.ID())
 	require.Error(t, err)
 	require.Equal(t, "expected struct, got ptr", err.Error())
 }
 
 func TestGetApi(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	user := User{
 		Name:    "B",
@@ -148,10 +148,10 @@ func TestGetApi(t *testing.T) {
 		ClerkId: "123",
 	}
 
-	gid, _, err := modusdb.Create(driver, user, db1.ID())
+	gid, _, err := modusdb.Create(engine, user, ns1.ID())
 	require.NoError(t, err)
 
-	gid, queriedUser, err := modusdb.Get[User](driver, gid, db1.ID())
+	gid, queriedUser, err := modusdb.Get[User](engine, gid, ns1.ID())
 
 	require.NoError(t, err)
 	require.Equal(t, queriedUser.Gid, gid)
@@ -162,14 +162,14 @@ func TestGetApi(t *testing.T) {
 
 func TestGetApiWithConstrainedField(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	user := User{
 		Name:    "B",
@@ -177,13 +177,13 @@ func TestGetApiWithConstrainedField(t *testing.T) {
 		ClerkId: "123",
 	}
 
-	_, _, err = modusdb.Create(driver, user, db1.ID())
+	_, _, err = modusdb.Create(engine, user, ns1.ID())
 	require.NoError(t, err)
 
-	gid, queriedUser, err := modusdb.Get[User](driver, modusdb.ConstrainedField{
+	gid, queriedUser, err := modusdb.Get[User](engine, modusdb.ConstrainedField{
 		Key:   "clerk_id",
 		Value: "123",
-	}, db1.ID())
+	}, ns1.ID())
 
 	require.NoError(t, err)
 	require.Equal(t, queriedUser.Gid, gid)
@@ -194,14 +194,14 @@ func TestGetApiWithConstrainedField(t *testing.T) {
 
 func TestDeleteApi(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	user := User{
 		Name:    "B",
@@ -209,21 +209,21 @@ func TestDeleteApi(t *testing.T) {
 		ClerkId: "123",
 	}
 
-	gid, _, err := modusdb.Create(driver, user, db1.ID())
+	gid, _, err := modusdb.Create(engine, user, ns1.ID())
 	require.NoError(t, err)
 
-	_, _, err = modusdb.Delete[User](driver, gid, db1.ID())
+	_, _, err = modusdb.Delete[User](engine, gid, ns1.ID())
 	require.NoError(t, err)
 
-	_, queriedUser, err := modusdb.Get[User](driver, gid, db1.ID())
+	_, queriedUser, err := modusdb.Get[User](engine, gid, ns1.ID())
 	require.Error(t, err)
 	require.Equal(t, "no object found", err.Error())
 	require.Equal(t, queriedUser, User{})
 
-	_, queriedUser, err = modusdb.Get[User](driver, modusdb.ConstrainedField{
+	_, queriedUser, err = modusdb.Get[User](engine, modusdb.ConstrainedField{
 		Key:   "clerk_id",
 		Value: "123",
-	}, db1.ID())
+	}, ns1.ID())
 	require.Error(t, err)
 	require.Equal(t, "no object found", err.Error())
 	require.Equal(t, queriedUser, User{})
@@ -231,14 +231,14 @@ func TestDeleteApi(t *testing.T) {
 
 func TestUpsertApi(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	user := User{
 		Name:    "B",
@@ -246,16 +246,16 @@ func TestUpsertApi(t *testing.T) {
 		ClerkId: "123",
 	}
 
-	gid, user, _, err := modusdb.Upsert(driver, user, db1.ID())
+	gid, user, _, err := modusdb.Upsert(engine, user, ns1.ID())
 	require.NoError(t, err)
 	require.Equal(t, user.Gid, gid)
 
 	user.Age = 21
-	gid, _, _, err = modusdb.Upsert(driver, user, db1.ID())
+	gid, _, _, err = modusdb.Upsert(engine, user, ns1.ID())
 	require.NoError(t, err)
 	require.Equal(t, user.Gid, gid)
 
-	_, queriedUser, err := modusdb.Get[User](driver, gid, db1.ID())
+	_, queriedUser, err := modusdb.Get[User](engine, gid, ns1.ID())
 	require.NoError(t, err)
 	require.Equal(t, user.Gid, queriedUser.Gid)
 	require.Equal(t, 21, queriedUser.Age)
@@ -265,14 +265,14 @@ func TestUpsertApi(t *testing.T) {
 
 func TestQueryApi(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	users := []User{
 		{Name: "A", Age: 10, ClerkId: "123"},
@@ -283,11 +283,11 @@ func TestQueryApi(t *testing.T) {
 	}
 
 	for _, user := range users {
-		_, _, err = modusdb.Create(driver, user, db1.ID())
+		_, _, err = modusdb.Create(engine, user, ns1.ID())
 		require.NoError(t, err)
 	}
 
-	gids, queriedUsers, err := modusdb.Query[User](driver, modusdb.QueryParams{}, db1.ID())
+	gids, queriedUsers, err := modusdb.Query[User](engine, modusdb.QueryParams{}, ns1.ID())
 	require.NoError(t, err)
 	require.Len(t, queriedUsers, 5)
 	require.Len(t, gids, 5)
@@ -297,7 +297,7 @@ func TestQueryApi(t *testing.T) {
 	require.Equal(t, "D", queriedUsers[3].Name)
 	require.Equal(t, "E", queriedUsers[4].Name)
 
-	gids, queriedUsers, err = modusdb.Query[User](driver, modusdb.QueryParams{
+	gids, queriedUsers, err = modusdb.Query[User](engine, modusdb.QueryParams{
 		Filter: &modusdb.Filter{
 			Field: "age",
 			String: modusdb.StringPredicate{
@@ -307,7 +307,7 @@ func TestQueryApi(t *testing.T) {
 				GreaterOrEqual: fmt.Sprintf("%d", 20),
 			},
 		},
-	}, db1.ID())
+	}, ns1.ID())
 
 	require.NoError(t, err)
 	require.Len(t, queriedUsers, 4)
@@ -320,14 +320,14 @@ func TestQueryApi(t *testing.T) {
 
 func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	users := []User{
 		{Name: "A", Age: 10, ClerkId: "123"},
@@ -338,11 +338,11 @@ func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 	}
 
 	for _, user := range users {
-		_, _, err = modusdb.Create(driver, user, db1.ID())
+		_, _, err = modusdb.Create(engine, user, ns1.ID())
 		require.NoError(t, err)
 	}
 
-	gids, queriedUsers, err := modusdb.Query[User](driver, modusdb.QueryParams{
+	gids, queriedUsers, err := modusdb.Query[User](engine, modusdb.QueryParams{
 		Filter: &modusdb.Filter{
 			Field: "age",
 			String: modusdb.StringPredicate{
@@ -353,7 +353,7 @@ func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 			Limit:  3,
 			Offset: 1,
 		},
-	}, db1.ID())
+	}, ns1.ID())
 
 	require.NoError(t, err)
 	require.Len(t, queriedUsers, 3)
@@ -362,7 +362,7 @@ func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 	require.Equal(t, "D", queriedUsers[1].Name)
 	require.Equal(t, "E", queriedUsers[2].Name)
 
-	gids, queriedUsers, err = modusdb.Query[User](driver, modusdb.QueryParams{
+	gids, queriedUsers, err = modusdb.Query[User](engine, modusdb.QueryParams{
 		Pagination: &modusdb.Pagination{
 			Limit:  3,
 			Offset: 1,
@@ -370,7 +370,7 @@ func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 		Sorting: &modusdb.Sorting{
 			OrderAscField: "age",
 		},
-	}, db1.ID())
+	}, ns1.ID())
 
 	require.NoError(t, err)
 	require.Len(t, queriedUsers, 3)
@@ -383,36 +383,36 @@ func TestQueryApiWithPaginiationAndSorting(t *testing.T) {
 type Project struct {
 	Gid      uint64   `json:"gid,omitempty"`
 	Name     string   `json:"name,omitempty"`
-	ClerkId  string   `json:"clerk_id,omitempty" db:"constraint=unique"`
+	ClerkId  string   `json:"clerk_id,omitempty" ns:"constraint=unique"`
 	Branches []Branch `json:"branches,omitempty" readFrom:"type=Branch,field=proj"`
 }
 
 type Branch struct {
 	Gid     uint64  `json:"gid,omitempty"`
 	Name    string  `json:"name,omitempty"`
-	ClerkId string  `json:"clerk_id,omitempty" db:"constraint=unique"`
+	ClerkId string  `json:"clerk_id,omitempty" ns:"constraint=unique"`
 	Proj    Project `json:"proj,omitempty"`
 }
 
 func TestReverseEdgeGet(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
-	projGid, project, err := modusdb.Create(driver, Project{
+	projGid, project, err := modusdb.Create(engine, Project{
 		Name:    "P",
 		ClerkId: "456",
 		Branches: []Branch{
 			{Name: "B", ClerkId: "123"},
 			{Name: "B2", ClerkId: "456"},
 		},
-	}, db1.ID())
+	}, ns1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "P", project.Name)
@@ -429,7 +429,7 @@ func TestReverseEdgeGet(t *testing.T) {
 		},
 	}
 
-	branch1Gid, branch1, err := modusdb.Create(driver, branch1, db1.ID())
+	branch1Gid, branch1, err := modusdb.Create(engine, branch1, ns1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "B", branch1.Name)
@@ -445,13 +445,13 @@ func TestReverseEdgeGet(t *testing.T) {
 		},
 	}
 
-	branch2Gid, branch2, err := modusdb.Create(driver, branch2, db1.ID())
+	branch2Gid, branch2, err := modusdb.Create(engine, branch2, ns1.ID())
 	require.NoError(t, err)
 	require.Equal(t, "B2", branch2.Name)
 	require.Equal(t, branch2.Gid, branch2Gid)
 	require.Equal(t, projGid, branch2.Proj.Gid)
 
-	getProjGid, queriedProject, err := modusdb.Get[Project](driver, projGid, db1.ID())
+	getProjGid, queriedProject, err := modusdb.Get[Project](engine, projGid, ns1.ID())
 	require.NoError(t, err)
 	require.Equal(t, projGid, getProjGid)
 	require.Equal(t, "P", queriedProject.Name)
@@ -459,7 +459,7 @@ func TestReverseEdgeGet(t *testing.T) {
 	require.Equal(t, "B", queriedProject.Branches[0].Name)
 	require.Equal(t, "B2", queriedProject.Branches[1].Name)
 
-	queryBranchesGids, queriedBranches, err := modusdb.Query[Branch](driver, modusdb.QueryParams{}, db1.ID())
+	queryBranchesGids, queriedBranches, err := modusdb.Query[Branch](engine, modusdb.QueryParams{}, ns1.ID())
 	require.NoError(t, err)
 	require.Len(t, queriedBranches, 2)
 	require.Len(t, queryBranchesGids, 2)
@@ -469,10 +469,10 @@ func TestReverseEdgeGet(t *testing.T) {
 	// max depth is 2, so we should not see the branches within project
 	require.Len(t, queriedBranches[0].Proj.Branches, 0)
 
-	_, _, err = modusdb.Delete[Project](driver, projGid, db1.ID())
+	_, _, err = modusdb.Delete[Project](engine, projGid, ns1.ID())
 	require.NoError(t, err)
 
-	queryBranchesGids, queriedBranches, err = modusdb.Query[Branch](driver, modusdb.QueryParams{}, db1.ID())
+	queryBranchesGids, queriedBranches, err = modusdb.Query[Branch](engine, modusdb.QueryParams{}, ns1.ID())
 	require.NoError(t, err)
 	require.Len(t, queriedBranches, 2)
 	require.Len(t, queryBranchesGids, 2)
@@ -482,14 +482,14 @@ func TestReverseEdgeGet(t *testing.T) {
 
 func TestReverseEdgeQuery(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	projects := []Project{
 		{Name: "P1", ClerkId: "456"},
@@ -500,7 +500,7 @@ func TestReverseEdgeQuery(t *testing.T) {
 	clerkCounter := 100
 
 	for _, project := range projects {
-		projGid, project, err := modusdb.Create(driver, project, db1.ID())
+		projGid, project, err := modusdb.Create(engine, project, ns1.ID())
 		require.NoError(t, err)
 		require.Equal(t, project.Name, project.Name)
 		require.Equal(t, project.Gid, projGid)
@@ -513,7 +513,7 @@ func TestReverseEdgeQuery(t *testing.T) {
 		clerkCounter += 2
 
 		for _, branch := range branches {
-			branchGid, branch, err := modusdb.Create(driver, branch, db1.ID())
+			branchGid, branch, err := modusdb.Create(engine, branch, ns1.ID())
 			require.NoError(t, err)
 			require.Equal(t, branch.Name, branch.Name)
 			require.Equal(t, branch.Gid, branchGid)
@@ -521,7 +521,7 @@ func TestReverseEdgeQuery(t *testing.T) {
 		}
 	}
 
-	queriedProjectsGids, queriedProjects, err := modusdb.Query[Project](driver, modusdb.QueryParams{}, db1.ID())
+	queriedProjectsGids, queriedProjects, err := modusdb.Query[Project](engine, modusdb.QueryParams{}, ns1.ID())
 	require.NoError(t, err)
 	require.Len(t, queriedProjects, 2)
 	require.Len(t, queriedProjectsGids, 2)
@@ -537,14 +537,14 @@ func TestReverseEdgeQuery(t *testing.T) {
 
 func TestNestedObjectMutation(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	branch := Branch{
 		Name:    "B",
@@ -555,7 +555,7 @@ func TestNestedObjectMutation(t *testing.T) {
 		},
 	}
 
-	gid, branch, err := modusdb.Create(driver, branch, db1.ID())
+	gid, branch, err := modusdb.Create(engine, branch, ns1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "B", branch.Name)
@@ -575,14 +575,14 @@ func TestNestedObjectMutation(t *testing.T) {
 			}
 		}
 	}`
-	resp, err := db1.Query(ctx, query)
+	resp, err := ns1.Query(ctx, query)
 	require.NoError(t, err)
 	require.JSONEq(t,
 		`{"me":[{"uid":"0x2","Branch.name":"B","Branch.clerk_id":"123","Branch.proj": 
 		{"uid":"0x3","Project.name":"P","Project.clerk_id":"456"}}]}`,
 		string(resp.GetJson()))
 
-	gid, queriedBranch, err := modusdb.Get[Branch](driver, gid, db1.ID())
+	gid, queriedBranch, err := modusdb.Get[Branch](engine, gid, ns1.ID())
 	require.NoError(t, err)
 	require.Equal(t, queriedBranch.Gid, gid)
 	require.Equal(t, "B", queriedBranch.Name)
@@ -591,19 +591,19 @@ func TestNestedObjectMutation(t *testing.T) {
 
 func TestLinkingObjectsByConstrainedFields(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
-	projGid, project, err := modusdb.Create(driver, Project{
+	projGid, project, err := modusdb.Create(engine, Project{
 		Name:    "P",
 		ClerkId: "456",
-	}, db1.ID())
+	}, ns1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "P", project.Name)
@@ -618,7 +618,7 @@ func TestLinkingObjectsByConstrainedFields(t *testing.T) {
 		},
 	}
 
-	gid, branch, err := modusdb.Create(driver, branch, db1.ID())
+	gid, branch, err := modusdb.Create(engine, branch, ns1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "B", branch.Name)
@@ -638,14 +638,14 @@ func TestLinkingObjectsByConstrainedFields(t *testing.T) {
 			}
 		}
 	}`
-	resp, err := db1.Query(ctx, query)
+	resp, err := ns1.Query(ctx, query)
 	require.NoError(t, err)
 	require.JSONEq(t,
 		`{"me":[{"uid":"0x3","Branch.name":"B","Branch.clerk_id":"123","Branch.proj":
 		{"uid":"0x2","Project.name":"P","Project.clerk_id":"456"}}]}`,
 		string(resp.GetJson()))
 
-	gid, queriedBranch, err := modusdb.Get[Branch](driver, gid, db1.ID())
+	gid, queriedBranch, err := modusdb.Get[Branch](engine, gid, ns1.ID())
 	require.NoError(t, err)
 	require.Equal(t, queriedBranch.Gid, gid)
 	require.Equal(t, "B", queriedBranch.Name)
@@ -654,19 +654,19 @@ func TestLinkingObjectsByConstrainedFields(t *testing.T) {
 
 func TestLinkingObjectsByGid(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
-	projGid, project, err := modusdb.Create(driver, Project{
+	projGid, project, err := modusdb.Create(engine, Project{
 		Name:    "P",
 		ClerkId: "456",
-	}, db1.ID())
+	}, ns1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "P", project.Name)
@@ -680,7 +680,7 @@ func TestLinkingObjectsByGid(t *testing.T) {
 		},
 	}
 
-	gid, branch, err := modusdb.Create(driver, branch, db1.ID())
+	gid, branch, err := modusdb.Create(engine, branch, ns1.ID())
 	require.NoError(t, err)
 
 	require.Equal(t, "B", branch.Name)
@@ -700,14 +700,14 @@ func TestLinkingObjectsByGid(t *testing.T) {
 			}
 		}
 	}`
-	resp, err := db1.Query(ctx, query)
+	resp, err := ns1.Query(ctx, query)
 	require.NoError(t, err)
 	require.JSONEq(t,
 		`{"me":[{"uid":"0x3","Branch.name":"B","Branch.clerk_id":"123",
 		"Branch.proj":{"uid":"0x2","Project.name":"P","Project.clerk_id":"456"}}]}`,
 		string(resp.GetJson()))
 
-	gid, queriedBranch, err := modusdb.Get[Branch](driver, gid, db1.ID())
+	gid, queriedBranch, err := modusdb.Get[Branch](engine, gid, ns1.ID())
 	require.NoError(t, err)
 	require.Equal(t, queriedBranch.Gid, gid)
 	require.Equal(t, "B", queriedBranch.Name)
@@ -722,20 +722,20 @@ type BadProject struct {
 type BadBranch struct {
 	Gid     uint64     `json:"gid,omitempty"`
 	Name    string     `json:"name,omitempty"`
-	ClerkId string     `json:"clerk_id,omitempty" db:"constraint=unique"`
+	ClerkId string     `json:"clerk_id,omitempty" ns:"constraint=unique"`
 	Proj    BadProject `json:"proj,omitempty"`
 }
 
 func TestNestedObjectMutationWithBadType(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	branch := BadBranch{
 		Name:    "B",
@@ -746,7 +746,7 @@ func TestNestedObjectMutationWithBadType(t *testing.T) {
 		},
 	}
 
-	_, _, err = modusdb.Create(driver, branch, db1.ID())
+	_, _, err = modusdb.Create(engine, branch, ns1.ID())
 	require.Error(t, err)
 	require.Equal(t, fmt.Sprintf(apiutils.NoUniqueConstr, "BadProject"), err.Error())
 
@@ -755,7 +755,7 @@ func TestNestedObjectMutationWithBadType(t *testing.T) {
 		ClerkId: "456",
 	}
 
-	_, _, err = modusdb.Create(driver, proj, db1.ID())
+	_, _, err = modusdb.Create(engine, proj, ns1.ID())
 	require.Error(t, err)
 	require.Equal(t, fmt.Sprintf(apiutils.NoUniqueConstr, "BadProject"), err.Error())
 
@@ -764,19 +764,19 @@ func TestNestedObjectMutationWithBadType(t *testing.T) {
 type Document struct {
 	Gid     uint64    `json:"gid,omitempty"`
 	Text    string    `json:"text,omitempty"`
-	TextVec []float32 `json:"textVec,omitempty" db:"constraint=vector"`
+	TextVec []float32 `json:"textVec,omitempty" ns:"constraint=vector"`
 }
 
 func TestVectorIndexSearchTyped(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	documents := []Document{
 		{Text: "apple", TextVec: []float32{0.1, 0.1, 0.0}},
@@ -789,7 +789,7 @@ func TestVectorIndexSearchTyped(t *testing.T) {
 	}
 
 	for _, doc := range documents {
-		_, _, err = modusdb.Create(driver, doc, db1.ID())
+		_, _, err = modusdb.Create(engine, doc, ns1.ID())
 		require.NoError(t, err)
 	}
 
@@ -800,7 +800,7 @@ func TestVectorIndexSearchTyped(t *testing.T) {
 			}
 		}`
 
-	resp, err := db1.Query(ctx, query)
+	resp, err := ns1.Query(ctx, query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{
 		"documents":[
@@ -819,7 +819,7 @@ func TestVectorIndexSearchTyped(t *testing.T) {
 			}
 		}`
 
-	resp, err = db1.Query(ctx, query2)
+	resp, err = ns1.Query(ctx, query2)
 	require.NoError(t, err)
 	require.JSONEq(t, `{
 		"documents":[
@@ -834,14 +834,14 @@ func TestVectorIndexSearchTyped(t *testing.T) {
 
 func TestVectorIndexSearchWithQuery(t *testing.T) {
 	ctx := context.Background()
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	db1, err := driver.CreateDB()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(ctx))
+	require.NoError(t, ns1.DropData(ctx))
 
 	documents := []Document{
 		{Text: "apple", TextVec: []float32{0.1, 0.1, 0.0}},
@@ -854,11 +854,11 @@ func TestVectorIndexSearchWithQuery(t *testing.T) {
 	}
 
 	for _, doc := range documents {
-		_, _, err = modusdb.Create(driver, doc, db1.ID())
+		_, _, err = modusdb.Create(engine, doc, ns1.ID())
 		require.NoError(t, err)
 	}
 
-	gids, docs, err := modusdb.Query[Document](driver, modusdb.QueryParams{
+	gids, docs, err := modusdb.Query[Document](engine, modusdb.QueryParams{
 		Filter: &modusdb.Filter{
 			Field: "textVec",
 			Vector: modusdb.VectorPredicate{
@@ -866,7 +866,7 @@ func TestVectorIndexSearchWithQuery(t *testing.T) {
 				TopK:      5,
 			},
 		},
-	}, db1.ID())
+	}, ns1.ID())
 
 	require.NoError(t, err)
 	require.Len(t, docs, 5)

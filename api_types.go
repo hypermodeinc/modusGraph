@@ -75,24 +75,24 @@ type VectorPredicate struct {
 type ModusDbOption func(*modusDbOptions)
 
 type modusDbOptions struct {
-	db uint64
+	ns uint64
 }
 
-func WithDB(db uint64) ModusDbOption {
+func WithNamespace(ns uint64) ModusDbOption {
 	return func(o *modusDbOptions) {
-		o.db = db
+		o.ns = ns
 	}
 }
 
-func getDefaultDB(driver *Driver, dbId ...uint64) (context.Context, *DB, error) {
+func getDefaultNamespace(engine *Engine, nsId ...uint64) (context.Context, *Namespace, error) {
 	dbOpts := &modusDbOptions{
-		db: driver.db0.ID(),
+		ns: engine.db0.ID(),
 	}
-	for _, db := range dbId {
-		WithDB(db)(dbOpts)
+	for _, ns := range nsId {
+		WithNamespace(ns)(dbOpts)
 	}
 
-	d, err := driver.getDBWithLock(dbOpts.db)
+	d, err := engine.getNamespaceWithLock(dbOpts.ns)
 	if err != nil {
 		return nil, nil, err
 	}

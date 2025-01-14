@@ -49,9 +49,9 @@ func BenchmarkDatabaseOperations(b *testing.B) {
 		runtime.ReadMemStats(&ms)
 		initialAlloc := ms.Alloc
 
-		driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(b.TempDir()))
+		engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(b.TempDir()))
 		require.NoError(b, err)
-		defer driver.Close()
+		defer engine.Close()
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -60,7 +60,7 @@ func BenchmarkDatabaseOperations(b *testing.B) {
 			dataFile := filepath.Join(dataFolder, "data.rdf")
 			require.NoError(b, os.WriteFile(schemaFile, []byte(DbSchema), 0600))
 			require.NoError(b, os.WriteFile(dataFile, []byte(SmallData), 0600))
-			require.NoError(b, driver.Load(context.Background(), schemaFile, dataFile))
+			require.NoError(b, engine.Load(context.Background(), schemaFile, dataFile))
 		}
 		reportMemStats(b, initialAlloc)
 	})
@@ -75,16 +75,16 @@ func BenchmarkDatabaseOperations(b *testing.B) {
 		initialAlloc := ms.Alloc
 
 		// Setup database with data once
-		driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(b.TempDir()))
+		engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(b.TempDir()))
 		require.NoError(b, err)
-		defer driver.Close()
+		defer engine.Close()
 
 		dataFolder := b.TempDir()
 		schemaFile := filepath.Join(dataFolder, "data.schema")
 		dataFile := filepath.Join(dataFolder, "data.rdf")
 		require.NoError(b, os.WriteFile(schemaFile, []byte(DbSchema), 0600))
 		require.NoError(b, os.WriteFile(dataFile, []byte(SmallData), 0600))
-		require.NoError(b, driver.Load(context.Background(), schemaFile, dataFile))
+		require.NoError(b, engine.Load(context.Background(), schemaFile, dataFile))
 
 		const query = `{
             caro(func: allofterms(name@en, "Marc Caro")) {
@@ -112,7 +112,7 @@ func BenchmarkDatabaseOperations(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			resp, err := driver.GetDefaultDB().Query(context.Background(), query)
+			resp, err := engine.GetDefaultNamespace().Query(context.Background(), query)
 			require.NoError(b, err)
 			require.JSONEq(b, expected, string(resp.Json))
 		}

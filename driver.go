@@ -35,26 +35,26 @@ var (
 	// This ensures that we only have one instance of modusDB in this process.
 	singleton atomic.Bool
 
-	ErrSingletonOnly = errors.New("only one modusDB driver is supported")
+	ErrSingletonOnly = errors.New("only one modusDB engine is supported")
 	ErrEmptyDataDir  = errors.New("data directory is required")
-	ErrClosedDriver  = errors.New("modusDB driver is closed")
+	ErrClosedEngine  = errors.New("modusDB engine is closed")
 	ErrNonExistentDB = errors.New("namespace does not exist")
 )
 
-// Driver is an instance of modusDB.
+// Engine is an instance of modusDB.
 // For now, we only support one instance of modusDB per process.
-type Driver struct {
+type Engine struct {
 	mutex  sync.RWMutex
 	isOpen atomic.Bool
 
 	z *zero
 
 	// points to default / 0 / galaxy namespace
-	db0 *DB
+	db0 *Namespace
 }
 
-// NewDriver returns a new modusDB instance.
-func NewDriver(conf Config) (*Driver, error) {
+// NewEngine returns a new modusDB instance.
+func NewEngine(conf Config) (*Engine, error) {
 	// Ensure that we do not create another instance of modusDB in the same process
 	if !singleton.CompareAndSwap(false, true) {
 		return nil, ErrSingletonOnly
@@ -82,77 +82,77 @@ func NewDriver(conf Config) (*Driver, error) {
 	schema.Init(worker.State.Pstore)
 	posting.Init(worker.State.Pstore, 0) // TODO: set cache size
 
-	driver := &Driver{}
-	driver.isOpen.Store(true)
-	if err := driver.reset(); err != nil {
-		return nil, fmt.Errorf("error resetting db: %w", err)
+	engine := &Engine{}
+	engine.isOpen.Store(true)
+	if err := engine.reset(); err != nil {
+		return nil, fmt.Errorf("error resetting ns: %w", err)
 	}
 
 	x.UpdateHealthStatus(true)
 
-	driver.db0 = &DB{id: 0, driver: driver}
-	return driver, nil
+	engine.db0 = &Namespace{id: 0, engine: engine}
+	return engine, nil
 }
 
-func (db *Driver) CreateDB() (*DB, error) {
-	db.mutex.RLock()
-	defer db.mutex.RUnlock()
+func (engine *Engine) CreateNamespace() (*Namespace, error) {
+	engine.mutex.RLock()
+	defer engine.mutex.RUnlock()
 
-	if !db.isOpen.Load() {
-		return nil, ErrClosedDriver
+	if !engine.isOpen.Load() {
+		return nil, ErrClosedEngine
 	}
 
-	startTs, err := db.z.nextTs()
+	startTs, err := engine.z.nextTs()
 	if err != nil {
 		return nil, err
 	}
-	dbID, err := db.z.nextDB()
+	nsID, err := engine.z.nextNamespace()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := worker.ApplyInitialSchema(dbID, startTs); err != nil {
+	if err := worker.ApplyInitialSchema(nsID, startTs); err != nil {
 		return nil, fmt.Errorf("error applying initial schema: %w", err)
 	}
 	for _, pred := range schema.State().Predicates() {
 		worker.InitTablet(pred)
 	}
 
-	return &DB{id: dbID, driver: db}, nil
+	return &Namespace{id: nsID, engine: engine}, nil
 }
 
-func (driver *Driver) GetDB(dbID uint64) (*DB, error) {
-	driver.mutex.RLock()
-	defer driver.mutex.RUnlock()
+func (engine *Engine) GetNamespace(nsID uint64) (*Namespace, error) {
+	engine.mutex.RLock()
+	defer engine.mutex.RUnlock()
 
-	return driver.getDBWithLock(dbID)
+	return engine.getNamespaceWithLock(nsID)
 }
 
-func (driver *Driver) getDBWithLock(dbID uint64) (*DB, error) {
-	if !driver.isOpen.Load() {
-		return nil, ErrClosedDriver
+func (engine *Engine) getNamespaceWithLock(nsID uint64) (*Namespace, error) {
+	if !engine.isOpen.Load() {
+		return nil, ErrClosedEngine
 	}
 
-	if dbID > driver.z.lastDB {
+	if nsID > engine.z.lastNamespace {
 		return nil, ErrNonExistentDB
 	}
 
 	// TODO: when delete namespace is implemented, check if the namespace exists
 
-	return &DB{id: dbID, driver: driver}, nil
+	return &Namespace{id: nsID, engine: engine}, nil
 }
 
-func (driver *Driver) GetDefaultDB() *DB {
-	return driver.db0
+func (engine *Engine) GetDefaultNamespace() *Namespace {
+	return engine.db0
 }
 
 // DropAll drops all the data and schema in the modusDB instance.
-func (driver *Driver) DropAll(ctx context.Context) error {
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+func (engine *Engine) DropAll(ctx context.Context) error {
+	engine.mutex.Lock()
+	defer engine.mutex.Unlock()
 
-	if !driver.isOpen.Load() {
-		return ErrClosedDriver
+	if !engine.isOpen.Load() {
+		return ErrClosedEngine
 	}
 
 	p := &pb.Proposal{Mutations: &pb.Mutations{
@@ -162,26 +162,26 @@ func (driver *Driver) DropAll(ctx context.Context) error {
 	if err := worker.ApplyMutations(ctx, p); err != nil {
 		return fmt.Errorf("error applying mutation: %w", err)
 	}
-	if err := driver.reset(); err != nil {
-		return fmt.Errorf("error resetting db: %w", err)
+	if err := engine.reset(); err != nil {
+		return fmt.Errorf("error resetting ns: %w", err)
 	}
 
 	// TODO: insert drop record
 	return nil
 }
 
-func (driver *Driver) dropData(ctx context.Context, db *DB) error {
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+func (engine *Engine) dropData(ctx context.Context, ns *Namespace) error {
+	engine.mutex.Lock()
+	defer engine.mutex.Unlock()
 
-	if !driver.isOpen.Load() {
-		return ErrClosedDriver
+	if !engine.isOpen.Load() {
+		return ErrClosedEngine
 	}
 
 	p := &pb.Proposal{Mutations: &pb.Mutations{
 		GroupId:   1,
 		DropOp:    pb.Mutations_DATA,
-		DropValue: strconv.FormatUint(db.ID(), 10),
+		DropValue: strconv.FormatUint(ns.ID(), 10),
 	}}
 
 	if err := worker.ApplyMutations(ctx, p); err != nil {
@@ -193,27 +193,27 @@ func (driver *Driver) dropData(ctx context.Context, db *DB) error {
 	return nil
 }
 
-func (driver *Driver) alterSchema(ctx context.Context, db *DB, sch string) error {
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+func (engine *Engine) alterSchema(ctx context.Context, ns *Namespace, sch string) error {
+	engine.mutex.Lock()
+	defer engine.mutex.Unlock()
 
-	if !driver.isOpen.Load() {
-		return ErrClosedDriver
+	if !engine.isOpen.Load() {
+		return ErrClosedEngine
 	}
 
-	sc, err := schema.ParseWithNamespace(sch, db.ID())
+	sc, err := schema.ParseWithNamespace(sch, ns.ID())
 	if err != nil {
 		return fmt.Errorf("error parsing schema: %w", err)
 	}
-	return driver.alterSchemaWithParsed(ctx, sc)
+	return engine.alterSchemaWithParsed(ctx, sc)
 }
 
-func (driver *Driver) alterSchemaWithParsed(ctx context.Context, sc *schema.ParsedSchema) error {
+func (engine *Engine) alterSchemaWithParsed(ctx context.Context, sc *schema.ParsedSchema) error {
 	for _, pred := range sc.Preds {
 		worker.InitTablet(pred.Predicate)
 	}
 
-	startTs, err := driver.z.nextTs()
+	startTs, err := engine.z.nextTs()
 	if err != nil {
 		return err
 	}
@@ -230,33 +230,33 @@ func (driver *Driver) alterSchemaWithParsed(ctx context.Context, sc *schema.Pars
 	return nil
 }
 
-func (driver *Driver) query(ctx context.Context, db *DB, q string) (*api.Response, error) {
-	driver.mutex.RLock()
-	defer driver.mutex.RUnlock()
+func (engine *Engine) query(ctx context.Context, ns *Namespace, q string) (*api.Response, error) {
+	engine.mutex.RLock()
+	defer engine.mutex.RUnlock()
 
-	return driver.queryWithLock(ctx, db, q)
+	return engine.queryWithLock(ctx, ns, q)
 }
 
-func (driver *Driver) queryWithLock(ctx context.Context, db *DB, q string) (*api.Response, error) {
-	if !driver.isOpen.Load() {
-		return nil, ErrClosedDriver
+func (engine *Engine) queryWithLock(ctx context.Context, ns *Namespace, q string) (*api.Response, error) {
+	if !engine.isOpen.Load() {
+		return nil, ErrClosedEngine
 	}
 
-	ctx = x.AttachNamespace(ctx, db.ID())
+	ctx = x.AttachNamespace(ctx, ns.ID())
 	return (&edgraph.Server{}).QueryNoAuth(ctx, &api.Request{
 		ReadOnly: true,
 		Query:    q,
-		StartTs:  driver.z.readTs(),
+		StartTs:  engine.z.readTs(),
 	})
 }
 
-func (driver *Driver) mutate(ctx context.Context, db *DB, ms []*api.Mutation) (map[string]uint64, error) {
+func (engine *Engine) mutate(ctx context.Context, ns *Namespace, ms []*api.Mutation) (map[string]uint64, error) {
 	if len(ms) == 0 {
 		return nil, nil
 	}
 
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	engine.mutex.Lock()
+	defer engine.mutex.Unlock()
 	dms := make([]*dql.Mutation, 0, len(ms))
 	for _, mu := range ms {
 		dm, err := edgraph.ParseMutationObject(mu, false)
@@ -271,7 +271,7 @@ func (driver *Driver) mutate(ctx context.Context, db *DB, ms []*api.Mutation) (m
 	}
 	if len(newUids) > 0 {
 		num := &pb.Num{Val: uint64(len(newUids)), Type: pb.Num_UID}
-		res, err := driver.z.nextUIDs(num)
+		res, err := engine.z.nextUIDs(num)
 		if err != nil {
 			return nil, err
 		}
@@ -284,26 +284,26 @@ func (driver *Driver) mutate(ctx context.Context, db *DB, ms []*api.Mutation) (m
 		}
 	}
 
-	return driver.mutateWithDqlMutation(ctx, db, dms, newUids)
+	return engine.mutateWithDqlMutation(ctx, ns, dms, newUids)
 }
 
-func (driver *Driver) mutateWithDqlMutation(ctx context.Context, db *DB, dms []*dql.Mutation,
+func (engine *Engine) mutateWithDqlMutation(ctx context.Context, ns *Namespace, dms []*dql.Mutation,
 	newUids map[string]uint64) (map[string]uint64, error) {
 	edges, err := query.ToDirectedEdges(dms, newUids)
 	if err != nil {
 		return nil, fmt.Errorf("error converting to directed edges: %w", err)
 	}
-	ctx = x.AttachNamespace(ctx, db.ID())
+	ctx = x.AttachNamespace(ctx, ns.ID())
 
-	if !driver.isOpen.Load() {
-		return nil, ErrClosedDriver
+	if !engine.isOpen.Load() {
+		return nil, ErrClosedEngine
 	}
 
-	startTs, err := driver.z.nextTs()
+	startTs, err := engine.z.nextTs()
 	if err != nil {
 		return nil, err
 	}
-	commitTs, err := driver.z.nextTs()
+	commitTs, err := engine.z.nextTs()
 	if err != nil {
 		return nil, err
 	}
@@ -333,20 +333,20 @@ func (driver *Driver) mutateWithDqlMutation(ctx context.Context, db *DB, dms []*
 	})
 }
 
-func (driver *Driver) Load(ctx context.Context, schemaPath, dataPath string) error {
-	return driver.db0.Load(ctx, schemaPath, dataPath)
+func (engine *Engine) Load(ctx context.Context, schemaPath, dataPath string) error {
+	return engine.db0.Load(ctx, schemaPath, dataPath)
 }
 
-func (driver *Driver) LoadData(inCtx context.Context, dataDir string) error {
-	return driver.db0.LoadData(inCtx, dataDir)
+func (engine *Engine) LoadData(inCtx context.Context, dataDir string) error {
+	return engine.db0.LoadData(inCtx, dataDir)
 }
 
 // Close closes the modusDB instance.
-func (driver *Driver) Close() {
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+func (engine *Engine) Close() {
+	engine.mutex.Lock()
+	defer engine.mutex.Unlock()
 
-	if !driver.isOpen.Load() {
+	if !engine.isOpen.Load() {
 		return
 	}
 
@@ -354,13 +354,13 @@ func (driver *Driver) Close() {
 		panic("modusDB instance was not properly opened")
 	}
 
-	driver.isOpen.Store(false)
+	engine.isOpen.Store(false)
 	x.UpdateHealthStatus(false)
 	posting.Cleanup()
 	worker.State.Dispose()
 }
 
-func (db *Driver) reset() error {
+func (ns *Engine) reset() error {
 	z, restart, err := newZero()
 	if err != nil {
 		return fmt.Errorf("error initializing zero: %w", err)
@@ -379,6 +379,6 @@ func (db *Driver) reset() error {
 		worker.InitTablet(pred)
 	}
 
-	db.z = z
+	ns.z = z
 	return nil
 }

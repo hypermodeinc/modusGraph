@@ -15,30 +15,30 @@ import (
 	"github.com/dgraph-io/dgo/v240/protos/api"
 )
 
-// DB is one of the namespaces in modusDB.
-type DB struct {
+// Namespace is one of the namespaces in modusDB.
+type Namespace struct {
 	id     uint64
-	driver *Driver
+	engine *Engine
 }
 
-func (db *DB) ID() uint64 {
-	return db.id
+func (ns *Namespace) ID() uint64 {
+	return ns.id
 }
 
 // DropData drops all the data in the modusDB instance.
-func (db *DB) DropData(ctx context.Context) error {
-	return db.driver.dropData(ctx, db)
+func (ns *Namespace) DropData(ctx context.Context) error {
+	return ns.engine.dropData(ctx, ns)
 }
 
-func (db *DB) AlterSchema(ctx context.Context, sch string) error {
-	return db.driver.alterSchema(ctx, db, sch)
+func (ns *Namespace) AlterSchema(ctx context.Context, sch string) error {
+	return ns.engine.alterSchema(ctx, ns, sch)
 }
 
-func (db *DB) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64, error) {
-	return db.driver.mutate(ctx, db, ms)
+func (ns *Namespace) Mutate(ctx context.Context, ms []*api.Mutation) (map[string]uint64, error) {
+	return ns.engine.mutate(ctx, ns, ms)
 }
 
 // Query performs query or mutation or upsert on the given modusDB instance.
-func (db *DB) Query(ctx context.Context, query string) (*api.Response, error) {
-	return db.driver.query(ctx, db, query)
+func (ns *Namespace) Query(ctx context.Context, query string) (*api.Response, error) {
+	return ns.engine.query(ctx, ns, query)
 }

@@ -29,20 +29,20 @@ const (
 )
 
 func TestVectorDelete(t *testing.T) {
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
-	require.NoError(t, driver.DropAll(context.Background()))
-	require.NoError(t, driver.GetDefaultDB().AlterSchema(context.Background(),
+	require.NoError(t, engine.DropAll(context.Background()))
+	require.NoError(t, engine.GetDefaultNamespace().AlterSchema(context.Background(),
 		fmt.Sprintf(vectorSchemaWithIndex, "vtest", "4", "euclidean")))
 
 	// insert random vectors
-	assignIDs, err := driver.LeaseUIDs(numVectors + 1)
+	assignIDs, err := engine.LeaseUIDs(numVectors + 1)
 	require.NoError(t, err)
 	//nolint:gosec
 	rdf, vectors := dgraphapi.GenerateRandomVectors(int(assignIDs.StartId)-10, int(assignIDs.EndId)-10, 10, "vtest")
-	_, err = driver.GetDefaultDB().Mutate(context.Background(), []*api.Mutation{{SetNquads: []byte(rdf)}})
+	_, err = engine.GetDefaultNamespace().Mutate(context.Background(), []*api.Mutation{{SetNquads: []byte(rdf)}})
 	require.NoError(t, err)
 
 	// check the count of the vectors inserted
@@ -51,7 +51,7 @@ func TestVectorDelete(t *testing.T) {
 				count(uid)
 			 }
 	 }`
-	resp, err := driver.GetDefaultDB().Query(context.Background(), q1)
+	resp, err := engine.GetDefaultNamespace().Query(context.Background(), q1)
 	require.NoError(t, err)
 	require.JSONEq(t, fmt.Sprintf(`{"vector":[{"count":%d}]}`, numVectors), string(resp.Json))
 
@@ -64,11 +64,11 @@ func TestVectorDelete(t *testing.T) {
 			}
 		}`
 
-	require.Equal(t, vectors, queryVectors(t, driver, vectorQuery))
+	require.Equal(t, vectors, queryVectors(t, engine, vectorQuery))
 
 	triples := strings.Split(rdf, "\n")
 	deleteTriple := func(idx int) string {
-		_, err := driver.GetDefaultDB().Mutate(context.Background(), []*api.Mutation{{
+		_, err := engine.GetDefaultNamespace().Mutate(context.Background(), []*api.Mutation{{
 			DelNquads: []byte(triples[idx]),
 		}})
 		require.NoError(t, err)
@@ -80,7 +80,7 @@ func TestVectorDelete(t *testing.T) {
 		  }
 		}`, uid[1:len(uid)-1])
 
-		res, err := driver.GetDefaultDB().Query(context.Background(), q2)
+		res, err := engine.GetDefaultNamespace().Query(context.Background(), q2)
 		require.NoError(t, err)
 		require.JSONEq(t, `{"vector":[]}`, string(res.Json))
 		return triples[idx]
@@ -96,17 +96,17 @@ func TestVectorDelete(t *testing.T) {
 	for i := 0; i < len(triples)-2; i++ {
 		triple := deleteTriple(i)
 		vectorQuery := fmt.Sprintf(q3, strings.Split(triple, `"`)[1])
-		respVectors := queryVectors(t, driver, vectorQuery)
+		respVectors := queryVectors(t, engine, vectorQuery)
 		require.Len(t, respVectors, 1)
 		require.Contains(t, vectors, respVectors[0])
 	}
 
 	triple := deleteTriple(len(triples) - 2)
-	_ = queryVectors(t, driver, fmt.Sprintf(q3, strings.Split(triple, `"`)[1]))
+	_ = queryVectors(t, engine, fmt.Sprintf(q3, strings.Split(triple, `"`)[1]))
 }
 
-func queryVectors(t *testing.T, driver *modusdb.Driver, query string) [][]float32 {
-	resp, err := driver.GetDefaultDB().Query(context.Background(), query)
+func queryVectors(t *testing.T, engine *modusdb.Engine, query string) [][]float32 {
+	resp, err := engine.GetDefaultNamespace().Query(context.Background(), query)
 	require.NoError(t, err)
 
 	var data struct {

@@ -40,19 +40,19 @@ import (
 
 type User struct {
   Gid  uint64 `json:"gid,omitempty"`
-  Id   string `json:"id,omitempty" db:"constraint=unique"`
+  Id   string `json:"id,omitempty" ns:"constraint=unique"`
   Name string `json:"name,omitempty"`
   Age  int    `json:"age,omitempty"`
 }
 
 func main() {
-  db, err := New(NewDefaultConfig("/tmp/modusdb"))
+  ns, err := New(NewDefaultConfig("/tmp/modusdb"))
   if err != nil {
     panic(err)
   }
-  defer db.Close()
+  defer ns.Close()
 
-  gid, user, err := modusdb.Upsert(db, User{
+  gid, user, err := modusdb.Upsert(ns, User{
     Id:   "123",
     Name: "A",
     Age:  10,
@@ -62,13 +62,13 @@ func main() {
   }
   fmt.Println(user)
 
-  _, queriedUser, err := modusdb.Get[User](db, gid)
+  _, queriedUser, err := modusdb.Get[User](ns, gid)
   if err != nil {
     panic(err)
   }
   fmt.Println(queriedUser)
 
-  _, _, err = modusdb.Delete[User](db, gid)
+  _, _, err = modusdb.Delete[User](ns, gid)
   if err != nil {
     panic(err)
   }

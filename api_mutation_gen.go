@@ -26,7 +26,7 @@ import (
 	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
-func generateSetDqlMutationsAndSchema[T any](ctx context.Context, d *DB, object T,
+func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, object T,
 	gid uint64, dms *[]*dql.Mutation, sch *schema.ParsedSchema) error {
 	t := reflect.TypeOf(object)
 	if t.Kind() != reflect.Struct {
@@ -49,7 +49,7 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, d *DB, object 
 		if tagMaps.JsonToReverseEdge[jsonName] != "" {
 			reverseEdgeStr := tagMaps.JsonToReverseEdge[jsonName]
 			typeName := strings.Split(reverseEdgeStr, ".")[0]
-			currSchema, err := getSchema(ctx, d)
+			currSchema, err := getSchema(ctx, n)
 			if err != nil {
 				return err
 			}
@@ -70,7 +70,7 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, d *DB, object 
 			}
 
 			if !(typeFound && predicateFound) {
-				if err := mutations.HandleReverseEdge(jsonName, reflectValueType, d.ID(), sch,
+				if err := mutations.HandleReverseEdge(jsonName, reflectValueType, n.ID(), sch,
 					reverseEdgeStr); err != nil {
 					return err
 				}
@@ -82,17 +82,17 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, d *DB, object 
 			continue
 		}
 
-		value, err = processStructValue(ctx, value, d)
+		value, err = processStructValue(ctx, value, n)
 		if err != nil {
 			return err
 		}
 
-		value, err = processPointerValue(ctx, value, d)
+		value, err = processPointerValue(ctx, value, n)
 		if err != nil {
 			return err
 		}
 
-		nquad, u, err := mutations.CreateNQuadAndSchema(value, gid, jsonName, t, d.ID())
+		nquad, u, err := mutations.CreateNQuadAndSchema(value, gid, jsonName, t, n.ID())
 		if err != nil {
 			return err
 		}
@@ -111,7 +111,7 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, d *DB, object 
 	}
 
 	sch.Types = append(sch.Types, &pb.TypeUpdate{
-		TypeName: apiutils.AddNamespace(d.ID(), t.Name()),
+		TypeName: apiutils.AddNamespace(n.ID(), t.Name()),
 		Fields:   sch.Preds,
 	})
 
@@ -120,7 +120,7 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, d *DB, object 
 		return err
 	}
 	typeNquad := &api.NQuad{
-		Namespace:   d.ID(),
+		Namespace:   n.ID(),
 		Subject:     fmt.Sprint(gid),
 		Predicate:   "dgraph.type",
 		ObjectValue: val,
@@ -134,11 +134,11 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, d *DB, object 
 	return nil
 }
 
-func generateDeleteDqlMutations(d *DB, gid uint64) []*dql.Mutation {
+func generateDeleteDqlMutations(n *Namespace, gid uint64) []*dql.Mutation {
 	return []*dql.Mutation{{
 		Del: []*api.NQuad{
 			{
-				Namespace: d.ID(),
+				Namespace: n.ID(),
 				Subject:   fmt.Sprint(gid),
 				Predicate: x.Star,
 				ObjectValue: &api.Value{

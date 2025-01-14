@@ -49,16 +49,16 @@ const (
 
 func TestLiveLoaderSmall(t *testing.T) {
 
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
 	dataFolder := t.TempDir()
 	schemaFile := filepath.Join(dataFolder, "data.schema")
 	dataFile := filepath.Join(dataFolder, "data.rdf")
 	require.NoError(t, os.WriteFile(schemaFile, []byte(DbSchema), 0600))
 	require.NoError(t, os.WriteFile(dataFile, []byte(SmallData), 0600))
-	require.NoError(t, driver.Load(context.Background(), schemaFile, dataFile))
+	require.NoError(t, engine.Load(context.Background(), schemaFile, dataFile))
 
 	const query = `{
 		caro(func: allofterms(name@en, "Marc Caro")) {
@@ -84,15 +84,15 @@ func TestLiveLoaderSmall(t *testing.T) {
 			]
 		}`
 
-	resp, err := driver.GetDefaultDB().Query(context.Background(), query)
+	resp, err := engine.GetDefaultNamespace().Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, expected, string(resp.Json))
 }
 
 func TestLiveLoader1Million(t *testing.T) {
-	driver, err := modusdb.NewDriver(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer driver.Close()
+	defer engine.Close()
 
 	baseDir := t.TempDir()
 	schResp, err := grab.Get(baseDir, oneMillionSchema)
@@ -100,12 +100,12 @@ func TestLiveLoader1Million(t *testing.T) {
 	dataResp, err := grab.Get(baseDir, oneMillionRDF)
 	require.NoError(t, err)
 
-	require.NoError(t, driver.DropAll(context.Background()))
-	require.NoError(t, driver.Load(context.Background(), schResp.Filename, dataResp.Filename))
+	require.NoError(t, engine.DropAll(context.Background()))
+	require.NoError(t, engine.Load(context.Background(), schResp.Filename, dataResp.Filename))
 
 	for _, tt := range common.OneMillionTCs {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		resp, err := driver.GetDefaultDB().Query(ctx, tt.Query)
+		resp, err := engine.GetDefaultNamespace().Query(ctx, tt.Query)
 		cancel()
 
 		if ctx.Err() == context.DeadlineExceeded {
