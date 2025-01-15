@@ -46,11 +46,11 @@ type User struct {
 }
 
 func main() {
-  ns, err := New(NewDefaultConfig("/tmp/modusdb"))
+  engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig("/local/modusdb"))
   if err != nil {
     panic(err)
   }
-  defer ns.Close()
+  defer engine.Close()
 
   gid, user, err := modusdb.Upsert(ns, User{
     Id:   "123",
@@ -86,7 +86,7 @@ like to get involved.
 Modus and its components are Copyright 2025 Hypermode Inc., and licensed under the terms of the
 Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for a complete copy of the license.
 If you have any questions about modus licensing, or need an alternate license or other arrangement,
-please contact us at hello@hypermode.com.
+please contact us at <hello@hypermode.com>.
 
 ## Acknowledgements
 
