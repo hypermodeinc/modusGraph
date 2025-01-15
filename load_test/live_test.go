@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package modusdb_test
+package load_test
 
 import (
 	"context"

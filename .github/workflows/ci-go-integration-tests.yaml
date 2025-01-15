@@ -1,4 +1,4 @@
-name: ci-go-tests
+name: ci-go-load-tests
 
 on:
   pull_request:
@@ -30,4 +30,4 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run Unit Tests
-        run: go test -race -v ./...
+        run: go test -race -v load_test/...
