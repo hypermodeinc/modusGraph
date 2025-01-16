@@ -17,7 +17,7 @@ permissions:
   actions: write
 
 jobs:
-  ci-go-tests:
+  ci-go-unit-tests:
     runs-on: warp-ubuntu-latest-arm64-4x
 
     steps:
@@ -30,4 +30,4 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run Unit Tests
-        run: go test -race -v unit_test/...
+        run: go test -race -v ./unit_test/...
