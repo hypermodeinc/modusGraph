@@ -17,7 +17,7 @@ permissions:
   actions: write
 
 jobs:
-  ci-go-load-tests:
+  ci-go-tests:
     runs-on: warp-ubuntu-latest-arm64-4x
 
     steps:
