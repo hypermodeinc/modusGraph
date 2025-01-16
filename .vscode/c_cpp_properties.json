@@ -1,0 +1,25 @@
+{
+  "configurations": [
+    {
+      "name": "Mac",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "/opt/homebrew/Cellar/pybind11/2.13.6_1/include",
+        "/opt/homebrew/opt/llvm/include/c++/v1",
+        "/opt/homebrew/opt/nlohmann-json/include",
+        "/opt/homebrew/Cellar/llvm/18.1.8/lib/clang/18/include",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX14.sdk/usr/include",
+        "/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/include/python3.12"
+      ],
+      "defines": [],
+      "macFrameworkPath": [
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX14.sdk/System/Library/Frameworks"
+      ],
+      "compilerPath": "/opt/homebrew/opt/llvm/bin/clang++",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "macos-clang-arm64"
+    }
+  ],
+  "version": 4
+}

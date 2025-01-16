@@ -2,5 +2,8 @@
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "trunk.io",
   "editor.trimAutoWhitespace": true,
-  "trunk.autoInit": false
+  "trunk.autoInit": false,
+  "files.associations": {
+    "string": "cpp"
+  }
 }

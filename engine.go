@@ -360,7 +360,7 @@ func (engine *Engine) Close() {
 	worker.State.Dispose()
 }
 
-func (ns *Engine) reset() error {
+func (engine *Engine) reset() error {
 	z, restart, err := newZero()
 	if err != nil {
 		return fmt.Errorf("error initializing zero: %w", err)
@@ -379,6 +379,6 @@ func (ns *Engine) reset() error {
 		worker.InitTablet(pred)
 	}
 
-	ns.z = z
+	engine.z = z
 	return nil
 }

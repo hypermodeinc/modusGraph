@@ -32,7 +32,7 @@ generation (RAG) feature with a single framework.
 ## Quickstart
 
 ```go
-package main
+package modusdb
 
 import (
   "github.com/hypermodeinc/modusdb"
