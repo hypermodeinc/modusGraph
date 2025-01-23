@@ -9,7 +9,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.5.0
 	github.com/dgraph-io/dgo/v240 v240.1.0
 	github.com/dgraph-io/ristretto/v2 v2.1.0
-	github.com/hypermodeinc/dgraph/v24 v24.0.3-0.20250123163758-1ccbeba379e1
+	github.com/hypermodeinc/dgraph/v24 v24.0.3-0.20250123210200-7631fd5e6d6a
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/twpayne/go-geom v1.5.7

@@ -319,8 +319,8 @@ github.com/hashicorp/vault/api v1.15.0 h1:O24FYQCWwhwKnF7CuSqP30S51rTV7vz1iACXE/
 github.com/hashicorp/vault/api v1.15.0/go.mod h1:+5YTO09JGn0u+b6ySD/LLVf8WkJCPLAL2Vkmrn2+CM8=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/hypermodeinc/dgraph/v24 v24.0.3-0.20250123163758-1ccbeba379e1 h1:E2T5qbjFASrDbxDzhs6t+GeFwD89smIsC85dsorLi2k=
-github.com/hypermodeinc/dgraph/v24 v24.0.3-0.20250123163758-1ccbeba379e1/go.mod h1:lVpl6wcHGlZKxJysGcABVG4mvLgOnM3Ms8PvKm2j4Vo=
+github.com/hypermodeinc/dgraph/v24 v24.0.3-0.20250123210200-7631fd5e6d6a h1:3EzKpw56j7HssNCsTdd88ms7MLLbs70y4/BqMnrzedM=
+github.com/hypermodeinc/dgraph/v24 v24.0.3-0.20250123210200-7631fd5e6d6a/go.mod h1:cxYPGOzHMDPQbv5uf9i2CI/dWKrKcyVmRLX7j/P3DxM=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20210905161508-09a460cdf81d/go.mod h1:aYm2/VgdVmcIU8iMfdMvDMsRAQjcfZSKFby6HOFvi/w=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
