@@ -91,8 +91,8 @@ please contact us at <hello@hypermode.com>.
 ## Acknowledgements
 
 ModusDB builds heavily upon packages from the open source projects of
-[Dgraph](https://github.com/dgraph-io/dgraph) (graph query processing and transaction management),
-[Badger](https://github.com/dgraph-io/badger) (data storage), and
+[Dgraph](https://github.com/hypermodeinc/dgraph) (graph query processing and transaction
+management), [Badger](https://github.com/dgraph-io/badger) (data storage), and
 [Ristretto](https://github.com/dgraph-io/ristretto) (cache). We expect the architecture and
 implementations of modusDB and Dgraph to expand in differentiation over time as the projects
 optimize for different core use cases, while maintaining Dgraph Query Language (DQL) compatibility.

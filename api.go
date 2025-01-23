@@ -12,8 +12,8 @@ package modusdb
 import (
 	"fmt"
 
-	"github.com/dgraph-io/dgraph/v24/dql"
-	"github.com/dgraph-io/dgraph/v24/schema"
+	"github.com/hypermodeinc/dgraph/v24/dql"
+	"github.com/hypermodeinc/dgraph/v24/schema"
 	"github.com/hypermodeinc/modusdb/api/apiutils"
 	"github.com/hypermodeinc/modusdb/api/structreflect"
 )

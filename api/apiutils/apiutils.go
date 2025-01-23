@@ -12,7 +12,7 @@ package apiutils
 import (
 	"fmt"
 
-	"github.com/dgraph-io/dgraph/v24/x"
+	"github.com/hypermodeinc/dgraph/v24/x"
 )
 
 var (

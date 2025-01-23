@@ -20,15 +20,15 @@ import (
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/dgraph-io/dgo/v240/protos/api"
-	"github.com/dgraph-io/dgraph/v24/dql"
-	"github.com/dgraph-io/dgraph/v24/edgraph"
-	"github.com/dgraph-io/dgraph/v24/posting"
-	"github.com/dgraph-io/dgraph/v24/protos/pb"
-	"github.com/dgraph-io/dgraph/v24/query"
-	"github.com/dgraph-io/dgraph/v24/schema"
-	"github.com/dgraph-io/dgraph/v24/worker"
-	"github.com/dgraph-io/dgraph/v24/x"
 	"github.com/dgraph-io/ristretto/v2/z"
+	"github.com/hypermodeinc/dgraph/v24/dql"
+	"github.com/hypermodeinc/dgraph/v24/edgraph"
+	"github.com/hypermodeinc/dgraph/v24/posting"
+	"github.com/hypermodeinc/dgraph/v24/protos/pb"
+	"github.com/hypermodeinc/dgraph/v24/query"
+	"github.com/hypermodeinc/dgraph/v24/schema"
+	"github.com/hypermodeinc/dgraph/v24/worker"
+	"github.com/hypermodeinc/dgraph/v24/x"
 )
 
 var (
@@ -80,7 +80,7 @@ func NewEngine(conf Config) (*Engine, error) {
 	worker.State.InitStorage()
 	worker.InitForLite(worker.State.Pstore)
 	schema.Init(worker.State.Pstore)
-	posting.Init(worker.State.Pstore, 0) // TODO: set cache size
+	posting.Init(worker.State.Pstore, 0, false) // TODO: set cache size
 
 	engine := &Engine{}
 	engine.isOpen.Store(true)
