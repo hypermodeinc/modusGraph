@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package modusdb_test
+package unit_test
 
 import (
 	"context"
@@ -19,18 +19,18 @@ import (
 	"github.com/hypermodeinc/modusdb"
 )
 
-func TestNonGalaxyNamespace(t *testing.T) {
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+func TestNonGalaxyDB(t *testing.T) {
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer db.Close()
+	defer engine.Close()
 
-	db1, err := db.CreateNamespace()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(context.Background()))
-	require.NoError(t, db1.AlterSchema(context.Background(), "name: string @index(exact) ."))
+	require.NoError(t, ns1.DropData(context.Background()))
+	require.NoError(t, ns1.AlterSchema(context.Background(), "name: string @index(exact) ."))
 
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	_, err = ns1.Mutate(context.Background(), []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -48,24 +48,24 @@ func TestNonGalaxyNamespace(t *testing.T) {
 				name
 			}
 		}`
-	resp, err := db1.Query(context.Background(), query)
+	resp, err := ns1.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(resp.GetJson()))
 
 }
 
 func TestDropData(t *testing.T) {
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer db.Close()
+	defer engine.Close()
 
-	db1, err := db.CreateNamespace()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db1.DropData(context.Background()))
-	require.NoError(t, db1.AlterSchema(context.Background(), "name: string @index(exact) ."))
+	require.NoError(t, ns1.DropData(context.Background()))
+	require.NoError(t, ns1.AlterSchema(context.Background(), "name: string @index(exact) ."))
 
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	_, err = ns1.Mutate(context.Background(), []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -83,30 +83,30 @@ func TestDropData(t *testing.T) {
 				name
 			}
 		}`
-	resp, err := db1.Query(context.Background(), query)
+	resp, err := ns1.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(resp.GetJson()))
 
-	require.NoError(t, db1.DropData(context.Background()))
+	require.NoError(t, ns1.DropData(context.Background()))
 
-	resp, err = db1.Query(context.Background(), query)
+	resp, err = ns1.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[]}`, string(resp.GetJson()))
 }
 
-func TestMultipleNamespaces(t *testing.T) {
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+func TestMultipleDBs(t *testing.T) {
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer db.Close()
+	defer engine.Close()
 
-	db0, err := db.GetNamespace(0)
+	db0, err := engine.GetNamespace(0)
 	require.NoError(t, err)
-	db1, err := db.CreateNamespace()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db.DropAll(context.Background()))
+	require.NoError(t, engine.DropAll(context.Background()))
 	require.NoError(t, db0.AlterSchema(context.Background(), "name: string @index(exact) ."))
-	require.NoError(t, db1.AlterSchema(context.Background(), "name: string @index(exact) ."))
+	require.NoError(t, ns1.AlterSchema(context.Background(), "name: string @index(exact) ."))
 
 	_, err = db0.Mutate(context.Background(), []*api.Mutation{
 		{
@@ -121,7 +121,7 @@ func TestMultipleNamespaces(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	_, err = ns1.Mutate(context.Background(), []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -143,29 +143,29 @@ func TestMultipleNamespaces(t *testing.T) {
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(resp.GetJson()))
 
-	resp, err = db1.Query(context.Background(), query)
+	resp, err = ns1.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"name":"B"}]}`, string(resp.GetJson()))
 
-	require.NoError(t, db1.DropData(context.Background()))
-	resp, err = db1.Query(context.Background(), query)
+	require.NoError(t, ns1.DropData(context.Background()))
+	resp, err = ns1.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[]}`, string(resp.GetJson()))
 }
 
-func TestQueryWrongNamespace(t *testing.T) {
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+func TestQueryWrongDB(t *testing.T) {
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer db.Close()
+	defer engine.Close()
 
-	db0, err := db.GetNamespace(0)
+	db0, err := engine.GetNamespace(0)
 	require.NoError(t, err)
-	db1, err := db.CreateNamespace()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db.DropAll(context.Background()))
+	require.NoError(t, engine.DropAll(context.Background()))
 	require.NoError(t, db0.AlterSchema(context.Background(), "name: string @index(exact) ."))
-	require.NoError(t, db1.AlterSchema(context.Background(), "name: string @index(exact) ."))
+	require.NoError(t, ns1.AlterSchema(context.Background(), "name: string @index(exact) ."))
 
 	_, err = db0.Mutate(context.Background(), []*api.Mutation{
 		{
@@ -187,24 +187,24 @@ func TestQueryWrongNamespace(t *testing.T) {
 		}
 	}`
 
-	resp, err := db1.Query(context.Background(), query)
+	resp, err := ns1.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[]}`, string(resp.GetJson()))
 }
 
-func TestTwoNamespaces(t *testing.T) {
-	db, err := modusdb.New(modusdb.NewDefaultConfig(t.TempDir()))
+func TestTwoDBs(t *testing.T) {
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	defer db.Close()
+	defer engine.Close()
 
-	db0, err := db.GetNamespace(0)
+	db0, err := engine.GetNamespace(0)
 	require.NoError(t, err)
-	db1, err := db.CreateNamespace()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
 
-	require.NoError(t, db.DropAll(context.Background()))
+	require.NoError(t, engine.DropAll(context.Background()))
 	require.NoError(t, db0.AlterSchema(context.Background(), "foo: string @index(exact) ."))
-	require.NoError(t, db1.AlterSchema(context.Background(), "bar: string @index(exact) ."))
+	require.NoError(t, ns1.AlterSchema(context.Background(), "bar: string @index(exact) ."))
 
 	_, err = db0.Mutate(context.Background(), []*api.Mutation{
 		{
@@ -219,7 +219,7 @@ func TestTwoNamespaces(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	_, err = ns1.Mutate(context.Background(), []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -246,23 +246,23 @@ func TestTwoNamespaces(t *testing.T) {
 			bar
 		}
 	}`
-	resp, err = db1.Query(context.Background(), query)
+	resp, err = ns1.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"bar":"B"}]}`, string(resp.GetJson()))
 }
 
-func TestNamespaceDBRestart(t *testing.T) {
+func TestDBDBRestart(t *testing.T) {
 	dataDir := t.TempDir()
-	db, err := modusdb.New(modusdb.NewDefaultConfig(dataDir))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(dataDir))
 	require.NoError(t, err)
-	defer func() { db.Close() }()
+	defer func() { engine.Close() }()
 
-	db1, err := db.CreateNamespace()
+	ns1, err := engine.CreateNamespace()
 	require.NoError(t, err)
-	ns1 := db1.ID()
+	ns1Id := ns1.ID()
 
-	require.NoError(t, db1.AlterSchema(context.Background(), "bar: string @index(exact) ."))
-	_, err = db1.Mutate(context.Background(), []*api.Mutation{
+	require.NoError(t, ns1.AlterSchema(context.Background(), "bar: string @index(exact) ."))
+	_, err = ns1.Mutate(context.Background(), []*api.Mutation{
 		{
 			Set: []*api.NQuad{
 				{
@@ -275,15 +275,15 @@ func TestNamespaceDBRestart(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	db.Close()
-	db, err = modusdb.New(modusdb.NewDefaultConfig(dataDir))
+	engine.Close()
+	engine, err = modusdb.NewEngine(modusdb.NewDefaultConfig(dataDir))
 	require.NoError(t, err)
 
-	db2, err := db.CreateNamespace()
+	db2, err := engine.CreateNamespace()
 	require.NoError(t, err)
-	require.Greater(t, db2.ID(), ns1)
+	require.Greater(t, db2.ID(), ns1Id)
 
-	db1, err = db.GetNamespace(ns1)
+	ns1, err = engine.GetNamespace(ns1Id)
 	require.NoError(t, err)
 
 	query := `{
@@ -291,7 +291,7 @@ func TestNamespaceDBRestart(t *testing.T) {
 			bar
 		}
 	}`
-	resp, err := db1.Query(context.Background(), query)
+	resp, err := ns1.Query(context.Background(), query)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"me":[{"bar":"B"}]}`, string(resp.GetJson()))
 }

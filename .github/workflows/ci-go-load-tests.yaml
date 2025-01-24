@@ -1,0 +1,33 @@
+name: ci-go-load-tests
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - .github/workflows/*
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  ci-go-tests:
+    runs-on: warp-ubuntu-latest-arm64-4x
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Run Unit Tests
+        run: go test -race -v ./load_test/...

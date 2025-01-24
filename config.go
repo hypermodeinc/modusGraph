@@ -20,8 +20,8 @@ func NewDefaultConfig(dir string) Config {
 	return Config{dataDir: dir, limitNormalizeNode: 10000}
 }
 
-func (cc Config) WithLimitNormalizeNode(n int) Config {
-	cc.limitNormalizeNode = n
+func (cc Config) WithLimitNormalizeNode(d int) Config {
+	cc.limitNormalizeNode = d
 	return cc
 }
 

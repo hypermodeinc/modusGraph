@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
-	"github.com/dgraph-io/dgraph/v24/protos/pb"
-	"github.com/dgraph-io/dgraph/v24/schema"
+	"github.com/hypermodeinc/dgraph/v24/protos/pb"
+	"github.com/hypermodeinc/dgraph/v24/schema"
 	"github.com/hypermodeinc/modusdb/api/apiutils"
 	"github.com/hypermodeinc/modusdb/api/dgraphtypes"
 )

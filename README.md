@@ -46,13 +46,13 @@ type User struct {
 }
 
 func main() {
-  db, err := New(NewDefaultConfig("/tmp/modusdb"))
+  engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig("/local/modusdb"))
   if err != nil {
     panic(err)
   }
-  defer db.Close()
+  defer engine.Close()
 
-  gid, user, err := modusdb.Upsert(db, User{
+  gid, user, err := modusdb.Upsert(ns, User{
     Id:   "123",
     Name: "A",
     Age:  10,
@@ -62,13 +62,13 @@ func main() {
   }
   fmt.Println(user)
 
-  _, queriedUser, err := modusdb.Get[User](db, gid)
+  _, queriedUser, err := modusdb.Get[User](ns, gid)
   if err != nil {
     panic(err)
   }
   fmt.Println(queriedUser)
 
-  _, _, err = modusdb.Delete[User](db, gid)
+  _, _, err = modusdb.Delete[User](ns, gid)
   if err != nil {
     panic(err)
   }
@@ -86,13 +86,13 @@ like to get involved.
 Modus and its components are Copyright 2025 Hypermode Inc., and licensed under the terms of the
 Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for a complete copy of the license.
 If you have any questions about modus licensing, or need an alternate license or other arrangement,
-please contact us at hello@hypermode.com.
+please contact us at <hello@hypermode.com>.
 
 ## Acknowledgements
 
 ModusDB builds heavily upon packages from the open source projects of
-[Dgraph](https://github.com/dgraph-io/dgraph) (graph query processing and transaction management),
-[Badger](https://github.com/dgraph-io/badger) (data storage), and
+[Dgraph](https://github.com/hypermodeinc/dgraph) (graph query processing and transaction
+management), [Badger](https://github.com/dgraph-io/badger) (data storage), and
 [Ristretto](https://github.com/dgraph-io/ristretto) (cache). We expect the architecture and
 implementations of modusDB and Dgraph to expand in differentiation over time as the projects
 optimize for different core use cases, while maintaining Dgraph Query Language (DQL) compatibility.

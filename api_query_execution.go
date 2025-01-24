@@ -20,34 +20,34 @@ import (
 	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
-func getByGid[T any](ctx context.Context, n *Namespace, gid uint64) (uint64, T, error) {
-	return executeGet[T](ctx, n, gid)
+func getByGid[T any](ctx context.Context, ns *Namespace, gid uint64) (uint64, T, error) {
+	return executeGet[T](ctx, ns, gid)
 }
 
-func getByGidWithObject[T any](ctx context.Context, n *Namespace, gid uint64, obj T) (uint64, T, error) {
-	return executeGetWithObject[T](ctx, n, obj, false, gid)
+func getByGidWithObject[T any](ctx context.Context, ns *Namespace, gid uint64, obj T) (uint64, T, error) {
+	return executeGetWithObject[T](ctx, ns, obj, false, gid)
 }
 
-func getByConstrainedField[T any](ctx context.Context, n *Namespace, cf ConstrainedField) (uint64, T, error) {
-	return executeGet[T](ctx, n, cf)
+func getByConstrainedField[T any](ctx context.Context, ns *Namespace, cf ConstrainedField) (uint64, T, error) {
+	return executeGet[T](ctx, ns, cf)
 }
 
-func getByConstrainedFieldWithObject[T any](ctx context.Context, n *Namespace,
+func getByConstrainedFieldWithObject[T any](ctx context.Context, ns *Namespace,
 	cf ConstrainedField, obj T) (uint64, T, error) {
 
-	return executeGetWithObject[T](ctx, n, obj, false, cf)
+	return executeGetWithObject[T](ctx, ns, obj, false, cf)
 }
 
-func executeGet[T any, R UniqueField](ctx context.Context, n *Namespace, args ...R) (uint64, T, error) {
+func executeGet[T any, R UniqueField](ctx context.Context, ns *Namespace, args ...R) (uint64, T, error) {
 	var obj T
 	if len(args) != 1 {
-		return 0, obj, fmt.Errorf("expected 1 argument, got %d", len(args))
+		return 0, obj, fmt.Errorf("expected 1 argument, got %ds", len(args))
 	}
 
-	return executeGetWithObject(ctx, n, obj, true, args...)
+	return executeGetWithObject(ctx, ns, obj, true, args...)
 }
 
-func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespace,
+func executeGetWithObject[T any, R UniqueField](ctx context.Context, ns *Namespace,
 	obj T, withReverse bool, args ...R) (uint64, T, error) {
 	t := reflect.TypeOf(obj)
 
@@ -79,7 +79,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 		return 0, obj, fmt.Errorf("constraint not defined for field %s", cf.Key)
 	}
 
-	resp, err := n.queryWithLock(ctx, query)
+	resp, err := ns.engine.queryWithLock(ctx, ns, query)
 	if err != nil {
 		return 0, obj, err
 	}
@@ -107,7 +107,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, n *Namespac
 	return structreflect.ConvertDynamicToTyped[T](result.Obj[0], t)
 }
 
-func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryParams,
+func executeQuery[T any](ctx context.Context, ns *Namespace, queryParams QueryParams,
 	withReverse bool) ([]uint64, []T, error) {
 	var obj T
 	t := reflect.TypeOf(obj)
@@ -143,7 +143,7 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 
 	query := querygen.FormatObjsQuery(t.Name(), filterQueryFunc, paginationAndSorting, readFromQuery)
 
-	resp, err := n.queryWithLock(ctx, query)
+	resp, err := ns.engine.queryWithLock(ctx, ns, query)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -186,13 +186,13 @@ func executeQuery[T any](ctx context.Context, n *Namespace, queryParams QueryPar
 	return gids, objs, nil
 }
 
-func getExistingObject[T any](ctx context.Context, n *Namespace, gid uint64, cf *ConstrainedField,
+func getExistingObject[T any](ctx context.Context, ns *Namespace, gid uint64, cf *ConstrainedField,
 	object T) (uint64, error) {
 	var err error
 	if gid != 0 {
-		gid, _, err = getByGidWithObject[T](ctx, n, gid, object)
+		gid, _, err = getByGidWithObject[T](ctx, ns, gid, object)
 	} else if cf != nil {
-		gid, _, err = getByConstrainedFieldWithObject[T](ctx, n, *cf, object)
+		gid, _, err = getByConstrainedFieldWithObject[T](ctx, ns, *cf, object)
 	}
 	if err != nil {
 		return 0, err
@@ -200,8 +200,8 @@ func getExistingObject[T any](ctx context.Context, n *Namespace, gid uint64, cf 
 	return gid, nil
 }
 
-func getSchema(ctx context.Context, n *Namespace) (*querygen.SchemaResponse, error) {
-	resp, err := n.queryWithLock(ctx, querygen.SchemaQuery)
+func getSchema(ctx context.Context, ns *Namespace) (*querygen.SchemaResponse, error) {
+	resp, err := ns.engine.queryWithLock(ctx, ns, querygen.SchemaQuery)
 	if err != nil {
 		return nil, err
 	}

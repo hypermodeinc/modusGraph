@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/dgraph-io/dgraph/v24/dql"
-	"github.com/dgraph-io/dgraph/v24/protos/pb"
-	"github.com/dgraph-io/dgraph/v24/query"
-	"github.com/dgraph-io/dgraph/v24/schema"
-	"github.com/dgraph-io/dgraph/v24/worker"
+	"github.com/hypermodeinc/dgraph/v24/dql"
+	"github.com/hypermodeinc/dgraph/v24/protos/pb"
+	"github.com/hypermodeinc/dgraph/v24/query"
+	"github.com/hypermodeinc/dgraph/v24/schema"
+	"github.com/hypermodeinc/dgraph/v24/worker"
 	"github.com/hypermodeinc/modusdb/api/apiutils"
 	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
-func processStructValue(ctx context.Context, value any, n *Namespace) (any, error) {
+func processStructValue(ctx context.Context, value any, ns *Namespace) (any, error) {
 	if reflect.TypeOf(value).Kind() == reflect.Struct {
 		value = reflect.ValueOf(value).Interface()
-		newGid, err := getUidOrMutate(ctx, n.db, n, value)
+		newGid, err := getUidOrMutate(ctx, ns.engine, ns, value)
 		if err != nil {
 			return nil, err
 		}
@@ -26,19 +26,19 @@ func processStructValue(ctx context.Context, value any, n *Namespace) (any, erro
 	return value, nil
 }
 
-func processPointerValue(ctx context.Context, value any, n *Namespace) (any, error) {
+func processPointerValue(ctx context.Context, value any, ns *Namespace) (any, error) {
 	reflectValueType := reflect.TypeOf(value)
 	if reflectValueType.Kind() == reflect.Pointer {
 		reflectValueType = reflectValueType.Elem()
 		if reflectValueType.Kind() == reflect.Struct {
 			value = reflect.ValueOf(value).Elem().Interface()
-			return processStructValue(ctx, value, n)
+			return processStructValue(ctx, value, ns)
 		}
 	}
 	return value, nil
 }
 
-func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) (uint64, error) {
+func getUidOrMutate[T any](ctx context.Context, engine *Engine, ns *Namespace, object T) (uint64, error) {
 	gid, cfKeyValue, err := structreflect.GetUniqueConstraint[T](object)
 	if err != nil {
 		return 0, err
@@ -50,17 +50,17 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 
 	dms := make([]*dql.Mutation, 0)
 	sch := &schema.ParsedSchema{}
-	err = generateSetDqlMutationsAndSchema(ctx, n, object, gid, &dms, sch)
+	err = generateSetDqlMutationsAndSchema(ctx, ns, object, gid, &dms, sch)
 	if err != nil {
 		return 0, err
 	}
 
-	err = n.alterSchemaWithParsed(ctx, sch)
+	err = engine.alterSchemaWithParsed(ctx, sch)
 	if err != nil {
 		return 0, err
 	}
 	if gid != 0 || cf != nil {
-		gid, err = getExistingObject(ctx, n, gid, cf, object)
+		gid, err = getExistingObject(ctx, ns, gid, cf, object)
 		if err != nil && err != apiutils.ErrNoObjFound {
 			return 0, err
 		}
@@ -69,18 +69,18 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 		}
 	}
 
-	gid, err = db.z.nextUID()
+	gid, err = engine.z.nextUID()
 	if err != nil {
 		return 0, err
 	}
 
 	dms = make([]*dql.Mutation, 0)
-	err = generateSetDqlMutationsAndSchema(ctx, n, object, gid, &dms, sch)
+	err = generateSetDqlMutationsAndSchema(ctx, ns, object, gid, &dms, sch)
 	if err != nil {
 		return 0, err
 	}
 
-	err = applyDqlMutations(ctx, db, dms)
+	err = applyDqlMutations(ctx, engine, dms)
 	if err != nil {
 		return 0, err
 	}
@@ -88,21 +88,21 @@ func getUidOrMutate[T any](ctx context.Context, db *DB, n *Namespace, object T) 
 	return gid, nil
 }
 
-func applyDqlMutations(ctx context.Context, db *DB, dms []*dql.Mutation) error {
+func applyDqlMutations(ctx context.Context, engine *Engine, dms []*dql.Mutation) error {
 	edges, err := query.ToDirectedEdges(dms, nil)
 	if err != nil {
 		return err
 	}
 
-	if !db.isOpen {
-		return ErrClosedDB
+	if !engine.isOpen.Load() {
+		return ErrClosedEngine
 	}
 
-	startTs, err := db.z.nextTs()
+	startTs, err := engine.z.nextTs()
 	if err != nil {
 		return err
 	}
-	commitTs, err := db.z.nextTs()
+	commitTs, err := engine.z.nextTs()
 	if err != nil {
 		return err
 	}

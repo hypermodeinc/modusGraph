@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dgraph-io/dgraph/v24/x"
+	"github.com/hypermodeinc/dgraph/v24/x"
 	"github.com/hypermodeinc/modusdb/api/apiutils"
 	"github.com/hypermodeinc/modusdb/api/querygen"
 )
@@ -75,32 +75,32 @@ type VectorPredicate struct {
 type ModusDbOption func(*modusDbOptions)
 
 type modusDbOptions struct {
-	namespace uint64
+	ns uint64
 }
 
-func WithNamespace(namespace uint64) ModusDbOption {
+func WithNamespace(ns uint64) ModusDbOption {
 	return func(o *modusDbOptions) {
-		o.namespace = namespace
+		o.ns = ns
 	}
 }
 
-func getDefaultNamespace(db *DB, ns ...uint64) (context.Context, *Namespace, error) {
+func getDefaultNamespace(engine *Engine, nsId ...uint64) (context.Context, *Namespace, error) {
 	dbOpts := &modusDbOptions{
-		namespace: db.defaultNamespace.ID(),
+		ns: engine.db0.ID(),
 	}
-	for _, ns := range ns {
+	for _, ns := range nsId {
 		WithNamespace(ns)(dbOpts)
 	}
 
-	n, err := db.getNamespaceWithLock(dbOpts.namespace)
+	d, err := engine.getNamespaceWithLock(dbOpts.ns)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	ctx := context.Background()
-	ctx = x.AttachNamespace(ctx, n.ID())
+	ctx = x.AttachNamespace(ctx, d.ID())
 
-	return ctx, n, nil
+	return ctx, d, nil
 }
 
 func filterToQueryFunc(typeName string, f Filter) querygen.QueryFunc {

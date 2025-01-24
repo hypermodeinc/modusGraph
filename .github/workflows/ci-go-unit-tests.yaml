@@ -1,4 +1,4 @@
-name: ci-go-tests
+name: ci-go-unit-tests
 
 on:
   pull_request:
@@ -18,7 +18,15 @@ permissions:
 
 jobs:
   ci-go-tests:
-    runs-on: warp-ubuntu-latest-arm64-4x
+    name: Test ${{ matrix.os }}
+    runs-on:
+      "${{ matrix.os == 'linux' && 'warp-ubuntu-latest-x64-4x' || matrix.os == 'macos' &&
+      'warp-macos-15-arm64-6x'}}"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [linux, macos]
 
     steps:
       - uses: actions/checkout@v4
@@ -30,4 +38,4 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run Unit Tests
-        run: go test -race -v ./...
+        run: go test -race -v ./unit_test/...
