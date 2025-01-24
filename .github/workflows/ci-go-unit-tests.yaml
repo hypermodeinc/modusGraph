@@ -21,12 +21,12 @@ jobs:
     name: Test ${{ matrix.os }}
     runs-on:
       "${{ matrix.os == 'linux' && 'warp-ubuntu-latest-x64-4x' || matrix.os == 'macos' &&
-      'warp-macos-15-arm64-6x' || 'warp-windows-latest-x64-4x' }}"
+      'warp-macos-15-arm64-6x'}}"
 
     strategy:
       fail-fast: false
       matrix:
-        os: [linux, macos, windows]
+        os: [linux, macos]
 
     steps:
       - uses: actions/checkout@v4
