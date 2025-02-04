@@ -83,10 +83,10 @@ open-source project, integral but independent from Hypermode.
 We welcome external contributions. See the [CONTRIBUTING.md](./CONTRIBUTING.md) file if you would
 like to get involved.
 
-Modus and its components are Copyright 2025 Hypermode Inc., and licensed under the terms of the
-Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for a complete copy of the license.
-If you have any questions about modus licensing, or need an alternate license or other arrangement,
-please contact us at <hello@hypermode.com>.
+Modus and its components are © Hypermode Inc., and licensed under the terms of the Apache License,
+Version 2.0. See the [LICENSE](./LICENSE) file for a complete copy of the license. If you have any
+questions about modus licensing, or need an alternate license or other arrangement, please contact
+us at <hello@hypermode.com>.
 
 ## Acknowledgements
 
