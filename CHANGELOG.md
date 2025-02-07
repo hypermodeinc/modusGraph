@@ -15,6 +15,8 @@
 
 - chore: Update dgraph dependency [#62](https://github.com/hypermodeinc/modusDB/pull/62)
 
+- fix: add context to api functions [#69](https://github.com/hypermodeinc/modusDB/pull/69)
+
 ## 2025-01-02 - Version 0.1.0
 
 Baseline for the changelog.
