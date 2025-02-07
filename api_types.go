@@ -80,7 +80,7 @@ func WithNamespace(ns uint64) ModusDbOption {
 	}
 }
 
-func getDefaultNamespace(engine *Engine, nsId ...uint64) (context.Context, *Namespace, error) {
+func getDefaultNamespace(ctx context.Context, engine *Engine, nsId ...uint64) (context.Context, *Namespace, error) {
 	dbOpts := &modusDbOptions{
 		ns: engine.db0.ID(),
 	}
@@ -93,7 +93,6 @@ func getDefaultNamespace(engine *Engine, nsId ...uint64) (context.Context, *Name
 		return nil, nil, err
 	}
 
-	ctx := context.Background()
 	ctx = x.AttachNamespace(ctx, d.ID())
 
 	return ctx, d, nil
