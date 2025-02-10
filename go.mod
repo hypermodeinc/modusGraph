@@ -1,6 +1,6 @@
 module github.com/hypermodeinc/modusdb
 
-go 1.22.11
+go 1.22.12
 
 toolchain go1.23.6
 
