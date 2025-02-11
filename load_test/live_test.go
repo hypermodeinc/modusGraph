@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	baseURL          = "https://github.com/dgraph-io/benchmarks/blob/master/data"
+	baseURL          = "https://github.com/hypermodeinc/dgraph-benchmarks/blob/main/data"
 	oneMillionSchema = baseURL + "/1million.schema?raw=true"
 	oneMillionRDF    = baseURL + "/1million.rdf.gz?raw=true"
 	DbSchema         = `
