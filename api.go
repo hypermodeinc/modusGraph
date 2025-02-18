@@ -15,6 +15,8 @@ import (
 	"github.com/hypermodeinc/modusdb/api/structreflect"
 )
 
+// TODO: Not sure why the variadic parameter for the namespace ID
+// is defined. It must be one. Not zero, not more than one.... -MM
 func Create[T any](ctx context.Context, engine *Engine, object T,
 	nsId ...uint64) (uint64, T, error) {
 	engine.mutex.Lock()
