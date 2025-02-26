@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -875,4 +876,71 @@ func TestVectorIndexSearchWithQuery(t *testing.T) {
 	require.Equal(t, "elephant", docs[2].Text)
 	require.Equal(t, "fox", docs[3].Text)
 	require.Equal(t, "gorilla", docs[4].Text)
+}
+
+type Alltypes struct {
+	Gid        uint64  `json:"gid,omitempty"`
+	Name       string  `json:"name,omitempty"`
+	Age        int     `json:"age,omitempty"`
+	Count      int64   `json:"count,omitempty"`
+	Married    bool    `json:"married,omitempty"`
+	FloatVal   float32 `json:"floatVal,omitempty"`
+	Float64Val float64 `json:"float64Val,omitempty"`
+	//Loc        geom.Point `json:"loc,omitempty"`
+	DoB time.Time `json:"dob,omitempty"`
+}
+
+func TestAllSchemaTypes(t *testing.T) {
+	ctx := context.Background()
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer engine.Close()
+
+	require.NoError(t, engine.DropAll(ctx))
+
+	//loc := geom.NewPoint(geom.XY).MustSetCoords(geom.Coord{-122.082506, 37.4249518})
+	dob := time.Date(1965, 6, 24, 0, 0, 0, 0, time.UTC)
+	_, omnibus, err := modusdb.Create(context.Background(), engine, Alltypes{
+		Name:       "John Doe",
+		Age:        30,
+		Count:      100,
+		Married:    true,
+		FloatVal:   3.14159,
+		Float64Val: 222333444.555666777,
+		//Loc:        *loc,
+		DoB: dob,
+	})
+
+	require.NoError(t, err)
+	require.NotZero(t, omnibus.Gid)
+	require.Equal(t, "John Doe", omnibus.Name)
+	require.Equal(t, 30, omnibus.Age)
+	require.Equal(t, true, omnibus.Married)
+	//require.Equal(t, loc, omnibus.Loc)
+	require.Equal(t, dob, omnibus.DoB)
+}
+
+type JustTime struct {
+	Name    string     `json:"name,omitempty" db:"constraint=unique"`
+	Time    time.Time  `json:"time,omitempty"`
+	TimePtr *time.Time `json:"timePtr,omitempty"`
+}
+
+func TestTime(t *testing.T) {
+	ctx := context.Background()
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer engine.Close()
+
+	d := time.Date(1965, 6, 24, 12, 0, 0, 0, time.UTC)
+	_, justTime, err := modusdb.Create(ctx, engine, JustTime{
+		Name:    "John Doe",
+		Time:    d,
+		TimePtr: &d,
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, "John Doe", justTime.Name)
+	require.Equal(t, d, justTime.Time)
+	require.Equal(t, d, *justTime.TimePtr)
 }
