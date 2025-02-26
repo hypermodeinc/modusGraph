@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/hypermodeinc/modusdb/api/apiutils"
 )
@@ -43,12 +44,45 @@ func GetFieldTags(t reflect.Type) (*TagMaps, error) {
 	return tags, nil
 }
 
+var skipProcessStructTypes = []reflect.Type{
+	reflect.TypeOf(time.Time{}),
+}
+
+func IsDgraphType(value any) bool {
+	kind := reflect.TypeOf(value).Kind()
+	if kind == reflect.Ptr {
+		kind = reflect.TypeOf(value).Elem().Kind()
+	}
+	for _, t := range skipProcessStructTypes {
+		if kind == t.Kind() {
+			return true
+		}
+	}
+	return false
+}
+
+func IsStructAndNotDgraphType(field reflect.StructField) bool {
+	kind := field.Type.Kind()
+	if kind == reflect.Ptr {
+		kind = field.Type.Elem().Kind()
+	}
+	if kind != reflect.Struct {
+		return false
+	}
+	for _, t := range skipProcessStructTypes {
+		if kind == t.Kind() {
+			return false
+		}
+	}
+	return true
+}
+
 func CreateDynamicStruct(t reflect.Type, fieldToJson map[string]string, depth int) reflect.Type {
 	fields := make([]reflect.StructField, 0, len(fieldToJson))
 	for fieldName, jsonName := range fieldToJson {
 		field, _ := t.FieldByName(fieldName)
 		if fieldName != "Gid" {
-			if field.Type.Kind() == reflect.Struct {
+			if IsStructAndNotDgraphType(field) {
 				if depth <= 1 {
 					tagMaps, _ := GetFieldTags(field.Type)
 					nestedType := CreateDynamicStruct(field.Type, tagMaps.FieldToJson, depth+1)
@@ -59,7 +93,7 @@ func CreateDynamicStruct(t reflect.Type, fieldToJson map[string]string, depth in
 					})
 				}
 			} else if field.Type.Kind() == reflect.Ptr &&
-				field.Type.Elem().Kind() == reflect.Struct {
+				IsStructAndNotDgraphType(field) {
 				tagMaps, _ := GetFieldTags(field.Type.Elem())
 				nestedType := CreateDynamicStruct(field.Type.Elem(), tagMaps.FieldToJson, depth+1)
 				fields = append(fields, reflect.StructField{
@@ -132,13 +166,14 @@ func MapDynamicToFinal(dynamic any, final any, isNested bool) (uint64, error) {
 		} else {
 			finalField = vFinal.FieldByName(dynamicField.Name)
 		}
-		if dynamicFieldType.Kind() == reflect.Struct {
+		//if dynamicFieldType.Kind() == reflect.Struct {
+		if IsStructAndNotDgraphType(dynamicField) {
 			_, err := MapDynamicToFinal(dynamicValue.Addr().Interface(), finalField.Addr().Interface(), true)
 			if err != nil {
 				return 0, err
 			}
 		} else if dynamicFieldType.Kind() == reflect.Ptr &&
-			dynamicFieldType.Elem().Kind() == reflect.Struct {
+			IsStructAndNotDgraphType(dynamicField) {
 			// if field is a pointer, find if the underlying is a struct
 			_, err := MapDynamicToFinal(dynamicValue.Interface(), finalField.Interface(), true)
 			if err != nil {
