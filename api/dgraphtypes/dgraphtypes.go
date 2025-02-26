@@ -75,7 +75,7 @@ func ValueToPosting_ValType(v any) (pb.Posting_ValType, error) {
 	case []float32, []float64:
 		return pb.Posting_VFLOAT, nil
 	default:
-		return pb.Posting_DEFAULT, fmt.Errorf("unsupported type %T", v)
+		return pb.Posting_DEFAULT, fmt.Errorf("value to posting, unsupported type %T", v)
 	}
 }
 
@@ -124,7 +124,7 @@ func ValueToApiVal(v any) (*api.Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &api.Value{Val: &api.Value_DateVal{DateVal: bytes}}, nil
+		return &api.Value{Val: &api.Value_DatetimeVal{DatetimeVal: bytes}}, nil
 	case geom.Point:
 		bytes, err := wkb.Marshal(&val, binary.LittleEndian)
 		if err != nil {
@@ -134,7 +134,7 @@ func ValueToApiVal(v any) (*api.Value, error) {
 	case uint:
 		return &api.Value{Val: &api.Value_DefaultVal{DefaultVal: fmt.Sprint(v)}}, nil
 	default:
-		return nil, fmt.Errorf("unsupported type %T", v)
+		return nil, fmt.Errorf("convert value to api value, unsupported type %T", v)
 	}
 }
 
