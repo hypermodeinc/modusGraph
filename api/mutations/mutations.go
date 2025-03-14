@@ -49,6 +49,7 @@ func CreateNQuadAndSchema(value any, gid uint64, jsonName string, t reflect.Type
 		return nil, nil, err
 	}
 
+	// val can be null here for "empty" no-scalar types
 	val, err := dgraphtypes.ValueToApiVal(value)
 	if err != nil {
 		return nil, nil, err
@@ -68,7 +69,7 @@ func CreateNQuadAndSchema(value any, gid uint64, jsonName string, t reflect.Type
 	if valType == pb.Posting_UID {
 		nquad.ObjectId = fmt.Sprint(value)
 		u.Directive = pb.SchemaUpdate_REVERSE
-	} else {
+	} else if val != nil {
 		nquad.ObjectValue = val
 	}
 
