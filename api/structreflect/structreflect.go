@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hypermodeinc/modusdb/api"
 	"github.com/hypermodeinc/modusdb/api/apiutils"
 )
 
@@ -45,6 +46,9 @@ func GetFieldTags(t reflect.Type) (*TagMaps, error) {
 }
 
 var skipProcessStructTypes = []reflect.Type{
+	reflect.TypeOf(api.Point{}),
+	reflect.TypeOf(api.Polygon{}),
+	reflect.TypeOf(api.MultiPolygon{}),
 	reflect.TypeOf(time.Time{}),
 }
 
