@@ -100,7 +100,9 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, 
 		}
 
 		sch.Preds = append(sch.Preds, u)
-		nquads = append(nquads, nquad)
+		if nquad.ObjectValue != nil {
+			nquads = append(nquads, nquad)
+		}
 	}
 	if !uniqueConstraintFound {
 		return fmt.Errorf(apiutils.NoUniqueConstr, t.Name())
