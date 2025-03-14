@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hypermodeinc/modusdb"
+	"github.com/hypermodeinc/modusdb/api"
 	"github.com/hypermodeinc/modusdb/api/apiutils"
 )
 
@@ -906,7 +907,7 @@ func TestAllSchemaTypes(t *testing.T) {
 		Count:      100,
 		Married:    true,
 		FloatVal:   3.14159,
-		Float64Val: 222333444.555666777,
+		Float64Val: 123.456789,
 		//Loc:        *loc,
 		DoB: dob,
 	})
@@ -916,11 +917,14 @@ func TestAllSchemaTypes(t *testing.T) {
 	require.Equal(t, "John Doe", omnibus.Name)
 	require.Equal(t, 30, omnibus.Age)
 	require.Equal(t, true, omnibus.Married)
+	require.Equal(t, int64(100), omnibus.Count)
+	require.Equal(t, float32(3.14159), omnibus.FloatVal)
+	require.InDelta(t, 123.456789, omnibus.Float64Val, 0.000001)
 	//require.Equal(t, loc, omnibus.Loc)
 	require.Equal(t, dob, omnibus.DoB)
 }
 
-type JustTime struct {
+type TimeStruct struct {
 	Name    string     `json:"name,omitempty" db:"constraint=unique"`
 	Time    time.Time  `json:"time,omitempty"`
 	TimePtr *time.Time `json:"timePtr,omitempty"`
@@ -933,7 +937,7 @@ func TestTime(t *testing.T) {
 	defer engine.Close()
 
 	d := time.Date(1965, 6, 24, 12, 0, 0, 0, time.UTC)
-	_, justTime, err := modusdb.Create(ctx, engine, JustTime{
+	gid, justTime, err := modusdb.Create(ctx, engine, TimeStruct{
 		Name:    "John Doe",
 		Time:    d,
 		TimePtr: &d,
@@ -943,4 +947,89 @@ func TestTime(t *testing.T) {
 	require.Equal(t, "John Doe", justTime.Name)
 	require.Equal(t, d, justTime.Time)
 	require.Equal(t, d, *justTime.TimePtr)
+
+	_, justTime, err = modusdb.Get[TimeStruct](ctx, engine, gid)
+	require.NoError(t, err)
+	require.Equal(t, "John Doe", justTime.Name)
+	require.Equal(t, d, justTime.Time)
+	require.Equal(t, d, *justTime.TimePtr)
+
+	// Add another time entry
+	d2 := time.Date(1965, 6, 24, 11, 59, 59, 0, time.UTC)
+	_, _, err = modusdb.Create(ctx, engine, TimeStruct{
+		Name:    "Jane Doe",
+		Time:    d2,
+		TimePtr: &d2,
+	})
+	require.NoError(t, err)
+
+	_, entries, err := modusdb.Query[TimeStruct](ctx, engine, modusdb.QueryParams{
+		Filter: &modusdb.Filter{
+			Field: "time",
+			String: modusdb.StringPredicate{
+				// TODO: Not too crazy about this. Thinking we should add XXXPredicate definitions for all scalars -MM
+				GreaterOrEqual: fmt.Sprintf("\"%s\"", d.Format(time.RFC3339)),
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.Equal(t, "John Doe", entries[0].Name)
+	require.Equal(t, d, entries[0].Time)
+	require.Equal(t, d, *entries[0].TimePtr)
+}
+
+type GeomStruct struct {
+	Name  string      `json:"name,omitempty" db:"constraint=unique"`
+	Point api.Point   `json:"loc,omitempty"`
+	Area  api.Polygon `json:"area,omitempty"`
+}
+
+func TestGeom(t *testing.T) {
+	ctx := context.Background()
+	//engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig("./foo"))
+	require.NoError(t, err)
+	defer engine.Close()
+
+	loc := api.Point{
+		Coordinates: []float64{-122.082506, 37.4249518},
+	}
+	gid, geomStruct, err := modusdb.Create(ctx, engine, GeomStruct{
+		Name:  "John Doe",
+		Point: loc,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "John Doe", geomStruct.Name)
+	require.Equal(t, loc.Coordinates, geomStruct.Point.Coordinates)
+
+	_, geomStruct, err = modusdb.Get[GeomStruct](ctx, engine, gid)
+	require.NoError(t, err)
+	require.Equal(t, "John Doe", geomStruct.Name)
+	require.Equal(t, loc.Coordinates, geomStruct.Point.Coordinates)
+
+	area := api.Polygon{
+		Coordinates: [][][]float64{
+			{
+				{-122.083506, 37.4259518}, // Northwest
+				{-122.081506, 37.4259518}, // Northeast
+				{-122.081506, 37.4239518}, // Southeast
+				{-122.083506, 37.4239518}, // Southwest
+				{-122.083506, 37.4259518}, // Close the polygon by repeating first point
+			},
+		},
+	}
+	gid, geomStruct, err = modusdb.Create(ctx, engine, GeomStruct{
+		Name:  "Jane Doe",
+		Point: loc,
+		Area:  area,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Jane Doe", geomStruct.Name)
+	require.Equal(t, area.Coordinates, geomStruct.Area.Coordinates)
+
+	_, geomStruct, err = modusdb.Get[GeomStruct](ctx, engine, gid)
+	require.NoError(t, err)
+	require.Equal(t, "Jane Doe", geomStruct.Name)
+	require.Equal(t, area.Coordinates, geomStruct.Area.Coordinates)
 }
