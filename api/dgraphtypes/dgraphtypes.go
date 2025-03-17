@@ -72,7 +72,7 @@ func ValueToPosting_ValType(v any) (pb.Posting_ValType, error) {
 		return pb.Posting_BINARY, nil
 	case time.Time:
 		return pb.Posting_DATETIME, nil
-	case modusapi.Point, modusapi.Polygon, modusapi.MultiPolygon:
+	case modusapi.Point, modusapi.Polygon:
 		return pb.Posting_GEO, nil
 	case []float32, []float64:
 		return pb.Posting_VFLOAT, nil
@@ -142,8 +142,9 @@ func ValueToApiVal(v any) (*api.Value, error) {
 		}
 		return &api.Value{Val: &api.Value_GeoVal{GeoVal: bytes}}, nil
 	case modusapi.Polygon:
-		// TODO: handle multi-polygon
-		// TODO: test for empty (nullable polygon)
+		if len(val.Coordinates) == 0 {
+			return nil, nil
+		}
 		coords := make([][]geom.Coord, len(val.Coordinates))
 		for i, polygon := range val.Coordinates {
 			coords[i] = make([]geom.Coord, len(polygon))
