@@ -59,6 +59,14 @@ func TestFirstTimeUser(t *testing.T) {
 	require.Equal(t, "A", queriedUser2.Name)
 	require.Equal(t, "123", queriedUser2.ClerkId)
 
+	// Search for a non-existent record
+	_, _, err = modusdb.Get[User](context.Background(), engine, modusdb.ConstrainedField{
+		Key:   "clerk_id",
+		Value: "456",
+	})
+	require.Error(t, err)
+	require.Equal(t, "no object found", err.Error())
+
 	_, _, err = modusdb.Delete[User](context.Background(), engine, gid)
 	require.NoError(t, err)
 
@@ -66,7 +74,25 @@ func TestFirstTimeUser(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, "no object found", err.Error())
 	require.Equal(t, queriedUser3, User{})
+}
 
+func TestGetBeforeObjectWrite(t *testing.T) {
+	ctx := context.Background()
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer engine.Close()
+	ns, err := engine.CreateNamespace()
+	require.NoError(t, err)
+
+	_, _, err = modusdb.Get[User](ctx, engine, uint64(1), ns.ID())
+	require.Error(t, err)
+
+	_, _, err = modusdb.Get[User](ctx, engine, modusdb.ConstrainedField{
+		Key:   "name",
+		Value: "test",
+	}, ns.ID())
+	require.Error(t, err)
+	require.Equal(t, "type not found", err.Error())
 }
 
 func TestCreateApi(t *testing.T) {
@@ -125,6 +151,14 @@ func TestCreateApiWithNonStruct(t *testing.T) {
 	_, _, err = modusdb.Create[*User](context.Background(), engine, &user, ns1.ID())
 	require.Error(t, err)
 	require.Equal(t, "expected struct, got ptr", err.Error())
+
+	_, _, err = modusdb.Create[[]string](context.Background(), engine, []string{"foo", "bar"}, ns1.ID())
+	require.Error(t, err)
+	require.Equal(t, "expected struct, got slice", err.Error())
+
+	_, _, err = modusdb.Create[float32](context.Background(), engine, 3.1415, ns1.ID())
+	require.Error(t, err)
+	require.Equal(t, "expected struct, got float32", err.Error())
 }
 
 func TestGetApi(t *testing.T) {
