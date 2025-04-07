@@ -9,10 +9,12 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hypermodeinc/modusdb"
+	"github.com/hypermodeinc/modusdb/api"
 	"github.com/hypermodeinc/modusdb/api/apiutils"
 )
 
@@ -875,4 +877,221 @@ func TestVectorIndexSearchWithQuery(t *testing.T) {
 	require.Equal(t, "elephant", docs[2].Text)
 	require.Equal(t, "fox", docs[3].Text)
 	require.Equal(t, "gorilla", docs[4].Text)
+}
+
+type Alltypes struct {
+	Gid        uint64  `json:"gid,omitempty"`
+	Name       string  `json:"name,omitempty"`
+	Age        int     `json:"age,omitempty"`
+	Count      int64   `json:"count,omitempty"`
+	Married    bool    `json:"married,omitempty"`
+	FloatVal   float32 `json:"floatVal,omitempty"`
+	Float64Val float64 `json:"float64Val,omitempty"`
+	//Loc        geom.Point `json:"loc,omitempty"`
+	DoB time.Time `json:"dob,omitempty"`
+}
+
+func TestAllSchemaTypes(t *testing.T) {
+	ctx := context.Background()
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer engine.Close()
+
+	require.NoError(t, engine.DropAll(ctx))
+
+	//loc := geom.NewPoint(geom.XY).MustSetCoords(geom.Coord{-122.082506, 37.4249518})
+	dob := time.Date(1965, 6, 24, 0, 0, 0, 0, time.UTC)
+	_, omnibus, err := modusdb.Create(context.Background(), engine, Alltypes{
+		Name:       "John Doe",
+		Age:        30,
+		Count:      100,
+		Married:    true,
+		FloatVal:   3.14159,
+		Float64Val: 123.456789,
+		//Loc:        *loc,
+		DoB: dob,
+	})
+
+	require.NoError(t, err)
+	require.NotZero(t, omnibus.Gid)
+	require.Equal(t, "John Doe", omnibus.Name)
+	require.Equal(t, 30, omnibus.Age)
+	require.Equal(t, true, omnibus.Married)
+	require.Equal(t, int64(100), omnibus.Count)
+	require.Equal(t, float32(3.14159), omnibus.FloatVal)
+	require.InDelta(t, 123.456789, omnibus.Float64Val, 0.000001)
+	//require.Equal(t, loc, omnibus.Loc)
+	require.Equal(t, dob, omnibus.DoB)
+}
+
+type TimeStruct struct {
+	Name    string     `json:"name,omitempty" db:"constraint=unique"`
+	Time    time.Time  `json:"time,omitempty"`
+	TimePtr *time.Time `json:"timePtr,omitempty"`
+}
+
+func TestTime(t *testing.T) {
+	ctx := context.Background()
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer engine.Close()
+
+	d := time.Date(1965, 6, 24, 12, 0, 0, 0, time.UTC)
+	gid, justTime, err := modusdb.Create(ctx, engine, TimeStruct{
+		Name:    "John Doe",
+		Time:    d,
+		TimePtr: &d,
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, "John Doe", justTime.Name)
+	require.Equal(t, d, justTime.Time)
+	require.Equal(t, d, *justTime.TimePtr)
+
+	_, justTime, err = modusdb.Get[TimeStruct](ctx, engine, gid)
+	require.NoError(t, err)
+	require.Equal(t, "John Doe", justTime.Name)
+	require.Equal(t, d, justTime.Time)
+	require.Equal(t, d, *justTime.TimePtr)
+
+	// Add another time entry
+	d2 := time.Date(1965, 6, 24, 11, 59, 59, 0, time.UTC)
+	_, _, err = modusdb.Create(ctx, engine, TimeStruct{
+		Name:    "Jane Doe",
+		Time:    d2,
+		TimePtr: &d2,
+	})
+	require.NoError(t, err)
+
+	_, entries, err := modusdb.Query[TimeStruct](ctx, engine, modusdb.QueryParams{
+		Filter: &modusdb.Filter{
+			Field: "time",
+			String: modusdb.StringPredicate{
+				// TODO: Not too crazy about this. Thinking we should add XXXPredicate definitions for all scalars -MM
+				GreaterOrEqual: fmt.Sprintf("\"%s\"", d.Format(time.RFC3339)),
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.Equal(t, "John Doe", entries[0].Name)
+	require.Equal(t, d, entries[0].Time)
+	require.Equal(t, d, *entries[0].TimePtr)
+}
+
+type GeomStruct struct {
+	Gid       uint64           `json:"gid,omitempty"`
+	Name      string           `json:"name,omitempty" db:"constraint=unique"`
+	Point     api.Point        `json:"loc,omitempty"`
+	Area      api.Polygon      `json:"area,omitempty"`
+	MultiArea api.MultiPolygon `json:"multiArea,omitempty"`
+}
+
+func TestPoint(t *testing.T) {
+	ctx := context.Background()
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	//engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig("./foo"))
+	require.NoError(t, err)
+	defer engine.Close()
+
+	loc := api.Point{
+		Coordinates: []float64{-122.082506, 37.4249518},
+	}
+	gid, geomStruct, err := modusdb.Create(ctx, engine, GeomStruct{
+		Name:  "John Doe",
+		Point: loc,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "John Doe", geomStruct.Name)
+	require.Equal(t, loc.Coordinates, geomStruct.Point.Coordinates)
+
+	_, geomStruct, err = modusdb.Get[GeomStruct](ctx, engine, gid)
+	require.NoError(t, err)
+	require.Equal(t, "John Doe", geomStruct.Name)
+	require.Equal(t, loc.Coordinates, geomStruct.Point.Coordinates)
+
+	query := `
+		{
+			geomStruct(func: type(GeomStruct)) {
+				GeomStruct.name
+			}
+		}`
+	resp, err := engine.GetDefaultNamespace().Query(ctx, query)
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+		"geomStruct":[
+			{"GeomStruct.name":"John Doe"}
+		]
+	}`, string(resp.GetJson()))
+}
+
+func TestPolygon(t *testing.T) {
+	ctx := context.Background()
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer engine.Close()
+
+	polygon := api.NewPolygon([][]float64{
+		{-122.083506, 37.4259518}, // Northwest
+		{-122.081506, 37.4259518}, // Northeast
+		{-122.081506, 37.4239518}, // Southeast
+		{-122.083506, 37.4239518}, // Southwest
+		{-122.083506, 37.4259518}, // Close the polygon by repeating first point
+	})
+	_, geomStruct, err := modusdb.Create(ctx, engine, GeomStruct{
+		Name: "Jane Doe",
+		Area: *polygon,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Jane Doe", geomStruct.Name)
+	require.Equal(t, polygon.Coordinates, geomStruct.Area.Coordinates)
+}
+
+func TestMultiPolygon(t *testing.T) {
+	ctx := context.Background()
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	require.NoError(t, err)
+	defer engine.Close()
+
+	multiPolygon := api.NewMultiPolygon([][][]float64{
+		{
+			{-122.083506, 37.4259518}, // Northwest
+			{-122.081506, 37.4259518}, // Northeast
+			{-122.081506, 37.4239518}, // Southeast
+			{-122.083506, 37.4239518}, // Southwest
+			{-122.083506, 37.4259518}, // Close the polygon by repeating first point
+		},
+		{
+			{-122.073506, 37.4359518}, // Northwest
+			{-122.071506, 37.4359518}, // Northeast
+			{-122.071506, 37.4339518}, // Southeast
+			{-122.073506, 37.4339518}, // Southwest
+			{-122.073506, 37.4359518}, // Close the polygon by repeating first point
+		},
+	})
+	_, geomStruct, err := modusdb.Create(ctx, engine, GeomStruct{
+		Name:      "Jane Doe",
+		MultiArea: *multiPolygon,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Jane Doe", geomStruct.Name)
+	require.Equal(t, multiPolygon.Coordinates, geomStruct.MultiArea.Coordinates)
+}
+
+func TestUserStore(t *testing.T) {
+	ctx := context.Background()
+	//engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig("./foo"))
+	require.NoError(t, err)
+	defer engine.Close()
+
+	user := User{
+		Name: "John Doe",
+		Age:  30,
+	}
+	gid, user, err := modusdb.Create(ctx, engine, user)
+	require.NoError(t, err)
+	require.NotZero(t, gid)
+	require.Equal(t, "John Doe", user.Name)
+	require.Equal(t, 30, user.Age)
 }

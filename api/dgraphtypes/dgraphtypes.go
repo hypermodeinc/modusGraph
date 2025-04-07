@@ -13,7 +13,9 @@ import (
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/hypermodeinc/dgraph/v24/protos/pb"
 	"github.com/hypermodeinc/dgraph/v24/types"
+	modusapi "github.com/hypermodeinc/modusdb/api"
 	"github.com/hypermodeinc/modusdb/api/structreflect"
+	"github.com/pkg/errors"
 	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/wkb"
 )
@@ -70,15 +72,16 @@ func ValueToPosting_ValType(v any) (pb.Posting_ValType, error) {
 		return pb.Posting_BINARY, nil
 	case time.Time:
 		return pb.Posting_DATETIME, nil
-	case geom.Point:
+	case modusapi.Point, modusapi.Polygon:
 		return pb.Posting_GEO, nil
 	case []float32, []float64:
 		return pb.Posting_VFLOAT, nil
 	default:
-		return pb.Posting_DEFAULT, fmt.Errorf("unsupported type %T", v)
+		return pb.Posting_DEFAULT, fmt.Errorf("value to posting, unsupported type %T", v)
 	}
 }
 
+// ValueToApiVal converts a value to an api.Value. Note the result can be nil for empty non-scalar types
 func ValueToApiVal(v any) (*api.Value, error) {
 	switch val := v.(type) {
 	case string:
@@ -124,17 +127,44 @@ func ValueToApiVal(v any) (*api.Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &api.Value{Val: &api.Value_DateVal{DateVal: bytes}}, nil
-	case geom.Point:
-		bytes, err := wkb.Marshal(&val, binary.LittleEndian)
+		return &api.Value{Val: &api.Value_DatetimeVal{DatetimeVal: bytes}}, nil
+	case modusapi.Point:
+		if len(val.Coordinates) == 0 {
+			return nil, nil
+		}
+		point, err := geom.NewPoint(geom.XY).SetCoords(val.Coordinates)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "converting point to api value")
+		}
+		bytes, err := wkb.Marshal(point, binary.LittleEndian)
+		if err != nil {
+			return nil, errors.Wrap(err, "marshalling point to wkb")
+		}
+		return &api.Value{Val: &api.Value_GeoVal{GeoVal: bytes}}, nil
+	case modusapi.Polygon:
+		if len(val.Coordinates) == 0 {
+			return nil, nil
+		}
+		coords := make([][]geom.Coord, len(val.Coordinates))
+		for i, polygon := range val.Coordinates {
+			coords[i] = make([]geom.Coord, len(polygon))
+			for j, point := range polygon {
+				coords[i][j] = geom.Coord{point[0], point[1]}
+			}
+		}
+		polygon, err := geom.NewPolygon(geom.XY).SetCoords(coords)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting polygon to api value")
+		}
+		bytes, err := wkb.Marshal(polygon, binary.LittleEndian)
+		if err != nil {
+			return nil, errors.Wrap(err, "marshalling polygon to wkb")
 		}
 		return &api.Value{Val: &api.Value_GeoVal{GeoVal: bytes}}, nil
 	case uint:
 		return &api.Value{Val: &api.Value_DefaultVal{DefaultVal: fmt.Sprint(v)}}, nil
 	default:
-		return nil, fmt.Errorf("unsupported type %T", v)
+		return nil, fmt.Errorf("convert value to api value, unsupported type %T", v)
 	}
 }
 

@@ -20,7 +20,7 @@ import (
 )
 
 func processStructValue(ctx context.Context, value any, ns *Namespace) (any, error) {
-	if reflect.TypeOf(value).Kind() == reflect.Struct {
+	if !structreflect.IsDgraphType(value) && reflect.TypeOf(value).Kind() == reflect.Struct {
 		value = reflect.ValueOf(value).Interface()
 		newGid, err := getUidOrMutate(ctx, ns.engine, ns, value)
 		if err != nil {
