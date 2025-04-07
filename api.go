@@ -7,7 +7,8 @@ package modusdb
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"reflect"
 
 	"github.com/hypermodeinc/dgraph/v24/dql"
 	"github.com/hypermodeinc/dgraph/v24/schema"
@@ -20,7 +21,7 @@ func Create[T any](ctx context.Context, engine *Engine, object T,
 	engine.mutex.Lock()
 	defer engine.mutex.Unlock()
 	if len(nsId) > 1 {
-		return 0, object, fmt.Errorf("only one namespace is allowed")
+		return 0, object, errors.New("only one namespace is allowed")
 	}
 	ctx, ns, err := getDefaultNamespace(ctx, engine, nsId...)
 	if err != nil {
@@ -59,7 +60,7 @@ func Upsert[T any](ctx context.Context, engine *Engine, object T,
 	engine.mutex.Lock()
 	defer engine.mutex.Unlock()
 	if len(nsId) > 1 {
-		return 0, object, false, fmt.Errorf("only one namespace is allowed")
+		return 0, object, false, errors.New("only one namespace is allowed")
 	}
 
 	ctx, ns, err := getDefaultNamespace(ctx, engine, nsId...)
@@ -131,7 +132,7 @@ func Get[T any, R UniqueField](ctx context.Context, engine *Engine, uniqueField 
 	defer engine.mutex.Unlock()
 	var obj T
 	if len(nsId) > 1 {
-		return 0, obj, fmt.Errorf("only one namespace is allowed")
+		return 0, obj, errors.New("only one namespace is allowed")
 	}
 	ctx, ns, err := getDefaultNamespace(ctx, engine, nsId...)
 	if err != nil {
@@ -142,10 +143,20 @@ func Get[T any, R UniqueField](ctx context.Context, engine *Engine, uniqueField 
 	}
 
 	if cf, ok := any(uniqueField).(ConstrainedField); ok {
-		return getByConstrainedField[T](ctx, ns, cf)
+		objType := reflect.TypeOf(obj)
+		sch, err := getSchema(ctx, ns)
+		if err != nil {
+			return 0, obj, err
+		}
+		for _, t := range sch.Types {
+			if t.Name == objType.Name() {
+				return getByConstrainedField[T](ctx, ns, cf)
+			}
+		}
+		return 0, obj, errors.New("type not found")
 	}
 
-	return 0, obj, fmt.Errorf("invalid unique field type")
+	return 0, obj, errors.New("invalid unique field type")
 }
 
 func Query[T any](ctx context.Context, engine *Engine, queryParams QueryParams,
@@ -153,7 +164,7 @@ func Query[T any](ctx context.Context, engine *Engine, queryParams QueryParams,
 	engine.mutex.Lock()
 	defer engine.mutex.Unlock()
 	if len(nsId) > 1 {
-		return nil, nil, fmt.Errorf("only one namespace is allowed")
+		return nil, nil, errors.New("only one namespace is allowed")
 	}
 	ctx, ns, err := getDefaultNamespace(ctx, engine, nsId...)
 	if err != nil {
@@ -169,7 +180,7 @@ func Delete[T any, R UniqueField](ctx context.Context, engine *Engine, uniqueFie
 	defer engine.mutex.Unlock()
 	var zeroObj T
 	if len(nsId) > 1 {
-		return 0, zeroObj, fmt.Errorf("only one namespace is allowed")
+		return 0, zeroObj, errors.New("only one namespace is allowed")
 	}
 	ctx, ns, err := getDefaultNamespace(ctx, engine, nsId...)
 	if err != nil {
@@ -207,5 +218,5 @@ func Delete[T any, R UniqueField](ctx context.Context, engine *Engine, uniqueFie
 		return uid, obj, nil
 	}
 
-	return 0, zeroObj, fmt.Errorf("invalid unique field type")
+	return 0, zeroObj, errors.New("invalid unique field type")
 }
