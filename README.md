@@ -1,11 +1,11 @@
 <div align="center">
 
-[![modus](https://github.com/user-attachments/assets/1a6020bd-d041-4dd0-b4a9-ce01dc015b65)](https://github.com/hypermodeinc/modusdb)
+[![modus](https://github.com/user-attachments/assets/1a6020bd-d041-4dd0-b4a9-ce01dc015b65)](https://github.com/hypermodeinc/modusgraph)
 
-[![GitHub License](https://img.shields.io/github/license/hypermodeinc/modusdb)](https://github.com/hypermodeinc/modusdb?tab=Apache-2.0-1-ov-file#readme)
+[![GitHub License](https://img.shields.io/github/license/hypermodeinc/modusdb)](https://github.com/hypermodeinc/modusgraph?tab=Apache-2.0-1-ov-file#readme)
 [![chat](https://img.shields.io/discord/1267579648657850441)](https://discord.gg/NJQ4bJpffF)
-[![GitHub Repo stars](https://img.shields.io/github/stars/hypermodeinc/modusdb)](https://github.com/hypermodeinc/modusdb/stargazers)
-[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/hypermodeinc/modusdb)](https://github.com/hypermodeinc/modusdb/commits/main/)
+[![GitHub Repo stars](https://img.shields.io/github/stars/hypermodeinc/modusdb)](https://github.com/hypermodeinc/modusgraph/stargazers)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/hypermodeinc/modusdb)](https://github.com/hypermodeinc/modusgraph/commits/main/)
 
 </div>
 
@@ -35,7 +35,7 @@ generation (RAG) feature with a single framework.
 package main
 
 import (
-  "github.com/hypermodeinc/modusdb"
+  "github.com/hypermodeinc/modusgraph"
 )
 
 type User struct {

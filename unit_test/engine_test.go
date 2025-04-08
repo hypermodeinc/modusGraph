@@ -13,15 +13,14 @@ import (
 	"testing"
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
+	"github.com/hypermodeinc/modusgraph"
 	"github.com/stretchr/testify/require"
-
-	"github.com/hypermodeinc/modusdb"
 )
 
 func TestRestart(t *testing.T) {
 	dataDir := t.TempDir()
 
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(dataDir))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(dataDir))
 	require.NoError(t, err)
 	defer func() { engine.Close() }()
 
@@ -52,7 +51,7 @@ func TestRestart(t *testing.T) {
 	require.JSONEq(t, `{"me":[{"name":"A"}]}`, string(qresp.GetJson()))
 
 	engine.Close()
-	engine, err = modusdb.NewEngine(modusdb.NewDefaultConfig(dataDir))
+	engine, err = modusgraph.NewEngine(modusgraph.NewDefaultConfig(dataDir))
 	require.NoError(t, err)
 	qresp, err = engine.GetDefaultNamespace().Query(context.Background(), query)
 	require.NoError(t, err)
@@ -62,7 +61,7 @@ func TestRestart(t *testing.T) {
 }
 
 func TestSchemaQuery(t *testing.T) {
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 
@@ -91,7 +90,7 @@ func TestBasicVector(t *testing.T) {
 	}
 	vectBytes := buf.Bytes()
 
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 

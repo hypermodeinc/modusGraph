@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/hypermodeinc/modusdb/api/apiutils"
+	"github.com/hypermodeinc/modusgraph/api/apiutils"
 )
 
 func GetFieldTags(t reflect.Type) (*TagMaps, error) {

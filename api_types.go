@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package modusdb
+package modusgraph
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/hypermodeinc/dgraph/v24/x"
-	"github.com/hypermodeinc/modusdb/api/apiutils"
-	"github.com/hypermodeinc/modusdb/api/querygen"
+	"github.com/hypermodeinc/modusgraph/api/apiutils"
+	"github.com/hypermodeinc/modusgraph/api/querygen"
 )
 
 type UniqueField interface {

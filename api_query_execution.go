@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package modusdb
+package modusgraph
 
 import (
 	"context"
@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/hypermodeinc/modusdb/api/apiutils"
-	"github.com/hypermodeinc/modusdb/api/querygen"
-	"github.com/hypermodeinc/modusdb/api/structreflect"
+	"github.com/hypermodeinc/modusgraph/api/apiutils"
+	"github.com/hypermodeinc/modusgraph/api/querygen"
+	"github.com/hypermodeinc/modusgraph/api/structreflect"
 )
 
 func getByGid[T any](ctx context.Context, ns *Namespace, gid uint64) (uint64, T, error) {

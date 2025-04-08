@@ -8,9 +8,9 @@ Please help us keep the community safe while working on the project by upholding
 [Code of Conduct](/CODE_OF_CONDUCT.md) at all times.
 
 Before jumping to a pull request, ensure you've looked at
-[PRs](https://github.com/hypermodeinc/modusdb/pulls) and
-[issues](https://github.com/hypermodeinc/modusdb/issues) (open and closed) for existing work related
-to your idea.
+[PRs](https://github.com/hypermodeinc/modusgraph/pulls) and
+[issues](https://github.com/hypermodeinc/modusgraph/issues) (open and closed) for existing work
+related to your idea.
 
 If in doubt or contemplating a larger change, join the
 [Hypermode Discord](https://discord.hypermode.com) and start a discussion in the
@@ -28,8 +28,8 @@ includes a set of configs to set VS Code up automatically.
 ### Clone the Modus repository
 
 To contribute code, start by forking the Modus repository. In the top-right of the
-[repo](https://github.com/hypermodeinc/modusdb), click **Fork**. Follow the instructions to create a
-fork of the repo in your GitHub workspace.
+[repo](https://github.com/hypermodeinc/modusgraph), click **Fork**. Follow the instructions to
+create a fork of the repo in your GitHub workspace.
 
 ### Building and running tests
 

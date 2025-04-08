@@ -14,9 +14,8 @@ import (
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/hypermodeinc/dgraph/v24/dgraphapi"
+	"github.com/hypermodeinc/modusgraph"
 	"github.com/stretchr/testify/require"
-
-	"github.com/hypermodeinc/modusdb"
 )
 
 const (
@@ -25,7 +24,7 @@ const (
 )
 
 func TestVectorDelete(t *testing.T) {
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 
@@ -101,7 +100,7 @@ func TestVectorDelete(t *testing.T) {
 	_ = queryVectors(t, engine, fmt.Sprintf(q3, strings.Split(triple, `"`)[1]))
 }
 
-func queryVectors(t *testing.T, engine *modusdb.Engine, query string) [][]float32 {
+func queryVectors(t *testing.T, engine *modusgraph.Engine, query string) [][]float32 {
 	resp, err := engine.GetDefaultNamespace().Query(context.Background(), query)
 	require.NoError(t, err)
 
