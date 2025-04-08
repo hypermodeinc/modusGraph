@@ -13,7 +13,7 @@ import (
 	"runtime/pprof"
 	"testing"
 
-	"github.com/hypermodeinc/modusdb"
+	"github.com/hypermodeinc/modusgraph"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,7 +45,7 @@ func BenchmarkDatabaseOperations(b *testing.B) {
 		runtime.ReadMemStats(&ms)
 		initialAlloc := ms.Alloc
 
-		engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(b.TempDir()))
+		engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(b.TempDir()))
 		require.NoError(b, err)
 		defer engine.Close()
 
@@ -71,7 +71,7 @@ func BenchmarkDatabaseOperations(b *testing.B) {
 		initialAlloc := ms.Alloc
 
 		// Setup database with data once
-		engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(b.TempDir()))
+		engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(b.TempDir()))
 		require.NoError(b, err)
 		defer engine.Close()
 
