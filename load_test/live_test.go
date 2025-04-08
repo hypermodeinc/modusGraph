@@ -15,7 +15,7 @@ import (
 	"github.com/cavaliergopher/grab/v3"
 	"github.com/hypermodeinc/dgraph/v24/dgraphapi"
 	"github.com/hypermodeinc/dgraph/v24/systest/1million/common"
-	"github.com/hypermodeinc/modusdb"
+	"github.com/hypermodeinc/modusgraph"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,7 +44,7 @@ const (
 
 func TestLiveLoaderSmall(t *testing.T) {
 
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 
@@ -85,7 +85,7 @@ func TestLiveLoaderSmall(t *testing.T) {
 }
 
 func TestLiveLoader1Million(t *testing.T) {
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 
