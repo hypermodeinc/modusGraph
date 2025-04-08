@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package modusdb
+package modusgraph
 
 import (
 	"context"
@@ -16,10 +16,10 @@ import (
 	"github.com/hypermodeinc/dgraph/v24/protos/pb"
 	"github.com/hypermodeinc/dgraph/v24/schema"
 	"github.com/hypermodeinc/dgraph/v24/x"
-	"github.com/hypermodeinc/modusdb/api/apiutils"
-	"github.com/hypermodeinc/modusdb/api/dgraphtypes"
-	"github.com/hypermodeinc/modusdb/api/mutations"
-	"github.com/hypermodeinc/modusdb/api/structreflect"
+	"github.com/hypermodeinc/modusgraph/api/apiutils"
+	"github.com/hypermodeinc/modusgraph/api/dgraphtypes"
+	"github.com/hypermodeinc/modusgraph/api/mutations"
+	"github.com/hypermodeinc/modusgraph/api/structreflect"
 )
 
 func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, object T,

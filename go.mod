@@ -1,6 +1,6 @@
-module github.com/hypermodeinc/modusdb
+module github.com/hypermodeinc/modusgraph
 
-go 1.23.0
+go 1.24
 
 toolchain go1.24.2
 
@@ -10,6 +10,7 @@ require (
 	github.com/dgraph-io/dgo/v240 v240.2.0
 	github.com/dgraph-io/ristretto/v2 v2.2.0
 	github.com/hypermodeinc/dgraph/v24 v24.1.2
+	github.com/hypermodeinc/modusdb v0.0.0-20250405203631-ee3486a8845f
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/twpayne/go-geom v1.6.1
@@ -66,7 +67,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/geo v0.0.0-20230421003525-6adc56603217 // indirect
 	github.com/golang/glog v1.2.4 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
@@ -115,7 +116,6 @@ require (
 	github.com/prometheus/statsd_exporter v0.28.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
-	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
@@ -140,7 +140,6 @@ require (
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
-	gonum.org/v1/gonum v0.12.0 // indirect
 	google.golang.org/api v0.219.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250127172529-29210b9bc287 // indirect
 	google.golang.org/grpc v1.71.0 // indirect

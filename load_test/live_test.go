@@ -15,9 +15,8 @@ import (
 	"github.com/cavaliergopher/grab/v3"
 	"github.com/hypermodeinc/dgraph/v24/dgraphapi"
 	"github.com/hypermodeinc/dgraph/v24/systest/1million/common"
-	"github.com/stretchr/testify/require"
-
 	"github.com/hypermodeinc/modusdb"
+	"github.com/stretchr/testify/require"
 )
 
 const (

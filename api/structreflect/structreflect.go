@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hypermodeinc/modusdb/api"
-	"github.com/hypermodeinc/modusdb/api/apiutils"
+	"github.com/hypermodeinc/modusgraph/api"
+	"github.com/hypermodeinc/modusgraph/api/apiutils"
 )
 
 func GetFieldTags(t reflect.Type) (*TagMaps, error) {

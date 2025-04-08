@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package modusdb
+package modusgraph
 
 type Config struct {
 	dataDir string

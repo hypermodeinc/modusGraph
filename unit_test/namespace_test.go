@@ -10,9 +10,8 @@ import (
 	"testing"
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
-	"github.com/stretchr/testify/require"
-
 	"github.com/hypermodeinc/modusdb"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNonGalaxyDB(t *testing.T) {

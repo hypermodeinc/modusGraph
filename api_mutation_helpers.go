@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package modusdb
+package modusgraph
 
 import (
 	"context"
@@ -15,8 +15,8 @@ import (
 	"github.com/hypermodeinc/dgraph/v24/query"
 	"github.com/hypermodeinc/dgraph/v24/schema"
 	"github.com/hypermodeinc/dgraph/v24/worker"
-	"github.com/hypermodeinc/modusdb/api/apiutils"
-	"github.com/hypermodeinc/modusdb/api/structreflect"
+	"github.com/hypermodeinc/modusgraph/api/apiutils"
+	"github.com/hypermodeinc/modusgraph/api/structreflect"
 )
 
 func processStructValue(ctx context.Context, value any, ns *Namespace) (any, error) {

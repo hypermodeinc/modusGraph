@@ -13,11 +13,12 @@ import (
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/hypermodeinc/dgraph/v24/protos/pb"
 	"github.com/hypermodeinc/dgraph/v24/types"
-	modusapi "github.com/hypermodeinc/modusdb/api"
-	"github.com/hypermodeinc/modusdb/api/structreflect"
 	"github.com/pkg/errors"
 	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/wkb"
+
+	modusapi "github.com/hypermodeinc/modusgraph/api"
+	"github.com/hypermodeinc/modusgraph/api/structreflect"
 )
 
 func addIndex(u *pb.SchemaUpdate, index string, uniqueConstraintExists bool) bool {

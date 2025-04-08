@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package modusdb
+package modusgraph
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 
 	"github.com/hypermodeinc/dgraph/v24/dql"
 	"github.com/hypermodeinc/dgraph/v24/schema"
-	"github.com/hypermodeinc/modusdb/api/apiutils"
-	"github.com/hypermodeinc/modusdb/api/structreflect"
+	"github.com/hypermodeinc/modusgraph/api/apiutils"
+	"github.com/hypermodeinc/modusgraph/api/structreflect"
 )
 
 func Create[T any](ctx context.Context, engine *Engine, object T,
