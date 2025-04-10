@@ -21,6 +21,11 @@ func (ns *Namespace) ID() uint64 {
 	return ns.id
 }
 
+// DropAll drops all the data and schema in the modusDB instance.
+func (ns *Namespace) DropAll(ctx context.Context) error {
+	return ns.engine.DropAll(ctx)
+}
+
 // DropData drops all the data in the modusDB instance.
 func (ns *Namespace) DropData(ctx context.Context) error {
 	return ns.engine.dropData(ctx, ns)
