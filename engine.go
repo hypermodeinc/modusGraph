@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 
 	"github.com/dgraph-io/badger/v4"
+	"github.com/dgraph-io/dgo/v240"
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/ristretto/v2/z"
 	"github.com/hypermodeinc/dgraph/v24/dql"
@@ -25,6 +26,8 @@ import (
 	"github.com/hypermodeinc/dgraph/v24/schema"
 	"github.com/hypermodeinc/dgraph/v24/worker"
 	"github.com/hypermodeinc/dgraph/v24/x"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 var (
@@ -47,6 +50,9 @@ type Engine struct {
 
 	// points to default / 0 / galaxy namespace
 	db0 *Namespace
+
+	listener *bufconn.Listener
+	server   *grpc.Server
 }
 
 // NewEngine returns a new modusDB instance.
@@ -87,7 +93,13 @@ func NewEngine(conf Config) (*Engine, error) {
 	x.UpdateHealthStatus(true)
 
 	engine.db0 = &Namespace{id: 0, engine: engine}
+
+	engine.listener, engine.server = setupBufconnServer(engine)
 	return engine, nil
+}
+
+func (engine *Engine) GetClient() (*dgo.Dgraph, error) {
+	return createDgraphClient(context.Background(), engine.listener)
 }
 
 func (engine *Engine) CreateNamespace() (*Namespace, error) {
