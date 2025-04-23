@@ -12,7 +12,7 @@ require (
 	github.com/hypermodeinc/dgraph/v24 v24.1.2
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
-	github.com/twpayne/go-geom v1.6.0
+	github.com/twpayne/go-geom v1.6.1
 	golang.org/x/sync v0.13.0
 	google.golang.org/protobuf v1.36.6
 )
