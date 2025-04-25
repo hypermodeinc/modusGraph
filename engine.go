@@ -238,14 +238,20 @@ func (engine *Engine) alterSchemaWithParsed(ctx context.Context, sc *schema.Pars
 	return nil
 }
 
-func (engine *Engine) query(ctx context.Context, ns *Namespace, q string) (*api.Response, error) {
+func (engine *Engine) query(ctx context.Context,
+	ns *Namespace,
+	q string,
+	vars map[string]string) (*api.Response, error) {
 	engine.mutex.RLock()
 	defer engine.mutex.RUnlock()
 
-	return engine.queryWithLock(ctx, ns, q)
+	return engine.queryWithLock(ctx, ns, q, vars)
 }
 
-func (engine *Engine) queryWithLock(ctx context.Context, ns *Namespace, q string) (*api.Response, error) {
+func (engine *Engine) queryWithLock(ctx context.Context,
+	ns *Namespace,
+	q string,
+	vars map[string]string) (*api.Response, error) {
 	if !engine.isOpen.Load() {
 		return nil, ErrClosedEngine
 	}
@@ -255,6 +261,7 @@ func (engine *Engine) queryWithLock(ctx context.Context, ns *Namespace, q string
 		ReadOnly: true,
 		Query:    q,
 		StartTs:  engine.z.readTs(),
+		Vars:     vars,
 	})
 }
 

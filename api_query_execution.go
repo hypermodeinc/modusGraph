@@ -75,7 +75,7 @@ func executeGetWithObject[T any, R UniqueField](ctx context.Context, ns *Namespa
 		return 0, obj, fmt.Errorf("constraint not defined for field %s", cf.Key)
 	}
 
-	resp, err := ns.engine.queryWithLock(ctx, ns, query)
+	resp, err := ns.engine.queryWithLock(ctx, ns, query, nil)
 	if err != nil {
 		return 0, obj, err
 	}
@@ -139,7 +139,7 @@ func executeQuery[T any](ctx context.Context, ns *Namespace, queryParams QueryPa
 
 	query := querygen.FormatObjsQuery(t.Name(), filterQueryFunc, paginationAndSorting, readFromQuery)
 
-	resp, err := ns.engine.queryWithLock(ctx, ns, query)
+	resp, err := ns.engine.queryWithLock(ctx, ns, query, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -197,7 +197,7 @@ func getExistingObject[T any](ctx context.Context, ns *Namespace, gid uint64, cf
 }
 
 func getSchema(ctx context.Context, ns *Namespace) (*querygen.SchemaResponse, error) {
-	resp, err := ns.engine.queryWithLock(ctx, ns, querygen.SchemaQuery)
+	resp, err := ns.engine.queryWithLock(ctx, ns, querygen.SchemaQuery, nil)
 	if err != nil {
 		return nil, err
 	}

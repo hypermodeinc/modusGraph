@@ -41,5 +41,10 @@ func (ns *Namespace) Mutate(ctx context.Context, ms []*api.Mutation) (map[string
 
 // Query performs query or mutation or upsert on the given modusDB instance.
 func (ns *Namespace) Query(ctx context.Context, query string) (*api.Response, error) {
-	return ns.engine.query(ctx, ns, query)
+	return ns.engine.query(ctx, ns, query, nil)
+}
+
+// QueryWithVars performs query or mutation or upsert on the given modusDB instance.
+func (ns *Namespace) QueryWithVars(ctx context.Context, query string, vars map[string]string) (*api.Response, error) {
+	return ns.engine.query(ctx, ns, query, vars)
 }
