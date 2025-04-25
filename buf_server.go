@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: © Hypermode Inc. <hello@hypermode.com>
+ * SPDX-FileCopyrightText:  Hypermode Inc. <hello@hypermode.com>
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,9 +7,11 @@ package modusgraph
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/dgraph-io/dgo/v240"
 	"github.com/dgraph-io/dgo/v240/protos/api"
@@ -30,46 +32,32 @@ type serverWrapper struct {
 
 // Query implements the Dgraph Query method by delegating to the Engine
 func (s *serverWrapper) Query(ctx context.Context, req *api.Request) (*api.Response, error) {
-	// Try to extract namespace from context (using x package from dgraph)
-	nsID, err := x.ExtractNamespace(ctx)
 	var ns *Namespace
 
+	nsID, err := x.ExtractNamespace(ctx)
 	if err != nil || nsID == 0 {
-		// If no namespace in context, use default
 		ns = s.engine.GetDefaultNamespace()
-		fmt.Println("Using default namespace:", ns.ID())
 	} else {
-		// Use the namespace from the context
 		ns, err = s.engine.GetNamespace(nsID)
 		if err != nil {
 			return nil, fmt.Errorf("error getting namespace %d: %w", nsID, err)
 		}
-		fmt.Println("Using namespace from context:", ns.ID())
 	}
+	s.engine.logger.V(2).Info("Query using namespace", "namespaceID", ns.ID())
 
-	// Check if this is a mutation request
 	if len(req.Mutations) > 0 {
-		fmt.Println("Received mutation request with", len(req.Mutations), "mutations")
-
-		// Process mutations
-		mu := req.Mutations[0] // For simplicity, handle first mutation
-		fmt.Printf("Mutation details - SetNquads: %d bytes, DelNquads: %d bytes, CommitNow: %v\n",
-			len(mu.SetNquads), len(mu.DelNquads), mu.CommitNow)
-
-		if len(mu.SetNquads) > 0 {
-			fmt.Println("SetNquads:", string(mu.SetNquads))
-		}
-
-		// Delegate to the Engine's Mutate method
 		uids, err := ns.Mutate(ctx, req.Mutations)
 		if err != nil {
 			return nil, fmt.Errorf("engine mutation error: %w", err)
 		}
 
-		// Convert map[string]uint64 to map[string]string for the response
 		uidMap := make(map[string]string)
 		for k, v := range uids {
-			uidMap[k] = fmt.Sprintf("%d", v)
+			if strings.HasPrefix(k, "_:") {
+				uidMap[k[2:]] = fmt.Sprintf("0x%x", v)
+			} else {
+				uidMap[k] = fmt.Sprintf("0x%x", v)
+			}
 		}
 
 		return &api.Response{
@@ -77,36 +65,26 @@ func (s *serverWrapper) Query(ctx context.Context, req *api.Request) (*api.Respo
 		}, nil
 	}
 
-	// This is a regular query
-	fmt.Println("Processing query:", req.Query)
-	return ns.Query(ctx, req.Query)
+	return ns.QueryWithVars(ctx, req.Query, req.Vars)
 }
 
 // CommitOrAbort implements the Dgraph CommitOrAbort method
 func (s *serverWrapper) CommitOrAbort(ctx context.Context, tc *api.TxnContext) (*api.TxnContext, error) {
-	// Extract namespace from context
-	nsID, err := x.ExtractNamespace(ctx)
 	var ns *Namespace
 
+	nsID, err := x.ExtractNamespace(ctx)
 	if err != nil || nsID == 0 {
-		// If no namespace in context, use default
 		ns = s.engine.GetDefaultNamespace()
-		fmt.Println("CommitOrAbort using default namespace:", ns.ID())
 	} else {
-		// Use the namespace from the context
 		ns, err = s.engine.GetNamespace(nsID)
 		if err != nil {
 			return nil, fmt.Errorf("error getting namespace %d: %w", nsID, err)
 		}
-		fmt.Println("CommitOrAbort using namespace from context:", ns.ID())
 	}
+	s.engine.logger.V(2).Info("CommitOrAbort called with transaction", "transaction", tc, "namespaceID", ns.ID())
 
-	fmt.Printf("CommitOrAbort called with transaction: %+v\n", tc)
-
-	// Check if the transaction context is being aborted
 	if tc.Aborted {
-		fmt.Println("Transaction aborted")
-		return tc, nil // Just return as is for aborted transactions
+		return tc, nil
 	}
 
 	// For commit, we need to make a dummy mutation that has no effect but will trigger the commit
@@ -126,9 +104,8 @@ func (s *serverWrapper) CommitOrAbort(ctx context.Context, tc *api.TxnContext) (
 		return nil, fmt.Errorf("error committing transaction: %w", err)
 	}
 
-	fmt.Println("Transaction committed successfully")
+	s.engine.logger.V(2).Info("Transaction committed successfully")
 
-	// Return a successful response
 	response := &api.TxnContext{
 		StartTs:  tc.StartTs,
 		CommitTs: tc.StartTs + 1, // We don't know the actual commit timestamp, but this works for testing
@@ -140,66 +117,64 @@ func (s *serverWrapper) CommitOrAbort(ctx context.Context, tc *api.TxnContext) (
 // Login implements the Dgraph Login method
 func (s *serverWrapper) Login(ctx context.Context, req *api.LoginRequest) (*api.Response, error) {
 	// For security reasons, Authentication is not implemented in this wrapper
-	return nil, fmt.Errorf("authentication not implemented")
+	return nil, errors.New("authentication not implemented")
 }
 
 // Alter implements the Dgraph Alter method by delegating to the Engine
 func (s *serverWrapper) Alter(ctx context.Context, op *api.Operation) (*api.Payload, error) {
-	// Extract namespace from context
-	nsID, err := x.ExtractNamespace(ctx)
 	var ns *Namespace
 
+	nsID, err := x.ExtractNamespace(ctx)
 	if err != nil || nsID == 0 {
-		// If no namespace in context, use default
 		ns = s.engine.GetDefaultNamespace()
 	} else {
-		// Use the namespace from the context
 		ns, err = s.engine.GetNamespace(nsID)
 		if err != nil {
 			return nil, fmt.Errorf("error getting namespace %d: %w", nsID, err)
 		}
 	}
+	s.engine.logger.V(2).Info("Alter called with operation", "operation", op, "namespaceID", ns.ID())
 
-	// Use switch to determine operation type
 	switch {
 	case op.Schema != "":
-		// Handle schema alteration
 		err = ns.AlterSchema(ctx, op.Schema)
 		if err != nil {
+			s.engine.logger.Error(err, "Error altering schema")
 			return nil, fmt.Errorf("error altering schema: %w", err)
 		}
 
 	case op.DropAll:
-		// Handle drop all operation
 		err = ns.DropAll(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("error dropping data: %w", err)
+			s.engine.logger.Error(err, "Error dropping all")
+			return nil, fmt.Errorf("error dropping all: %w", err)
 		}
 	case op.DropOp != 0:
 		switch op.DropOp {
 		case api.Operation_DATA:
 			err = ns.DropData(ctx)
 			if err != nil {
+				s.engine.logger.Error(err, "Error dropping data")
 				return nil, fmt.Errorf("error dropping data: %w", err)
 			}
 		default:
+			s.engine.logger.Error(nil, "Unsupported drop operation")
 			return nil, fmt.Errorf("unsupported drop operation: %d", op.DropOp)
 		}
 	case op.DropAttr != "":
-		// In a full implementation, you would handle dropping specific attributes
-		return nil, fmt.Errorf("drop attribute not implemented yet")
+		s.engine.logger.Error(nil, "Drop attribute not implemented yet")
+		return nil, errors.New("drop attribute not implemented yet")
 
 	default:
-		return nil, fmt.Errorf("unsupported alter operation")
+		return nil, errors.New("unsupported alter operation")
 	}
 
-	// Return success
 	return &api.Payload{}, nil
 }
 
 // CheckVersion implements the Dgraph CheckVersion method
 func (s *serverWrapper) CheckVersion(ctx context.Context, check *api.Check) (*api.Version, error) {
-	// Return a version that matches what the client expects
+	// Return a version that matches what the client expects (TODO)
 	return &api.Version{
 		Tag: "v24.0.0", // Must match major version expected by client
 	}, nil
@@ -207,6 +182,9 @@ func (s *serverWrapper) CheckVersion(ctx context.Context, check *api.Check) (*ap
 
 // setupBufconnServer creates a bufconn listener and starts a gRPC server with the Dgraph service
 func setupBufconnServer(engine *Engine) (*bufconn.Listener, *grpc.Server) {
+	x.Config.LimitMutationsNquad = 1000000
+	x.Config.LimitQueryEdge = 10000000
+
 	lis := bufconn.Listen(bufSize)
 	server := grpc.NewServer()
 

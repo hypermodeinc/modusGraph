@@ -18,6 +18,7 @@ import (
 	"github.com/dgraph-io/dgo/v240"
 	"github.com/dgraph-io/dgo/v240/protos/api"
 	"github.com/dgraph-io/ristretto/v2/z"
+	"github.com/go-logr/logr"
 	"github.com/hypermodeinc/dgraph/v24/dql"
 	"github.com/hypermodeinc/dgraph/v24/edgraph"
 	"github.com/hypermodeinc/dgraph/v24/posting"
@@ -53,16 +54,21 @@ type Engine struct {
 
 	listener *bufconn.Listener
 	server   *grpc.Server
+	logger   logr.Logger
 }
 
 // NewEngine returns a new modusDB instance.
 func NewEngine(conf Config) (*Engine, error) {
 	// Ensure that we do not create another instance of modusDB in the same process
 	if !singleton.CompareAndSwap(false, true) {
+		conf.logger.Error(ErrSingletonOnly, "Failed to create engine")
 		return nil, ErrSingletonOnly
 	}
 
+	conf.logger.V(1).Info("Creating new modusDB engine", "dataDir", conf.dataDir)
+
 	if err := conf.validate(); err != nil {
+		conf.logger.Error(err, "Invalid configuration")
 		return nil, err
 	}
 
@@ -84,9 +90,13 @@ func NewEngine(conf Config) (*Engine, error) {
 	schema.Init(worker.State.Pstore)
 	posting.Init(worker.State.Pstore, 0, false) // TODO: set cache size
 
-	engine := &Engine{}
+	engine := &Engine{
+		logger: conf.logger,
+	}
 	engine.isOpen.Store(true)
+	engine.logger.V(1).Info("Initializing engine state")
 	if err := engine.reset(); err != nil {
+		engine.logger.Error(err, "Failed to reset database")
 		return nil, fmt.Errorf("error resetting db: %w", err)
 	}
 
@@ -99,7 +109,12 @@ func NewEngine(conf Config) (*Engine, error) {
 }
 
 func (engine *Engine) GetClient() (*dgo.Dgraph, error) {
-	return createDgraphClient(context.Background(), engine.listener)
+	engine.logger.V(2).Info("Getting Dgraph client from engine")
+	client, err := createDgraphClient(context.Background(), engine.listener)
+	if err != nil {
+		engine.logger.Error(err, "Failed to create Dgraph client")
+	}
+	return client, err
 }
 
 func (engine *Engine) CreateNamespace() (*Namespace, error) {
