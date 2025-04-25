@@ -57,7 +57,12 @@ type TestEntity struct {
 }
 
 func main() {
-    client, err := mg.NewClient("file:///tmp/modusgraph", mg.WithAutoSchema(true))
+    // Use a file URI to connect to a in-process modusGraph instance, ensure that the directory exists
+    uri := "file:///tmp/modusgraph"
+    // Assigning a Dgraph URI will connect to a remote Dgraph server
+    // uri := "dgraph://localhost:9080"
+
+    client, err := mg.NewClient(uri, mg.WithAutoSchema(true))
     if err != nil {
         panic(err)
     }
