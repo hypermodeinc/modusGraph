@@ -74,7 +74,7 @@ type modusDbOptions struct {
 	ns uint64
 }
 
-func WithNamespace(ns uint64) ModusDbOption {
+func WithNamespaceOLD(ns uint64) ModusDbOption {
 	return func(o *modusDbOptions) {
 		o.ns = ns
 	}
@@ -85,7 +85,7 @@ func getDefaultNamespace(ctx context.Context, engine *Engine, nsId ...uint64) (c
 		ns: engine.db0.ID(),
 	}
 	for _, ns := range nsId {
-		WithNamespace(ns)(dbOpts)
+		WithNamespaceOLD(ns)(dbOpts)
 	}
 
 	d, err := engine.getNamespaceWithLock(dbOpts.ns)
