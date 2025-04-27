@@ -100,9 +100,13 @@ func generateSetDqlMutationsAndSchema[T any](ctx context.Context, n *Namespace, 
 		}
 
 		sch.Preds = append(sch.Preds, u)
-		if nquad.ObjectValue != nil {
-			nquads = append(nquads, nquad)
+		// Handle nil object values - only skip geo types with nil values
+		if nquad.ObjectValue == nil && (strings.Contains(nquad.Predicate, ".multiArea") ||
+			strings.Contains(nquad.Predicate, ".area") ||
+			strings.Contains(nquad.Predicate, ".loc")) {
+			continue
 		}
+		nquads = append(nquads, nquad)
 	}
 	if !uniqueConstraintFound {
 		return fmt.Errorf(apiutils.NoUniqueConstr, t.Name())
