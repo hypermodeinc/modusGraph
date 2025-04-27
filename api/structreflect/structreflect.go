@@ -53,12 +53,12 @@ var skipProcessStructTypes = []reflect.Type{
 }
 
 func IsDgraphType(value any) bool {
-	kind := reflect.TypeOf(value).Kind()
-	if kind == reflect.Ptr {
-		kind = reflect.TypeOf(value).Elem().Kind()
+	valueType := reflect.TypeOf(value)
+	if valueType.Kind() == reflect.Ptr {
+		valueType = valueType.Elem()
 	}
 	for _, t := range skipProcessStructTypes {
-		if kind == t.Kind() {
+		if valueType == t {
 			return true
 		}
 	}
@@ -66,15 +66,15 @@ func IsDgraphType(value any) bool {
 }
 
 func IsStructAndNotDgraphType(field reflect.StructField) bool {
-	kind := field.Type.Kind()
-	if kind == reflect.Ptr {
-		kind = field.Type.Elem().Kind()
+	fieldType := field.Type
+	if fieldType.Kind() == reflect.Ptr {
+		fieldType = fieldType.Elem()
 	}
-	if kind != reflect.Struct {
+	if fieldType.Kind() != reflect.Struct {
 		return false
 	}
 	for _, t := range skipProcessStructTypes {
-		if kind == t.Kind() {
+		if fieldType == t {
 			return false
 		}
 	}
