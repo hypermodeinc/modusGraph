@@ -94,10 +94,16 @@ func TestMultipleDgraphClients(t *testing.T) {
 
 	// Test that both clients can execute operations
 	txn1 := client1.NewTxn()
-	defer txn1.Discard(ctx)
+	defer func() {
+		err := txn1.Discard(ctx)
+		require.NoError(t, err)
+	}()
 
 	txn2 := client2.NewTxn()
-	defer txn2.Discard(ctx)
+	defer func() {
+		err := txn2.Discard(ctx)
+		require.NoError(t, err)
+	}()
 
 	_, err = txn1.Query(ctx, "schema {}")
 	require.NoError(t, err)

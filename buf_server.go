@@ -212,7 +212,7 @@ func bufDialer(listener *bufconn.Listener) func(context.Context, string) (net.Co
 // createDgraphClient creates a Dgraph client that connects to the bufconn server
 func createDgraphClient(ctx context.Context, listener *bufconn.Listener) (*dgo.Dgraph, error) {
 	// Create a gRPC connection using the bufconn dialer
-	//nolint:SA1019 // Using deprecated grpc.DialContext which is supported in 1.x
+	// nolint:staticcheck // SA1019: grpc.DialContext is deprecated
 	conn, err := grpc.DialContext(ctx, "bufnet",
 		grpc.WithContextDialer(bufDialer(listener)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -222,6 +222,6 @@ func createDgraphClient(ctx context.Context, listener *bufconn.Listener) (*dgo.D
 
 	// Create a Dgraph client
 	dgraphClient := api.NewDgraphClient(conn)
-	//nolint:SA1019 // Using deprecated dgo.NewDgraphClient which is supported
+	// nolint:staticcheck // SA1019: dgo.NewDgraphClient is deprecated but works with our current setup
 	return dgo.NewDgraphClient(dgraphClient), nil
 }
