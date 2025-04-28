@@ -13,7 +13,6 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/stdr v1.2.2
 	github.com/hypermodeinc/dgraph/v24 v24.1.2
-	github.com/hypermodeinc/modusdb v0.0.0-20250428123101-fff486239319
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/twpayne/go-geom v1.6.1
@@ -32,6 +31,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
+	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/tinylib/msgp v1.2.5 // indirect
 	github.com/uber/jaeger-client-go v2.28.0+incompatible // indirect
@@ -39,6 +39,7 @@ require (
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
+	gonum.org/v1/gonum v0.12.0 // indirect
 	google.golang.org/api v0.219.0 // indirect
 	gopkg.in/DataDog/dd-trace-go.v1 v1.71.0 // indirect
 )

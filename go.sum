@@ -330,8 +330,6 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/hypermodeinc/dgraph/v24 v24.1.2 h1:fRj+yH36D9Hv79X9fiY31B5ud9g28dbKlOngcEv0JXI=
 github.com/hypermodeinc/dgraph/v24 v24.1.2/go.mod h1:kov+rgjHoxnydoXFRAJ6EHGX9M6mlVODb5XMk2d+8Do=
-github.com/hypermodeinc/modusdb v0.0.0-20250428123101-fff486239319 h1:jrUCIQeklMOm4QQvnPFbDihNuYrQOh9N3pPT2NBGzyU=
-github.com/hypermodeinc/modusdb v0.0.0-20250428123101-fff486239319/go.mod h1:MtTZypk9qsuqc3Tu/7S0R6SPzh20YOLMeaqHTOy8Vvs=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20210905161508-09a460cdf81d/go.mod h1:aYm2/VgdVmcIU8iMfdMvDMsRAQjcfZSKFby6HOFvi/w=
 github.com/ianlancetaylor/demangle v0.0.0-20230524184225-eabc099b10ab/go.mod h1:gx7rwoVhcfuVKG5uya9Hs3Sxj7EIvldVofAWIUtGouw=
