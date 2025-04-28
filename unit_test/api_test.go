@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hypermodeinc/modusdb"
 	"github.com/hypermodeinc/modusgraph"
 	"github.com/hypermodeinc/modusgraph/api"
 	"github.com/hypermodeinc/modusgraph/api/apiutils"
@@ -920,7 +919,7 @@ type Alltypes struct {
 
 func TestAllSchemaTypes(t *testing.T) {
 	ctx := context.Background()
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 
@@ -928,7 +927,7 @@ func TestAllSchemaTypes(t *testing.T) {
 
 	//loc := geom.NewPoint(geom.XY).MustSetCoords(geom.Coord{-122.082506, 37.4249518})
 	dob := time.Date(1965, 6, 24, 0, 0, 0, 0, time.UTC)
-	_, omnibus, err := modusdb.Create(context.Background(), engine, Alltypes{
+	_, omnibus, err := modusgraph.Create(context.Background(), engine, Alltypes{
 		Name:       "John Doe",
 		Age:        30,
 		Count:      100,
@@ -959,12 +958,12 @@ type TimeStruct struct {
 
 func TestTime(t *testing.T) {
 	ctx := context.Background()
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 
 	d := time.Date(1965, 6, 24, 12, 0, 0, 0, time.UTC)
-	gid, justTime, err := modusdb.Create(ctx, engine, TimeStruct{
+	gid, justTime, err := modusgraph.Create(ctx, engine, TimeStruct{
 		Name:    "John Doe",
 		Time:    d,
 		TimePtr: &d,
@@ -975,7 +974,7 @@ func TestTime(t *testing.T) {
 	require.Equal(t, d, justTime.Time)
 	require.Equal(t, d, *justTime.TimePtr)
 
-	_, justTime, err = modusdb.Get[TimeStruct](ctx, engine, gid)
+	_, justTime, err = modusgraph.Get[TimeStruct](ctx, engine, gid)
 	require.NoError(t, err)
 	require.Equal(t, "John Doe", justTime.Name)
 	require.Equal(t, d, justTime.Time)
@@ -983,17 +982,17 @@ func TestTime(t *testing.T) {
 
 	// Add another time entry
 	d2 := time.Date(1965, 6, 24, 11, 59, 59, 0, time.UTC)
-	_, _, err = modusdb.Create(ctx, engine, TimeStruct{
+	_, _, err = modusgraph.Create(ctx, engine, TimeStruct{
 		Name:    "Jane Doe",
 		Time:    d2,
 		TimePtr: &d2,
 	})
 	require.NoError(t, err)
 
-	_, entries, err := modusdb.Query[TimeStruct](ctx, engine, modusdb.QueryParams{
-		Filter: &modusdb.Filter{
+	_, entries, err := modusgraph.Query[TimeStruct](ctx, engine, modusgraph.QueryParams{
+		Filter: &modusgraph.Filter{
 			Field: "time",
-			String: modusdb.StringPredicate{
+			String: modusgraph.StringPredicate{
 				// TODO: Not too crazy about this. Thinking we should add XXXPredicate definitions for all scalars -MM
 				GreaterOrEqual: fmt.Sprintf("\"%s\"", d.Format(time.RFC3339)),
 			},
@@ -1016,15 +1015,14 @@ type GeomStruct struct {
 
 func TestPoint(t *testing.T) {
 	ctx := context.Background()
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
-	//engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig("./foo"))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 
 	loc := api.Point{
 		Coordinates: []float64{-122.082506, 37.4249518},
 	}
-	gid, geomStruct, err := modusdb.Create(ctx, engine, GeomStruct{
+	gid, geomStruct, err := modusgraph.Create(ctx, engine, GeomStruct{
 		Name:  "John Doe",
 		Point: loc,
 	})
@@ -1032,7 +1030,7 @@ func TestPoint(t *testing.T) {
 	require.Equal(t, "John Doe", geomStruct.Name)
 	require.Equal(t, loc.Coordinates, geomStruct.Point.Coordinates)
 
-	_, geomStruct, err = modusdb.Get[GeomStruct](ctx, engine, gid)
+	_, geomStruct, err = modusgraph.Get[GeomStruct](ctx, engine, gid)
 	require.NoError(t, err)
 	require.Equal(t, "John Doe", geomStruct.Name)
 	require.Equal(t, loc.Coordinates, geomStruct.Point.Coordinates)
@@ -1054,7 +1052,7 @@ func TestPoint(t *testing.T) {
 
 func TestPolygon(t *testing.T) {
 	ctx := context.Background()
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 
@@ -1065,7 +1063,7 @@ func TestPolygon(t *testing.T) {
 		{-122.083506, 37.4239518}, // Southwest
 		{-122.083506, 37.4259518}, // Close the polygon by repeating first point
 	})
-	_, geomStruct, err := modusdb.Create(ctx, engine, GeomStruct{
+	_, geomStruct, err := modusgraph.Create(ctx, engine, GeomStruct{
 		Name: "Jane Doe",
 		Area: *polygon,
 	})
@@ -1076,7 +1074,7 @@ func TestPolygon(t *testing.T) {
 
 func TestMultiPolygon(t *testing.T) {
 	ctx := context.Background()
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
 
@@ -1096,7 +1094,7 @@ func TestMultiPolygon(t *testing.T) {
 			{-122.073506, 37.4359518}, // Close the polygon by repeating first point
 		},
 	})
-	_, geomStruct, err := modusdb.Create(ctx, engine, GeomStruct{
+	_, geomStruct, err := modusgraph.Create(ctx, engine, GeomStruct{
 		Name:      "Jane Doe",
 		MultiArea: *multiPolygon,
 	})
@@ -1107,8 +1105,7 @@ func TestMultiPolygon(t *testing.T) {
 
 func TestUserStore(t *testing.T) {
 	ctx := context.Background()
-	//engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig(t.TempDir()))
-	engine, err := modusdb.NewEngine(modusdb.NewDefaultConfig("./foo"))
+	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig("./foo"))
 	require.NoError(t, err)
 	defer engine.Close()
 
@@ -1116,7 +1113,7 @@ func TestUserStore(t *testing.T) {
 		Name: "John Doe",
 		Age:  30,
 	}
-	gid, user, err := modusdb.Create(ctx, engine, user)
+	gid, user, err := modusgraph.Create(ctx, engine, user)
 	require.NoError(t, err)
 	require.NotZero(t, gid)
 	require.Equal(t, "John Doe", user.Name)
