@@ -1,8 +1,6 @@
 module github.com/hypermodeinc/modusgraph
 
-go 1.24.1
-
-toolchain go1.24.2
+go 1.24.2
 
 require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
@@ -151,5 +149,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/dolan-in/dgman/v2 => github.com/matthewmcneely/dgman/v2 v2.0.1

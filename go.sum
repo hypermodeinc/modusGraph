@@ -149,6 +149,8 @@ github.com/docker/go-connections v0.5.0 h1:USnMq7hx7gwdVZq1L49hLXaFtUdTADjXGp+uj
 github.com/docker/go-connections v0.5.0/go.mod h1:ov60Kzw0kKElRwhNs9UlUHAE/F9Fe6GLaXnqyDdmEXc=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
+github.com/dolan-in/dgman/v2 v2.0.0 h1:kMhUo3dYr4SCWJe87cNbBctD5f2fC+pX/cLz52pVYAE=
+github.com/dolan-in/dgman/v2 v2.0.0/go.mod h1:JI2D8vtkMBp9Ec8/wBPuJPPT89C+HQnQYb0biuXo4do=
 github.com/dolan-in/reflectwalk v1.0.2-0.20210101124621-dc2073a29d71 h1:v3bErDrPApxsyBlz8/8nFTCb7Ai0wecA8TokfEHIQ80=
 github.com/dolan-in/reflectwalk v1.0.2-0.20210101124621-dc2073a29d71/go.mod h1:Y9TyDkSL5jQ18ZnDaSxOdCUhbb5SCeamqYFQ7LYxxFs=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
@@ -388,8 +390,6 @@ github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80/go.mod h1:imJHygn/1
 github.com/logrusorgru/aurora v0.0.0-20200102142835-e9ef32dff381/go.mod h1:7rIyQOR62GCctdiQpZ/zOJlFyk6y+94wXzv6RNZgaR4=
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/matryer/moq v0.0.0-20200106131100-75d0ddfc0007/go.mod h1:9ELz6aaclSIGnZBoaSLZ3NAl1VTufbOrXBPvtcy6WiQ=
-github.com/matthewmcneely/dgman/v2 v2.0.1 h1:rdqClEb0tFd7PhjFfWC9771Z7RiqtoX7GU6IqJbeAfg=
-github.com/matthewmcneely/dgman/v2 v2.0.1/go.mod h1:GOuKyhoakfLVKw2xJTazd0rfEeeMF3UB2oejL0xsr30=
 github.com/mattn/go-colorable v0.1.4/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
 github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=
 github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovkB8vQcUbaXHg=
