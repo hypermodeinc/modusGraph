@@ -18,7 +18,6 @@ package unit_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/dgraph-io/dgo/v240/protos/api"
@@ -26,8 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDgraphWithBufconn tests Dgraph operations using bufconn
-func TestDgraphWithBufconn(t *testing.T) {
+func TestRDF(t *testing.T) {
 	// Create a new engine - this initializes all the necessary components
 	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
@@ -43,7 +41,7 @@ func TestDgraphWithBufconn(t *testing.T) {
 	txn := client.NewReadOnlyTxn()
 	resp, err := txn.Query(ctx, "schema {}")
 	require.NoError(t, err)
-	fmt.Println("resp", resp)
+	require.NotEmpty(t, resp.Json)
 	_ = txn.Discard(ctx)
 
 	txn = client.NewTxn()
@@ -64,7 +62,7 @@ func TestDgraphWithBufconn(t *testing.T) {
 	// Query to verify the mutation worked
 	resp, err = txn.Query(ctx, `{ q(func: has(n)) { n } }`)
 	require.NoError(t, err)
-	fmt.Println("query after mutation:", resp)
+	require.NotEmpty(t, resp.Json)
 	_ = txn.Discard(ctx)
 
 	err = client.Alter(context.Background(), &api.Operation{DropAll: true})
