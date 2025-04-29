@@ -35,11 +35,17 @@ var (
 	// This ensures that we only have one instance of modusDB in this process.
 	singleton atomic.Bool
 
-	ErrSingletonOnly = errors.New("only one modusDB engine is supported")
+	ErrSingletonOnly = errors.New("only one instance of modusDB can exist in a process")
 	ErrEmptyDataDir  = errors.New("data directory is required")
 	ErrClosedEngine  = errors.New("modusDB engine is closed")
 	ErrNonExistentDB = errors.New("namespace does not exist")
 )
+
+// ResetSingleton resets the singleton state for testing purposes.
+// This should ONLY be called during testing, typically in cleanup functions.
+func ResetSingleton() {
+	singleton.Store(false)
+}
 
 // Engine is an instance of modusDB.
 // For now, we only support one instance of modusDB per process.
