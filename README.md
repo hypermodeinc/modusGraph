@@ -21,7 +21,7 @@ new apps, paired with support for advanced use cases through the Dgraph Query La
 dynamic schema allows for natural relations to be expressed in your data with performance that
 scales with your use case.
 
-ModusGraph is available as a Go package for running in-process, providing low-latency reads, writes,
+modusGraph is available as a Go package for running in-process, providing low-latency reads, writes,
 and vector searches. We’ve made trade-offs to prioritize speed and simplicity. When runnning
 in-process, modusGraph internalizes Dgraph's server components, and data is written to a local
 file-based database. modusGraph also supports remote Dgraph servers, allowing you deploy your apps
@@ -91,6 +91,19 @@ func main() {
     fmt.Println("Query successful, entity:", result.UID)
 }
 ```
+
+## Limitations
+
+modusGraph has a few limitations to be aware of:
+
+- **Unique constraints in file-based mode**: Due to the intricacies of how Dgraph handles unique
+  fields and upserts in its core package, unique field checks and upsert operations are not
+  supported (yet) when using the local (file-based) mode. These operations work properly when using
+  a full Dgraph cluster, but the simplified file-based mode does not support the constraint
+  enforcement mechanisms required for uniqueness guarantees.
+
+- **Schema evolution**: While modusGraph supports schema inference through tags, evolving an
+  existing schema with new fields requires careful consideration to avoid data inconsistencies.
 
 ## Open Source
 

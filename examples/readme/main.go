@@ -8,6 +8,8 @@ import (
 	mg "github.com/hypermodeinc/modusgraph"
 )
 
+// This example is featured on the repo README
+
 type TestEntity struct {
 	Name        string    `json:"name,omitempty" dgraph:"index=exact"`
 	Description string    `json:"description,omitempty" dgraph:"index=term"`
