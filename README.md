@@ -105,6 +105,38 @@ modusGraph has a few limitations to be aware of:
 - **Schema evolution**: While modusGraph supports schema inference through tags, evolving an
   existing schema with new fields requires careful consideration to avoid data inconsistencies.
 
+## CLI Commands and Examples
+
+modusGraph provides several command-line tools and example applications to help you interact with
+and explore the package. These are organized in the `cmd` and `examples` folders:
+
+### Commands (`cmd` folder)
+
+- **`cmd/query`**: A flexible CLI tool for running arbitrary DQL (Dgraph Query Language) queries
+  against a modusGraph database.
+  - Reads a query from standard input and prints JSON results.
+  - Supports file-based modusGraph storage.
+  - Flags: `--dir`, `--pretty`, `--timeout`, `-v` (verbosity).
+  - See [`cmd/query/README.md`](./cmd/query/README.md) for usage and examples.
+
+### Examples (`examples` folder)
+
+- **`examples/basic`**: Demonstrates CRUD operations for a simple `Thread` entity.
+
+  - Flags: `--dir`, `--addr`, `--cmd`, `--author`, `--name`, `--uid`, `--workspace`.
+  - Supports create, update, delete, get, and list commands.
+  - See [`examples/basic/README.md`](./examples/basic/README.md) for details.
+
+- **`examples/load`**: Shows how to load the standard 1million RDF dataset into modusGraph for
+  benchmarking.
+
+  - Downloads, initializes, and loads the dataset into a specified directory.
+  - Flags: `--dir`, `--verbosity`.
+  - See [`examples/load/README.md`](./examples/load/README.md) for instructions.
+
+You can use these tools as starting points for your own applications or as references for
+integrating modusGraph into your workflow.
+
 ## Open Source
 
 The modus framework, including modusGraph, is developed by [Hypermode](https://hypermode.com/) as an
