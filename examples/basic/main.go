@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -84,11 +85,14 @@ func main() {
 	// Initialize standard logger with stdr
 	stdLogger := log.New(os.Stdout, "", log.LstdFlags)
 	logger := stdr.NewWithOptions(stdLogger, stdr.Options{LogCaller: stdr.All}).WithName("mg")
-
-	// Set verbosity level
-	stdr.SetVerbosity(1)
-
-	logger.Info("Logger initialized")
+	vFlag := flag.Lookup("v")
+	if vFlag != nil {
+		val, err := strconv.Atoi(vFlag.Value.String())
+		if err != nil {
+			log.Fatalf("Error: Invalid verbosity level: %s", vFlag.Value.String())
+		}
+		stdr.SetVerbosity(val)
+	}
 
 	// Initialize modusGraph client with logger
 	client, err := mg.NewClient(endpoint,
