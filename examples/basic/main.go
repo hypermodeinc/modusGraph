@@ -127,7 +127,7 @@ func main() {
 	logger.Info("Command completed successfully", "command", command)
 }
 
-// createThread creates a new Thread in the database. Note that this funcition does
+// createThread creates a new Thread in the database. Note that this function does
 // not check for existing threads with the same name and workspace ID.
 func createThread(client mg.Client, logger logr.Logger, name, workspaceID, createdBy string) error {
 	thread := Thread{
