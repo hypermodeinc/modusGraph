@@ -27,7 +27,7 @@ go build -o modusgraph-cli
 
 ## Usage
 
-```
+```sh
 Usage of ./main:
   --dir string       Directory where modusGraph will initialize, note the directory must exist and you must have write access
   --addr string      Hostname/port where modusGraph will access for I/O (if not using the dir flag)
