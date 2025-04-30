@@ -140,7 +140,7 @@ func downloadFile(logger logr.Logger, dir, url, fileType string) (string, error)
 				lastProgress = progress
 			}
 			// Still show on console for interactive feedback
-			log.Printf("\r%s: %.1f%% complete", fileType, progress)
+			logger.Info(fmt.Sprintf("\r%s: %.1f%% complete", fileType, progress), "fileType", fileType, "progress", fmt.Sprintf("%.1f%%", progress))
 
 		case <-resp.Done:
 			// Download is complete
