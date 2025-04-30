@@ -7,12 +7,14 @@ package load_test
 
 import (
 	"context"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cavaliergopher/grab/v3"
+	"github.com/go-logr/stdr"
 	"github.com/hypermodeinc/dgraph/v24/dgraphapi"
 	"github.com/hypermodeinc/dgraph/v24/systest/1million/common"
 	"github.com/hypermodeinc/modusgraph"
@@ -85,7 +87,10 @@ func TestLiveLoaderSmall(t *testing.T) {
 }
 
 func TestLiveLoader1Million(t *testing.T) {
-	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
+	stdLogger := log.New(os.Stdout, "", log.LstdFlags)
+	logger := stdr.NewWithOptions(stdLogger, stdr.Options{LogCaller: stdr.All}).WithName("mg")
+	conf := modusgraph.NewDefaultConfig(t.TempDir()).WithLogger(logger)
+	engine, err := modusgraph.NewEngine(conf)
 	require.NoError(t, err)
 	defer engine.Close()
 

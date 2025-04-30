@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -30,8 +29,7 @@ const (
 )
 
 type liveLoader struct {
-	n *Namespace
-
+	n          *Namespace
 	blankNodes map[string]string
 	mutex      sync.RWMutex
 }
@@ -58,7 +56,7 @@ func (n *Namespace) LoadData(inCtx context.Context, dataDir string) error {
 	if len(files) == 0 {
 		return errors.Errorf("no data files found in [%v]", dataDir)
 	}
-	log.Printf("found %d data file(s) to process", len(files))
+	n.engine.logger.Info("Found data files to process", "count", len(files))
 
 	// Here, we build a context tree so that we can wait for the goroutines towards the
 	// end. This also ensures that we can cancel the context tree if there is an error.
@@ -83,7 +81,9 @@ func (n *Namespace) LoadData(inCtx context.Context, dataDir string) error {
 			case <-ticker.C:
 				elapsed := time.Since(start).Round(time.Second)
 				rate := float64(nqudsProcessed-last) / progressFrequency.Seconds()
-				log.Printf("Elapsed: %v, N-Quads: %d, N-Quads/s: %5.0f", x.FixedDuration(elapsed), nqudsProcessed, rate)
+				n.engine.logger.Info("Data loading progress", "elapsed", x.FixedDuration(elapsed),
+					"quads", nqudsProcessed,
+					"rate", fmt.Sprintf("%5.0f", rate))
 				last = nqudsProcessed
 
 			case nqs, ok := <-nqch:
@@ -122,7 +122,7 @@ func (n *Namespace) LoadData(inCtx context.Context, dataDir string) error {
 func (l *liveLoader) processFile(inCtx context.Context, fs filestore.FileStore,
 	filename string, nqch chan *api.Mutation) error {
 
-	log.Printf("processing data file [%v]", filename)
+	l.n.engine.logger.Info("Processing data file", "filename", filename)
 
 	rd, cleanup := fs.ChunkReader(filename, nil)
 	defer cleanup()
