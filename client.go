@@ -344,6 +344,15 @@ func (c client) DropData(ctx context.Context) error {
 
 // QueryRaw implements raw querying (DQL syntax).
 func (c client) QueryRaw(ctx context.Context, q string) ([]byte, error) {
+	if c.engine != nil {
+		ns := c.engine.GetDefaultNamespace()
+		resp, err := ns.Query(ctx, q)
+		if err != nil {
+			return nil, err
+		}
+		return resp.GetJson(), nil
+	}
+
 	client, err := c.pool.get()
 	if err != nil {
 		c.logger.Error(err, "Failed to get client from pool")
