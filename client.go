@@ -29,7 +29,7 @@ type Client interface {
 	DropData(context.Context) error
 	QueryRaw(context.Context, string) ([]byte, error)
 
-	DgraphClient() (*dgo.Dgraph, error)
+	DgraphClient() (*dgo.Dgraph, func(), error)
 }
 
 const (
@@ -373,10 +373,23 @@ func (c client) Close() {
 	c.pool.close()
 }
 
-// DgraphClient returns the underlying Dgraph client.
-func (c client) DgraphClient() (*dgo.Dgraph, error) {
-	client, err := c.pool.get()
-	return client, err
+// DgraphClient returns a Dgraph client from the pool and a cleanup function to put it back.
+//
+// Usage:
+//
+//	client, cleanup, err := c.DgraphClient()
+//	if err != nil { ... }
+//	defer cleanup()
+//
+// The cleanup function is safe to call even if client is nil or err is not nil.
+func (c client) DgraphClient() (client *dgo.Dgraph, cleanup func(), err error) {
+	client, err = c.pool.get()
+	cleanup = func() {
+		if client != nil {
+			c.pool.put(client)
+		}
+	}
+	return client, cleanup, err
 }
 
 type clientPool struct {

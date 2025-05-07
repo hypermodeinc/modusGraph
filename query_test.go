@@ -261,8 +261,9 @@ func TestVectorSimilaritySearch(t *testing.T) {
 			vectorVar := "[0.51, 0.39, 0.29, 0.19, 0.09]"
 			query := dg.NewQuery().Model(&testItem).RootFunc("similar_to(vector, 1, $vec)")
 
-			dgo, err := client.DgraphClient()
+			dgo, cleanup, err := client.DgraphClient()
 			require.NoError(t, err)
+			defer cleanup()
 			tx := dg.NewReadOnlyTxn(dgo)
 			err = tx.Query(query).Vars("similar_to($vec: string)", map[string]string{"$vec": vectorVar}).Scan()
 			require.NoError(t, err)
