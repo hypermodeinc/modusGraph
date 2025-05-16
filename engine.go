@@ -277,6 +277,7 @@ func (engine *Engine) queryWithLock(ctx context.Context,
 		return nil, ErrClosedEngine
 	}
 
+	engine.logger.V(2).Info("Querying namespace", "namespaceID", ns.ID(), "query", q)
 	ctx = x.AttachNamespace(ctx, ns.ID())
 	return (&edgraph.Server{}).QueryNoAuth(ctx, &api.Request{
 		ReadOnly: true,
