@@ -97,7 +97,7 @@ func main() {
 	start := time.Now()
 
 	// Execute the query
-	resp, err := client.QueryRaw(ctx, query)
+	resp, err := client.QueryRaw(ctx, query, nil)
 	if err != nil {
 		logger.Error(err, "Query execution failed")
 		os.Exit(1)
