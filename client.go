@@ -32,6 +32,9 @@ type Client interface {
 	GetSchema(context.Context) (string, error)
 	DropAll(context.Context) error
 	DropData(context.Context) error
+	// QueryRaw executes a raw Dgraph query with optional query variables.
+	// The `query` parameter is the Dgraph query string.
+	// The `vars` parameter is a map of variable names to their values, used to parameterize the query.
 	QueryRaw(context.Context, string, map[string]string) ([]byte, error)
 
 	DgraphClient() (*dgo.Dgraph, func(), error)
