@@ -1,17 +1,6 @@
 /*
- * Copyright 2025 Hypermode Inc. and Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: © Hypermode Inc. <hello@hypermode.com>
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package modusgraph_test
@@ -73,10 +62,16 @@ func TestClientSimpleGet(t *testing.T) {
 	}
 }
 
+type GeoLocation struct {
+	Type  string    `json:"type"`
+	Coord []float64 `json:"coordinates"`
+}
+
 type QueryTestRecord struct {
-	Name      string    `json:"name,omitempty" dgraph:"index=exact,term unique"`
-	Age       int       `json:"age,omitempty"`
-	BirthDate time.Time `json:"birthDate,omitzero"`
+	Name      string       `json:"name,omitempty" dgraph:"index=exact,term unique"`
+	Age       int          `json:"age,omitempty" dgraph:"index=int"`
+	BirthDate time.Time    `json:"birthDate,omitzero"`
+	Location  *GeoLocation `json:"location,omitempty" dgraph:"type=geo index=geo"`
 
 	UID   string   `json:"uid,omitempty"`
 	DType []string `json:"dgraph.type,omitempty"`
@@ -100,6 +95,18 @@ func TestClientQuery(t *testing.T) {
 		},
 	}
 
+	locations := [][]float64{
+		{-122.4194, 37.7749}, // San Francisco, USA
+		{2.2945, 48.8584},    // Paris (Eiffel Tower), France
+		{-74.0060, 40.7128},  // New York City, USA
+		{-0.1276, 51.5072},   // London, UK
+		{139.7690, 35.6804},  // Tokyo, Japan
+		{77.2090, 28.6139},   // New Delhi, India
+		{31.2357, 30.0444},   // Cairo, Egypt
+		{151.2093, -33.8688}, // Sydney, Australia
+		{-43.1729, -22.9068}, // Rio de Janeiro, Brazil
+		{116.4074, 39.9042},  // Beijing, China
+	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.skip {
@@ -117,6 +124,10 @@ func TestClientQuery(t *testing.T) {
 					Name:      fmt.Sprintf("Test Entity %d", i),
 					Age:       30 + i,
 					BirthDate: birthDate.AddDate(0, 0, i),
+					Location: &GeoLocation{
+						Type:  "Point",
+						Coord: locations[i],
+					},
 				}
 			}
 			ctx := context.Background()
@@ -140,6 +151,7 @@ func TestClientQuery(t *testing.T) {
 					require.Equal(t, result[i].Name, fmt.Sprintf("Test Entity %d", i), "Name should match")
 					require.Equal(t, result[i].Age, 30+i, "Age should match")
 					require.Equal(t, result[i].BirthDate, birthDate.AddDate(0, 0, i), "BirthDate should match")
+					require.Equal(t, result[i].Location.Coord, locations[i], "Location coordinates should match")
 				}
 			})
 
@@ -154,6 +166,33 @@ func TestClientQuery(t *testing.T) {
 					require.GreaterOrEqual(t, entity.Age, 30, "Age should be between 30 and 35")
 					require.LessOrEqual(t, entity.Age, 35, "Age should be between 30 and 35")
 				}
+			})
+
+			t.Run("QueryWithGeoFilters", func(t *testing.T) {
+				var result []QueryTestRecord
+				err := client.Query(ctx, QueryTestRecord{}).
+					Filter(`(near(location, [2.2946, 48.8585], 1000))`). // just a few meters from the Eiffel Tower
+					Nodes(&result)
+				require.NoError(t, err, "Query should succeed")
+				require.Len(t, result, 1, "Should have 1 entity")
+				require.Equal(t, result[0].Name, "Test Entity 1", "Name should match")
+
+				var rawResult struct {
+					Data []QueryTestRecord `json:"q"`
+				}
+				parisQuery := `query {
+					q(func: within(location, [[[2.2945, 48.8584], [2.2690, 48.8800], [2.3300, 48.9000],
+												[2.4100, 48.8800], [2.4150, 48.8300], [2.3650, 48.8150],
+												[2.3000, 48.8100], [2.2600, 48.8350], [2.2945, 48.8584]]])) {
+						uid
+						name
+					}
+				}`
+				resp, err := client.QueryRaw(ctx, parisQuery, nil)
+				require.NoError(t, err, "Query should succeed")
+				require.NoError(t, json.Unmarshal(resp, &rawResult), "Failed to unmarshal response")
+				require.Len(t, rawResult.Data, 1, "Should have 1 entity")
+				require.Equal(t, rawResult.Data[0].Name, "Test Entity 1", "Name should match")
 			})
 
 			t.Run("QueryWithPagination", func(t *testing.T) {
@@ -182,7 +221,8 @@ func TestClientQuery(t *testing.T) {
 					Data []QueryTestRecord `json:"q"`
 				}
 				resp, err := client.QueryRaw(ctx,
-					`query { q(func: type(QueryTestRecord), orderasc: age) { uid name age birthDate }}`)
+					`query { q(func: type(QueryTestRecord), orderasc: age) { uid name age birthDate }}`,
+					nil)
 				require.NoError(t, err, "Query should succeed")
 				require.NoError(t, json.Unmarshal(resp, &result), "Failed to unmarshal response")
 				require.Len(t, result.Data, 10, "Should have 10 entities")
@@ -190,6 +230,21 @@ func TestClientQuery(t *testing.T) {
 					require.Equal(t, result.Data[i].Name, fmt.Sprintf("Test Entity %d", i), "Name should match")
 					require.Equal(t, result.Data[i].Age, 30+i, "Age should match")
 					require.Equal(t, result.Data[i].BirthDate, birthDate.AddDate(0, 0, i), "BirthDate should match")
+				}
+			})
+
+			t.Run("QueryRawWithVars", func(t *testing.T) {
+				var result struct {
+					Data []QueryTestRecord `json:"q"`
+				}
+				resp, err := client.QueryRaw(ctx,
+					`query older_than_inclusive($1: int) { q(func: ge(age, $1)) { uid name age }}`,
+					map[string]string{"$1": "38"})
+				require.NoError(t, err, "Query should succeed")
+				require.NoError(t, json.Unmarshal(resp, &result), "Failed to unmarshal response")
+				require.Len(t, result.Data, 2, "Should have 2 entities")
+				for i := range 2 {
+					require.GreaterOrEqual(t, result.Data[i].Age, 38, "Age should be greater than or equal to 38")
 				}
 			})
 		})

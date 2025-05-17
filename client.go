@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: © Hypermode Inc. <hello@hypermode.com>
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package modusgraph
 
 import (
@@ -27,7 +32,10 @@ type Client interface {
 	GetSchema(context.Context) (string, error)
 	DropAll(context.Context) error
 	DropData(context.Context) error
-	QueryRaw(context.Context, string) ([]byte, error)
+	// QueryRaw executes a raw Dgraph query with optional query variables.
+	// The `query` parameter is the Dgraph query string.
+	// The `vars` parameter is a map of variable names to their values, used to parameterize the query.
+	QueryRaw(context.Context, string, map[string]string) ([]byte, error)
 
 	DgraphClient() (*dgo.Dgraph, func(), error)
 }
@@ -288,7 +296,7 @@ func (c client) Query(ctx context.Context, model any) *dg.Query {
 	}
 	defer c.pool.put(client)
 
-	txn := dg.NewTxn(client)
+	txn := dg.NewReadOnlyTxnContext(ctx, client)
 	return txn.Get(model)
 }
 
@@ -342,11 +350,11 @@ func (c client) DropData(ctx context.Context) error {
 	return client.Alter(ctx, &api.Operation{DropOp: api.Operation_DATA})
 }
 
-// QueryRaw implements raw querying (DQL syntax).
-func (c client) QueryRaw(ctx context.Context, q string) ([]byte, error) {
+// QueryRaw implements raw querying (DQL syntax) and optional variables.
+func (c client) QueryRaw(ctx context.Context, q string, vars map[string]string) ([]byte, error) {
 	if c.engine != nil {
 		ns := c.engine.GetDefaultNamespace()
-		resp, err := ns.Query(ctx, q)
+		resp, err := ns.QueryWithVars(ctx, q, vars)
 		if err != nil {
 			return nil, err
 		}
@@ -361,7 +369,7 @@ func (c client) QueryRaw(ctx context.Context, q string) ([]byte, error) {
 	defer c.pool.put(client)
 
 	txn := dg.NewReadOnlyTxnContext(ctx, client)
-	resp, err := txn.Txn().Query(ctx, q)
+	resp, err := txn.Txn().QueryWithVars(ctx, q, vars)
 	if err != nil {
 		return nil, err
 	}
