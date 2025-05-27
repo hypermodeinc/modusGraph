@@ -10,9 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/dgraph-io/dgo/v240"
@@ -412,6 +414,11 @@ func (engine *Engine) Close() {
 
 	posting.Cleanup()
 	worker.State.Dispose()
+
+	if runtime.GOOS == "windows" {
+		runtime.GC()
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 func (ns *Engine) reset() error {
