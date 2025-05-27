@@ -23,7 +23,8 @@ func TestDropData(t *testing.T) {
 	}{
 		{
 			name: "DropDataWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			//uri:  "file://" + t.TempDir(),
+			uri: "file://",
 		},
 		{
 			name: "DropDataWithDgraphURI",
@@ -37,6 +38,10 @@ func TestDropData(t *testing.T) {
 			if tc.skip {
 				t.Skipf("Skipping %s: MODUSGRAPH_TEST_ADDR not set", tc.name)
 				return
+			}
+
+			if tc.uri == "file://" {
+				tc.uri = "file://" + t.TempDir()
 			}
 
 			client, cleanup := CreateTestClient(t, tc.uri)
