@@ -45,7 +45,7 @@ func TestDropData(t *testing.T) {
 			}
 
 			client, cleanup := CreateTestClient(t, tc.uri)
-			defer cleanup()
+			t.Cleanup(cleanup)
 
 			entity := TestEntity{
 				Name:        "Test Entity",
