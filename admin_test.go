@@ -23,8 +23,7 @@ func TestDropData(t *testing.T) {
 	}{
 		{
 			name: "DropDataWithFileURI",
-			//uri:  "file://" + t.TempDir(),
-			uri: "file://",
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "DropDataWithDgraphURI",
@@ -40,12 +39,8 @@ func TestDropData(t *testing.T) {
 				return
 			}
 
-			if tc.uri == "file://" {
-				tc.uri = "file://" + t.TempDir()
-			}
-
 			client, cleanup := CreateTestClient(t, tc.uri)
-			t.Cleanup(cleanup)
+			defer cleanup()
 
 			entity := TestEntity{
 				Name:        "Test Entity",

@@ -45,16 +45,6 @@ var (
 	ErrNonExistentDB = errors.New("namespace does not exist")
 )
 
-// Shutdown closes the active Engine instance and resets the singleton state.
-func Shutdown() {
-	if activeEngine != nil {
-		activeEngine.Close()
-		activeEngine = nil
-	}
-	// Reset the singleton state so a new engine can be created if needed
-	singleton.Store(false)
-}
-
 // Engine is an instance of modusDB.
 // For now, we only support one instance of modusDB per process.
 type Engine struct {
@@ -121,6 +111,16 @@ func NewEngine(conf Config) (*Engine, error) {
 
 	engine.listener, engine.server = setupBufconnServer(engine)
 	return engine, nil
+}
+
+// Shutdown closes the active Engine instance and resets the singleton state.
+func Shutdown() {
+	if activeEngine != nil {
+		activeEngine.Close()
+		activeEngine = nil
+	}
+	// Reset the singleton state so a new engine can be created if needed
+	singleton.Store(false)
 }
 
 func (engine *Engine) GetClient() (*dgo.Dgraph, error) {
@@ -402,17 +402,6 @@ func (engine *Engine) Close() {
 
 	engine.isOpen.Store(false)
 	x.UpdateHealthStatus(false)
-
-	// Close Badger DB explicitly to ensure all file handles are released
-	// This is especially important on Windows where file handles can remain locked
-	if worker.State.Pstore != nil {
-		worker.State.Pstore.Close()
-	}
-	if worker.State.WALstore != nil {
-		// Regular close call that only does sync
-		worker.State.WALstore.Close()
-	}
-
 	posting.Cleanup()
 	worker.State.Dispose()
 
