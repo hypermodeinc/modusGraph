@@ -406,6 +406,9 @@ func (engine *Engine) Close() {
 	if worker.State.Pstore != nil {
 		worker.State.Pstore.Close()
 	}
+	if worker.State.WALstore != nil {
+		worker.State.WALstore.Close()
+	}
 
 	posting.Cleanup()
 	worker.State.Dispose()
