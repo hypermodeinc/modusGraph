@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"reflect"
 	"runtime"
 	"strconv"
 	"sync"
@@ -405,11 +406,17 @@ func (engine *Engine) Close() {
 
 	// Close Badger DB explicitly to ensure all file handles are released
 	// This is especially important on Windows where file handles can remain locked
-	if worker.State.Pstore != nil {
-		worker.State.Pstore.Close()
-	}
-	if worker.State.WALstore != nil {
-		worker.State.WALstore.Close()
+	if runtime.GOOS == "windows" {
+		if worker.State.Pstore != nil {
+			worker.State.Pstore.Close()
+		}
+		if worker.State.WALstore != nil {
+			// Regular close call that only does sync
+			worker.State.WALstore.Close()
+			// Force close all file descriptors in WALstore
+			// This is needed especially on Windows where file handles may remain locked
+			forceCloseWAL(worker.State.WALstore)
+		}
 	}
 
 	posting.Cleanup()
@@ -418,6 +425,70 @@ func (engine *Engine) Close() {
 	if runtime.GOOS == "windows" {
 		runtime.GC()
 		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+// forceCloseWAL uses reflection to access the WALstore's internal file handles and explicitly close them.
+// This is necessary because Dgraph's WALstore.Close() only syncs but doesn't actually close file descriptors.
+func forceCloseWAL(walStore interface{}) {
+	// Use reflection to access the internal DiskStorage
+	v := reflect.ValueOf(walStore)
+	if v.Kind() != reflect.Ptr || v.IsNil() {
+		return
+	}
+
+	// Try to access the diskStorage field
+	ds := v.Elem().FieldByName("diskStorage")
+	if !ds.IsValid() {
+		return
+	}
+
+	// Access the meta and wal fields
+	meta := ds.Elem().FieldByName("meta")
+	wal := ds.Elem().FieldByName("wal")
+
+	// Close meta file if available
+	if meta.IsValid() && !meta.IsNil() {
+		// Close Fd field
+		fd := meta.Elem().FieldByName("Fd")
+		if fd.IsValid() && !fd.IsNil() {
+			closeMethod := fd.MethodByName("Close")
+			if closeMethod.IsValid() {
+				closeMethod.Call(nil)
+			}
+		}
+	}
+
+	// Close wal files if available
+	if wal.IsValid() && !wal.IsNil() {
+		// Close current file
+		current := wal.Elem().FieldByName("current")
+		if current.IsValid() && !current.IsNil() {
+			fd := current.Elem().FieldByName("Fd")
+			if fd.IsValid() && !fd.IsNil() {
+				closeMethod := fd.MethodByName("Close")
+				if closeMethod.IsValid() {
+					closeMethod.Call(nil)
+				}
+			}
+		}
+
+		// Close all files in the files slice
+		files := wal.Elem().FieldByName("files")
+		if files.IsValid() && files.Kind() == reflect.Slice {
+			for i := 0; i < files.Len(); i++ {
+				file := files.Index(i)
+				if file.IsValid() && !file.IsNil() {
+					fd := file.Elem().FieldByName("Fd")
+					if fd.IsValid() && !fd.IsNil() {
+						closeMethod := fd.MethodByName("Close")
+						if closeMethod.IsValid() {
+							closeMethod.Call(nil)
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
