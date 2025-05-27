@@ -385,7 +385,7 @@ func (engine *Engine) LoadData(inCtx context.Context, dataDir string) error {
 	return engine.db0.LoadData(inCtx, dataDir)
 }
 
-// Close closes the modusDB instance.
+// Close closes the modusGraph instance.
 func (engine *Engine) Close() {
 	engine.mutex.Lock()
 	defer engine.mutex.Unlock()
@@ -395,11 +395,18 @@ func (engine *Engine) Close() {
 	}
 
 	if !singleton.CompareAndSwap(true, false) {
-		panic("modusDB instance was not properly opened")
+		panic("modusGraph instance was not properly opened")
 	}
 
 	engine.isOpen.Store(false)
 	x.UpdateHealthStatus(false)
+
+	// Close Badger DB explicitly to ensure all file handles are released
+	// This is especially important on Windows where file handles can remain locked
+	if worker.State.Pstore != nil {
+		worker.State.Pstore.Close()
+	}
+
 	posting.Cleanup()
 	worker.State.Dispose()
 }
