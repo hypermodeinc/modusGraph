@@ -45,8 +45,8 @@ func CreateTestClient(t *testing.T, uri string) (mg.Client, func()) {
 		}
 		client.Close()
 
-		// Reset the singleton state so the next test can create a new engine
-		mg.ResetSingleton()
+		// Properly shutdown the engine and reset the singleton state
+		mg.Shutdown()
 	}
 
 	return client, cleanup

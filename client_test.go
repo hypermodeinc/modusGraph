@@ -110,8 +110,8 @@ func TestClientPool(t *testing.T) {
 		})
 	}
 
-	// Reset singleton at the end of the test to ensure the next test can start fresh
-	mg.ResetSingleton()
+	// Shutdown at the end of the test to ensure the next test can start fresh
+	mg.Shutdown()
 }
 
 func TestClientPoolStress(t *testing.T) {
@@ -205,6 +205,6 @@ func TestClientPoolStress(t *testing.T) {
 			require.Greater(t, successCount, 0)
 		})
 
-		mg.ResetSingleton()
+		mg.Shutdown()
 	}
 }
