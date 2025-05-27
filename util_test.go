@@ -9,10 +9,8 @@ import (
 	"context"
 	"log"
 	"os"
-	"runtime"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/go-logr/stdr"
 	mg "github.com/hypermodeinc/modusgraph"
@@ -41,21 +39,14 @@ func CreateTestClient(t *testing.T, uri string) (mg.Client, func()) {
 	require.NoError(t, err)
 
 	cleanup := func() {
-		// First attempt to drop all data, but don't fail if this has an error
 		err := client.DropAll(context.Background())
 		if err != nil {
-			t.Logf("Warning: DropAll failed: %v", err)
+			t.Error(err)
 		}
-
-		// Close the client
 		client.Close()
 
 		// Properly shutdown the engine and reset the singleton state
 		mg.Shutdown()
-
-		// On Windows, give the OS some time to release file handles
-		runtime.GC()
-		time.Sleep(100 * time.Millisecond)
 	}
 
 	return client, cleanup

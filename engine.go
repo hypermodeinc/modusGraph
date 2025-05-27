@@ -10,11 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/dgraph-io/dgo/v240"
@@ -51,12 +49,6 @@ func Shutdown() {
 		activeEngine.Close()
 		activeEngine = nil
 	}
-
-	// This calls the platform-specific cleanup function
-	// For Windows, it's defined in shutdown_windows.go
-	// For other platforms, it's a no-op
-	windowsCleanup()
-
 	// Reset the singleton state so a new engine can be created if needed
 	singleton.Store(false)
 }
@@ -409,39 +401,14 @@ func (engine *Engine) Close() {
 	engine.isOpen.Store(false)
 	x.UpdateHealthStatus(false)
 
-	// Ensure all pending operations are completed before shutdown
-
-	// Close all connections and stop servers before closing the DB
-	if engine.server != nil {
-		engine.server.Stop()
-		engine.server = nil
-	}
-	if engine.listener != nil {
-		engine.listener.Close()
-		engine.listener = nil
-	}
-
 	// Close Badger DB explicitly to ensure all file handles are released
 	// This is especially important on Windows where file handles can remain locked
 	if worker.State.Pstore != nil {
-		fmt.Println("⚠️ Closing Pstore")
-		// Sync and try to force-close any open value log files
-		worker.State.Pstore.Sync()
-		worker.State.Pstore.RunValueLogGC(0.5) // Force garbage collection before closing
 		worker.State.Pstore.Close()
 	}
-
 	if worker.State.WALstore != nil {
-		fmt.Println("⚠️ Closing WAL store")
-		// Flush and sync all pending writes before closing
-		worker.State.WALstore.Sync()
 		worker.State.WALstore.Close()
 	}
-
-	// Force garbage collection to help release file handles on Windows
-	runtime.GC()
-	// Sleep a little to give the OS time to release file handles (Windows specific)
-	time.Sleep(100 * time.Millisecond)
 
 	posting.Cleanup()
 	worker.State.Dispose()
