@@ -150,6 +150,18 @@ Version 2.0. See the [LICENSE](./LICENSE) file for a complete copy of the licens
 questions about modus licensing, or need an alternate license or other arrangement, please contact
 us at <hello@hypermode.com>.
 
+## Windows Users
+
+modusGraph (and its dependencies) are designed to work on POSIX-compliant operating systems, and are
+not guaranteed to work on Windows.
+
+Tests at the top level folder (`go test .`) on Windows are maintained to pass, but other tests in
+subfolders may not work as expected.
+
+Temporary folders created during tests may not be cleaned up properly on Windows. Users should
+periodically clean up these folders. The temporary folders are created in the Windows temp
+directory, `C:\Users\<username>\AppData\Local\Temp\modusgraph_test*`.
+
 ## Acknowledgements
 
 modusGraph builds heavily upon packages from the open source projects of
