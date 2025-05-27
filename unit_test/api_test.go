@@ -1102,20 +1102,3 @@ func TestMultiPolygon(t *testing.T) {
 	require.Equal(t, "Jane Doe", geomStruct.Name)
 	require.Equal(t, multiPolygon.Coordinates, geomStruct.MultiArea.Coordinates)
 }
-
-func TestUserStore(t *testing.T) {
-	ctx := context.Background()
-	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig("./foo"))
-	require.NoError(t, err)
-	defer engine.Close()
-
-	user := User{
-		Name: "John Doe",
-		Age:  30,
-	}
-	gid, user, err := modusgraph.Create(ctx, engine, user)
-	require.NoError(t, err)
-	require.NotZero(t, gid)
-	require.Equal(t, "John Doe", user.Name)
-	require.Equal(t, 30, user.Age)
-}

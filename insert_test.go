@@ -35,7 +35,7 @@ func TestClientInsert(t *testing.T) {
 	}{
 		{
 			name: "InsertWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "InsertWithDgraphURI",
@@ -95,7 +95,7 @@ func TestClientInsertMultipleEntities(t *testing.T) {
 	}{
 		{
 			name: "InsertMultipleWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "InsertMultipleWithDgraphURI",
@@ -157,7 +157,7 @@ func TestDepthQuery(t *testing.T) {
 	}{
 		{
 			name: "InsertWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "InsertWithDgraphURI",

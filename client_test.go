@@ -25,7 +25,7 @@ func TestClientPool(t *testing.T) {
 	}{
 		{
 			name: "ClientPoolWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "ClientPoolWithDgraphURI",
@@ -122,7 +122,7 @@ func TestClientPoolStress(t *testing.T) {
 	}{
 		{
 			name: "ClientPoolStressWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "ClientPoolStressWithDgraphURI",

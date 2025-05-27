@@ -23,7 +23,7 @@ func TestClientUpdate(t *testing.T) {
 	}{
 		{
 			name: "UpdateWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "UpdateWithDgraphURI",

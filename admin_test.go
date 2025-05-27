@@ -81,7 +81,7 @@ func TestDropAll(t *testing.T) {
 	}{
 		{
 			name: "DropAllWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "DropAllWithDgraphURI",
@@ -159,7 +159,7 @@ func TestCreateSchema(t *testing.T) {
 	}{
 		{
 			name: "CreateSchemaWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "CreateSchemaWithDgraphURI",

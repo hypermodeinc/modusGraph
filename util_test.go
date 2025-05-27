@@ -56,36 +56,30 @@ func CreateTestClient(t *testing.T, uri string) (mg.Client, func()) {
 	return client, cleanup
 }
 
+// GetTempDir returns a temporary directory for testing purposes.
+// It creates a unique directory for each test and registers a cleanup function to remove it.
+// On Windows, it uses the standard temp directory and creates a unique directory for each test.
+// On other platforms, it uses the standard toolchain TempDir function.
 func GetTempDir(t *testing.T) string {
 	if runtime.GOOS == "windows" {
-		// Get the system temp directory
 		baseDir := os.TempDir()
-
-		// Create a unique directory name using the test name
 		testName := t.Name()
-		// Clean the test name to make it filesystem-safe
 		testName = strings.ReplaceAll(testName, "/", "_")
 		testName = strings.ReplaceAll(testName, "\\", "_")
 		testName = strings.ReplaceAll(testName, ":", "_")
 
-		// Create a directory path that includes the test name
 		tempDir := filepath.Join(baseDir, "modusgraph_test_"+testName)
 
-		// Ensure the directory exists
 		err := os.MkdirAll(tempDir, 0755)
 		if err != nil {
-			// Fall back to standard temp directory if we can't create our own
 			t.Logf("Failed to create temp directory %s: %v, falling back to standard temp dir", tempDir, err)
 			return os.TempDir()
 		}
 
-		// Register cleanup function with the test
 		t.Cleanup(func() {
-			// Force GC to help release any open file handles
 			runtime.GC()
 			time.Sleep(200 * time.Millisecond)
 
-			// Try to remove the directory
 			if err := os.RemoveAll(tempDir); err != nil {
 				t.Logf("Warning: failed to remove temp directory %s: %v", tempDir, err)
 			}

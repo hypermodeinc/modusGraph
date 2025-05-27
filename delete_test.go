@@ -24,7 +24,7 @@ func TestClientDelete(t *testing.T) {
 	}{
 		{
 			name: "DeleteWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "DeleteWithDgraphURI",

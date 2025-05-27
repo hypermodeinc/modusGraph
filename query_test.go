@@ -26,7 +26,7 @@ func TestClientSimpleGet(t *testing.T) {
 	}{
 		{
 			name: "GetWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "GetWithDgraphURI",
@@ -86,7 +86,7 @@ func TestClientQuery(t *testing.T) {
 	}{
 		{
 			name: "QueryWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		{
 			name: "QueryWithDgraphURI",
@@ -268,7 +268,7 @@ func TestVectorSimilaritySearch(t *testing.T) {
 	}{
 		{
 			name: "VectorSimilaritySearchWithFileURI",
-			uri:  "file://" + t.TempDir(),
+			uri:  "file://" + GetTempDir(t),
 		},
 		/*
 			{
