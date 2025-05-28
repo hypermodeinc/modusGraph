@@ -8,9 +8,9 @@ require (
 	github.com/dgraph-io/dgo/v240 v240.2.0
 	github.com/dgraph-io/ristretto/v2 v2.2.0
 	github.com/dolan-in/dgman/v2 v2.0.0
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/stdr v1.2.2
-	github.com/hypermodeinc/dgraph/v24 v24.1.2
+	github.com/hypermodeinc/dgraph/v24 v24.1.3
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/twpayne/go-geom v1.6.1
