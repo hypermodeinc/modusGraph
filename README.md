@@ -92,6 +92,443 @@ func main() {
 }
 ```
 
+## Creating a Client
+
+The `NewClient` function takes a URI and optional configuration options.
+
+```go
+client, err := mg.NewClient(uri)
+if err != nil {
+    panic(err)
+}
+defer client.Close()
+```
+
+### URI Options
+
+modusGraph supports two URI schemes for managing graph databases:
+
+#### `file://` - Local File-Based Database
+
+Connects to a database stored locally on the filesystem. This mode doesn't require a separate
+database server and is perfect for development, testing, or embedded applications. The directory
+must exist before connecting.
+
+File-based databases do not support concurrent access from separate processes.
+
+```go
+// Connect to a local file-based database
+client, err := mg.NewClient("file:///path/to/data")
+```
+
+#### `dgraph://` - Remote Dgraph Server
+
+Connects to a Dgraph cluster. For more details on the Dgraph URI format, see the
+[Dgraph Dgo documentation](https://github.com/hypermodeinc/dgo#connection-strings).
+
+```go
+// Connect to a remote Dgraph server
+client, err := mg.NewClient("dgraph://hostname:9080")
+```
+
+### Configuration Options
+
+modusGraph provides several configuration options that can be passed to the `NewClient` function:
+
+#### WithAutoSchema(bool)
+
+Enables or disables automatic schema management. When enabled, modusGraph will automatically create
+and update the graph database schema based on the struct tags of objects you insert.
+
+```go
+// Enable automatic schema management
+client, err := mg.NewClient(uri, mg.WithAutoSchema(true))
+```
+
+#### WithPoolSize(int)
+
+Sets the size of the connection pool for better performance under load. The default is 10
+connections.
+
+```go
+// Set pool size to 20 connections
+client, err := mg.NewClient(uri, mg.WithPoolSize(20))
+```
+
+#### WithLogger(logr.Logger)
+
+Configures structured logging with custom verbosity levels. By default, logging is disabled.
+
+```go
+// Set up a logger
+logger := logr.New(logr.Discard())
+client, err := mg.NewClient(uri, mg.WithLogger(logger))
+```
+
+You can combine multiple options:
+
+```go
+// Using multiple configuration options
+client, err := mg.NewClient(uri,
+    mg.WithAutoSchema(true),
+    mg.WithPoolSize(20),
+    mg.WithLogger(logger))
+```
+
+## Defining Your Graph with Structs
+
+modusGraph uses Go structs to define your graph database schema. By adding `json` and `dgraph` tags
+to your struct fields, you tell modusGraph how to store and index your data in the graph database.
+
+### Basic Structure
+
+Every struct that represents a node in your graph should include:
+
+```go
+type MyNode struct {
+    // Your fields here with appropriate tags
+
+    // These fields are required for Dgraph integration
+    UID   string   `json:"uid,omitempty"`
+    DType []string `json:"dgraph.type,omitempty"`
+}
+```
+
+### `dgraph` Field Tags
+
+modusGraph uses struct tags to define how each field should be handled in the graph database:
+
+| Directive   | Option   | Description                                                         | Example                                                                              |
+| ----------- | -------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **index**   | exact    | Creates an exact-match index for string fields                      | Name string &#96;json:"name" dgraph:"index=exact"&#96;                               |
+|             | hash     | Creates a hash index (same as exact)                                | Code string &#96;json:"code" dgraph:"index=hash"&#96;                                |
+|             | term     | Creates a term index for text search                                | Description string &#96;json:"description" dgraph:"index=term"&#96;                  |
+|             | fulltext | Creates a full-text search index                                    | Content string &#96;json:"content" dgraph:"index=fulltext"&#96;                      |
+|             | int      | Creates an index for integer fields                                 | Age int &#96;json:"age" dgraph:"index=int"&#96;                                      |
+|             | geo      | Creates a geolocation index                                         | Location &#96;json:"location" dgraph:"index=geo"&#96;                                |
+|             | day      | Creates a day-based index for datetime fields                       | Created time.Time &#96;json:"created" dgraph:"index=day"&#96;                        |
+|             | year     | Creates a year-based index for datetime fields                      | Birthday time.Time &#96;json:"birthday" dgraph:"index=year"&#96;                     |
+|             | month    | Creates a month-based index for datetime fields                     | Hired time.Time &#96;json:"hired" dgraph:"index=month"&#96;                          |
+|             | hour     | Creates an hour-based index for datetime fields                     | Login time.Time &#96;json:"login" dgraph:"index=hour"&#96;                           |
+|             | hnsw     | Creates a vector similarity index                                   | Vector \*dg.VectorFloat32 &#96;json:"vector" dgraph:"index=hnsw(metric:cosine)"&#96; |
+| **type**    | geo      | Specifies a geolocation field                                       | Location &#96;json:"location" dgraph:"type=geo"&#96;                                 |
+|             | datetime | Specifies a datetime field                                          | CreatedAt time.Time &#96;json:"createdAt" dgraph:"type=datetime"&#96;                |
+|             | int      | Specifies an integer field                                          | Count int &#96;json:"count" dgraph:"type=int"&#96;                                   |
+|             | float    | Specifies a floating-point field                                    | Price float64 &#96;json:"price" dgraph:"type=float"&#96;                             |
+|             | bool     | Specifies a boolean field                                           | Active bool &#96;json:"active" dgraph:"type=bool"&#96;                               |
+|             | password | Specifies a password field (stored securely)                        | Password string &#96;json:"password" dgraph:"type=password"&#96;                     |
+| **count**   |          | Creates a count index                                               | Visits int &#96;json:"visits" dgraph:"count"&#96;                                    |
+| **unique**  |          | Enforces uniqueness for the field (remote Dgraph only)              | Email string &#96;json:"email" dgraph:"index=hash unique"&#96;                       |
+| **upsert**  |          | Allows a field to be used in upsert operations (remote Dgraph only) | UserID string &#96;json:"userID" dgraph:"index=hash upsert"&#96;                     |
+| **reverse** |          | Creates a bidirectional edge                                        | Friends []\*Person &#96;json:"friends" dgraph:"reverse"&#96;                         |
+| **lang**    |          | Enables multi-language support for the field                        | Description string &#96;json:"description" dgraph:"lang"&#96;                        |
+
+### Relationships
+
+Relationships between nodes are defined using struct pointers or slices of struct pointers:
+
+```go
+type Person struct {
+    Name     string    `json:"name,omitempty" dgraph:"index=exact"`
+    Friends  []*Person `json:"friends,omitempty"`
+    Manager  *Person   `json:"manager,omitempty"`
+
+    UID   string   `json:"uid,omitempty"`
+    DType []string `json:"dgraph.type,omitempty"`
+}
+```
+
+### Reverse Edges
+
+Reverse edges allow efficient bidirectional traversal. When you query in the reverse direction, use
+the tilde prefix in your JSON tag:
+
+```go
+type Student struct {
+    Name       string   `json:"name,omitempty" dgraph:"index=exact"`
+    Takes_Class []*Class `json:"takes_class,omitempty" dgraph:"reverse"`
+
+    UID   string   `json:"uid,omitempty"`
+    DType []string `json:"dgraph.type,omitempty"`
+}
+
+type Class struct {
+    Name     string     `json:"name,omitempty" dgraph:"index=exact"`
+    Students []*Student `json:"~takes_class,omitempty"` // Reverse edge
+
+    UID   string   `json:"uid,omitempty"`
+    DType []string `json:"dgraph.type,omitempty"`
+}
+```
+
+Advanced querying is required to properly bind reverse edges in query results. See the
+`TestReverseEdgeQuery` test in [query_test.go](./query_test.go) for an example.
+
+## Basic Operations
+
+modusGraph provides a simple API for common database operations.
+
+### Inserting Data
+
+To insert a new node into the database:
+
+```go
+ctx := context.Background()
+
+// Create a new object
+user := User{
+    Name:  "John Doe",
+    Email: "john@example.com",
+    Role:  "Admin",
+}
+
+// Insert it into the database
+err := client.Insert(ctx, &user)
+if err != nil {
+    log.Fatalf("Failed to create user: %v", err)
+}
+
+// The UID field will be populated after insertion
+fmt.Println("Created user with UID:", user.UID)
+```
+
+### Updating Data
+
+To update an existing node, first retrieve it, modify it, then save it back:
+
+```go
+ctx := context.Background()
+
+// Get the existing object by UID
+var user User
+err := client.Get(ctx, &user, "0x1234")
+if err != nil {
+    log.Fatalf("Failed to get user: %v", err)
+}
+
+// Modify fields
+user.Name = "Jane Doe"
+user.Role = "Manager"
+
+// Save the changes
+err = client.Update(ctx, &user)
+if err != nil {
+    log.Fatalf("Failed to update user: %v", err)
+}
+```
+
+### Deleting Data
+
+To delete one or more nodes from the database:
+
+```go
+ctx := context.Background()
+
+// Delete by UID
+err := client.Delete(ctx, []string{"0x1234", "0x5678"})
+if err != nil {
+    log.Fatalf("Failed to delete node: %v", err)
+}
+```
+
+### Querying Data
+
+modusGraph provides a basic query API for retrieving data:
+
+```go
+ctx := context.Background()
+
+// Basic query to get all users
+var users []User
+err := client.Query(ctx, User{}).Nodes(&users)
+if err != nil {
+    log.Fatalf("Failed to query users: %v", err)
+}
+
+// Query with filters
+var adminUsers []User
+err = client.Query(ctx, User{}).
+    Filter(`eq(role, "Admin")`).
+    Nodes(&adminUsers)
+if err != nil {
+    log.Fatalf("Failed to query admin users: %v", err)
+}
+
+// Query with pagination
+var pagedUsers []User
+err = client.Query(ctx, User{}).
+    Filter(`has(name)`).
+    Offset(10).
+    Limit(5).
+    Nodes(&pagedUsers)
+if err != nil {
+    log.Fatalf("Failed to query paged users: %v", err)
+}
+
+// Query with ordering
+var sortedUsers []User
+err = client.Query(ctx, User{}).
+    Order("name").
+    Nodes(&sortedUsers)
+if err != nil {
+    log.Fatalf("Failed to query sorted users: %v", err)
+}
+```
+
+### Advanced Querying
+
+modusGraph is built on top of the [dgman](https://github.com/dolan-in/dgman) package, which provides
+access to Dgraph's more powerful and complete query capabilities. For advanced use cases, you can
+access the underlying Dgraph client directly and construct more sophisticated queries:
+
+```go
+// Define a struct with vector field for similarity search
+type Product struct {
+    Name        string            `json:"name,omitempty" dgraph:"index=term"`
+    Description string            `json:"description,omitempty"`
+    Vector      *dg.VectorFloat32 `json:"vector,omitempty" dgraph:"index=hnsw(metric:cosine)"`
+
+    UID   string   `json:"uid,omitempty"`
+    DType []string `json:"dgraph.type,omitempty"`
+}
+
+// Get similar products using vector similarity search
+func getSimilarProducts(client mg.Client, embeddings []float32) (*Product, error) {
+    ctx := context.Background()
+
+    // Convert vector to string format for query
+    vectorStr := fmt.Sprintf("%v", embeddings)
+    vectorStr = strings.Trim(strings.ReplaceAll(vectorStr, " ", ", "), "[]")
+
+    // Create result variable
+    var result Product
+
+    // Get access to the underlying Dgraph client
+    dgo, cleanup, err := client.DgraphClient()
+    if err != nil {
+        return nil, err
+    }
+    defer cleanup()
+
+    // Construct query using similar_to function with a parameter for the vector
+    query := dg.NewQuery().Model(&result).RootFunc("similar_to(vector, 1, $vec)")
+
+    // Execute query with variables
+    tx := dg.NewReadOnlyTxn(dgo)
+    err = tx.Query(query).
+        Vars("similar_to($vec: string)", map[string]string{"$vec": vectorStr}).
+        Scan()
+
+    if err != nil {
+        return nil, err
+    }
+
+    return &result, nil
+}
+```
+
+This example demonstrates vector similarity search for finding semantically similar items - a
+powerful feature in Dgraph. You can also access other advanced capabilities like full-text search
+with language-specific analyzers, geolocation queries, and more. The ability to access the raw
+Dgraph client gives you the full power of Dgraph's query language while still benefiting from
+modusGraph's simplified client interface and schema management.
+
+## Schema Management
+
+modusGraph provides robust schema management features that simplify working with Dgraph's schema
+system.
+
+### AutoSchema
+
+The AutoSchema feature automatically generates and updates the database schema based on your Go
+struct definitions. When enabled, modusGraph will analyze the struct tags of objects you insert and
+ensure the appropriate schema exists in the database.
+
+Enable AutoSchema when creating a client:
+
+```go
+// Enable automatic schema management
+client, err := mg.NewClient(uri, mg.WithAutoSchema(true))
+if err != nil {
+    log.Fatalf("Failed to create client: %v", err)
+}
+
+// Now you can insert objects without manually creating the schema first
+user := User{
+    Name:  "John Doe",
+    Email: "john@example.com",
+}
+
+// The schema will be automatically created or updated as needed
+err = client.Insert(ctx, &user)
+```
+
+With AutoSchema enabled, modusGraph will:
+
+1. Analyze the struct tags of objects being inserted
+2. Generate the appropriate Dgraph schema based on these tags
+3. Apply any necessary schema updates to the database
+4. Handle type definitions for node types based on struct names
+
+This is particularly useful during development when your schema is evolving frequently.
+
+### Schema Operations
+
+For more control over schema management, modusGraph provides several methods in the Client
+interface:
+
+#### UpdateSchema
+
+Manually update the schema based on one or more struct types:
+
+```go
+// Update schema based on User and Post structs
+err := client.UpdateSchema(ctx, User{}, Post{})
+if err != nil {
+    log.Fatalf("Failed to update schema: %v", err)
+}
+```
+
+This is useful when you want to ensure the schema is created before inserting data, or when you need
+to update the schema for new struct types.
+
+#### GetSchema
+
+Retrieve the current schema definition from the database:
+
+```go
+// Get the current schema
+schema, err := client.GetSchema(ctx)
+if err != nil {
+    log.Fatalf("Failed to get schema: %v", err)
+}
+
+fmt.Println("Current schema:")
+fmt.Println(schema)
+```
+
+The returned schema is in Dgraph Schema Definition Language format.
+
+#### DropAll and DropData
+
+Reset the database completely or just clear the data:
+
+```go
+// Remove all data but keep the schema
+err := client.DropData(ctx)
+if err != nil {
+    log.Fatalf("Failed to drop data: %v", err)
+}
+
+// Or remove both schema and data
+err = client.DropAll(ctx)
+if err != nil {
+    log.Fatalf("Failed to drop all: %v", err)
+}
+```
+
+These operations are useful for testing or when you need to reset your database state.
+
 ## Limitations
 
 modusGraph has a few limitations to be aware of:
@@ -155,8 +592,8 @@ us at <hello@hypermode.com>.
 modusGraph (and its dependencies) are designed to work on POSIX-compliant operating systems, and are
 not guaranteed to work on Windows.
 
-Tests at the top level folder (`go test .`) on Windows are maintained to pass, but other tests in
-subfolders may not work as expected.
+Tests at the top level folder (`go test .`) on Windows are maintained to pass on Windows, but other
+tests in subfolders may not work as expected.
 
 Temporary folders created during tests may not be cleaned up properly on Windows. Users should
 periodically clean up these folders. The temporary folders are created in the Windows temp
