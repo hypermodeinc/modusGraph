@@ -327,3 +327,107 @@ func TestVectorSimilaritySearch(t *testing.T) {
 		})
 	}
 }
+
+type Student struct {
+	Name string `json:"name,omitempty" dgraph:"index=exact"`
+
+	// The reverse directive tells Dgraph to maintain a reverse edge
+	Takes_Class []*Class `json:"takes_class,omitempty" dgraph:"reverse"`
+
+	UID   string   `json:"uid,omitempty"`
+	DType []string `json:"dgraph.type,omitempty"`
+}
+
+type Class struct {
+	Name string `json:"name,omitempty" dgraph:"index=exact"`
+
+	// The tilde prefix tells modusGraph not to manage this field in the schema,
+	// but we still need it in the struct in order for results to scan correctly
+	Students []*Student `json:"~takes_class,omitempty"`
+
+	UID   string   `json:"uid,omitempty"`
+	DType []string `json:"dgraph.type,omitempty"`
+}
+
+func TestReverseEdgeQuery(t *testing.T) {
+	testCases := []struct {
+		name string
+		uri  string
+		skip bool
+	}{
+		{
+			name: "ReverseEdgeQueryWithFileURI",
+			uri:  "file://" + GetTempDir(t),
+		},
+		{
+			name: "ReverseEdgeQueryWithDgraphURI",
+			uri:  "dgraph://" + os.Getenv("MODUSGRAPH_TEST_ADDR"),
+			skip: os.Getenv("MODUSGRAPH_TEST_ADDR") == "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip {
+				t.Skipf("Skipping %s: MODUSGRAPH_TEST_ADDR not set", tc.name)
+				return
+			}
+
+			ctx := context.Background()
+			client, cleanup := CreateTestClient(t, tc.uri)
+			defer cleanup()
+
+			class := Class{
+				Name: "Math",
+			}
+			err := client.Insert(ctx, &class)
+			require.NoError(t, err)
+			require.Equal(t, "Math", class.Name)
+
+			student := Student{
+				Name:        "Bob",
+				Takes_Class: []*Class{&class},
+			}
+			err = client.Insert(ctx, &student)
+			require.NoError(t, err)
+			require.NotEmpty(t, student.UID)
+
+			student = Student{
+				Name:        "Alice",
+				Takes_Class: []*Class{&class},
+			}
+			err = client.Insert(ctx, &student)
+			require.NoError(t, err)
+			require.NotEmpty(t, student.UID)
+
+			schema, err := client.GetSchema(ctx)
+			require.NoError(t, err)
+			require.Contains(t, schema, "type Student")
+			require.Contains(t, schema, "type Class")
+
+			// We cannot use the 'contructor' style querying because graph
+			// querying uses the `expand(_all_)` operator, which does not
+			// support reverse edges.
+			var result []Class
+			query := dg.NewQuery().Model(&result).Query(`
+			{
+				name
+				uid
+				~takes_class {
+					name
+					uid
+				}
+			}`)
+			dgo, cleanup, err := client.DgraphClient()
+			require.NoError(t, err)
+			defer cleanup()
+			tx := dg.NewReadOnlyTxn(dgo)
+			err = tx.Query(query).Scan()
+			require.NoError(t, err)
+
+			require.Len(t, result, 1, "Should have found 1 class")
+			require.Equal(t, "Math", result[0].Name, "Class name should match")
+			require.Len(t, result[0].Students, 2, "Should have found 2 students")
+		})
+	}
+}
