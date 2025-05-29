@@ -20,23 +20,55 @@ import (
 
 // Client provides an interface for Dgraph operations
 type Client interface {
+	// Insert adds a new object or slice of objects to the database.
+	// The object must be a pointer to a struct with appropriate dgraph tags.
 	Insert(context.Context, any) error
+
+	// Upsert inserts an object if it doesn't exist or updates it if it does.
+	// This operation requires a field with a unique directive in the dgraph tag.
+	// Note: This operation is not supported in file-based (local) mode.
 	Upsert(context.Context, any) error
+
+	// Update modifies an existing object in the database.
+	// The object must be a pointer to a struct and must have a UID field set.
 	Update(context.Context, any) error
+
+	// Get retrieves a single object by its UID and populates the provided object.
+	// The object parameter must be a pointer to a struct.
 	Get(context.Context, any, string) error
+
+	// Query creates a new query builder for retrieving data from the database.
+	// Returns a *dg.Query that can be further refined with filters, pagination, etc.
 	Query(context.Context, any) *dg.Query
+
+	// Delete removes objects with the specified UIDs from the database.
 	Delete(context.Context, []string) error
+
+	// Close releases all resources used by the client.
+	// It should be called when the client is no longer needed.
 	Close()
 
+	// UpdateSchema ensures the database schema matches the provided object types.
+	// Pass one or more objects that will be used as templates for the schema.
 	UpdateSchema(context.Context, ...any) error
+
+	// GetSchema retrieves the current schema definition from the database.
+	// Returns a string containing the full schema in Dgraph Schema Definition Language.
 	GetSchema(context.Context) (string, error)
+
+	// DropAll removes the schema and all data from the database.
 	DropAll(context.Context) error
+
+	// DropData removes all data from the database but keeps the schema intact.
 	DropData(context.Context) error
+
 	// QueryRaw executes a raw Dgraph query with optional query variables.
 	// The `query` parameter is the Dgraph query string.
 	// The `vars` parameter is a map of variable names to their values, used to parameterize the query.
 	QueryRaw(context.Context, string, map[string]string) ([]byte, error)
 
+	// DgraphClient returns a gRPC Dgraph client from the connection pool and a cleanup function.
+	// The cleanup function must be called when finished with the client to return it to the pool.
 	DgraphClient() (*dgo.Dgraph, func(), error)
 }
 
@@ -124,6 +156,11 @@ func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 	// Apply provided options
 	for _, opt := range opts {
 		opt(&options)
+	}
+
+	// TODO: implement namespace support for v25
+	if options.namespace != "" {
+		options.logger.Info("Warning, namespace is set, but it is not supported in this version")
 	}
 
 	client := client{
