@@ -16,6 +16,7 @@ import (
 	"github.com/hypermodeinc/modusgraph/api/structreflect"
 )
 
+// Deprecated: Use NewClient and client.Insert instead.
 func Create[T any](ctx context.Context, engine *Engine, object T,
 	nsId ...uint64) (uint64, T, error) {
 	engine.mutex.Lock()
@@ -53,6 +54,7 @@ func Create[T any](ctx context.Context, engine *Engine, object T,
 	return getByGid[T](ctx, ns, gid)
 }
 
+// Deprecated
 func Upsert[T any](ctx context.Context, engine *Engine, object T,
 	nsId ...uint64) (uint64, T, bool, error) {
 
@@ -126,6 +128,7 @@ func Upsert[T any](ctx context.Context, engine *Engine, object T,
 	return gid, object, wasFound, nil
 }
 
+// Deprecated: Use NewClient and client.Get instead.
 func Get[T any, R UniqueField](ctx context.Context, engine *Engine, uniqueField R,
 	nsId ...uint64) (uint64, T, error) {
 	engine.mutex.Lock()
@@ -159,6 +162,7 @@ func Get[T any, R UniqueField](ctx context.Context, engine *Engine, uniqueField 
 	return 0, obj, errors.New("invalid unique field type")
 }
 
+// Deprecated: Use NewClient and client.Query instead.
 func Query[T any](ctx context.Context, engine *Engine, queryParams QueryParams,
 	nsId ...uint64) ([]uint64, []T, error) {
 	engine.mutex.Lock()
@@ -174,6 +178,7 @@ func Query[T any](ctx context.Context, engine *Engine, queryParams QueryParams,
 	return executeQuery[T](ctx, ns, queryParams, true)
 }
 
+// Deprecated: Use NewClient and client.Delete instead.
 func Delete[T any, R UniqueField](ctx context.Context, engine *Engine, uniqueField R,
 	nsId ...uint64) (uint64, T, error) {
 	engine.mutex.Lock()
