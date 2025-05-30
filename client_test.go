@@ -208,3 +208,38 @@ func TestClientPoolStress(t *testing.T) {
 		mg.Shutdown()
 	}
 }
+
+func TestClientPoolMisuse(t *testing.T) {
+	testCases := []struct {
+		name string
+		uri  string
+		skip bool
+	}{
+		{
+			name: "ClientPoolMisuseWithFileURI",
+			uri:  "file://" + GetTempDir(t),
+		},
+		{
+			name: "ClientPoolMisuseWithDgraphURI",
+			uri:  "dgraph://" + os.Getenv("MODUSGRAPH_TEST_ADDR"),
+			skip: os.Getenv("MODUSGRAPH_TEST_ADDR") == "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip {
+				t.Skip("Skipping test as MODUSGRAPH_TEST_ADDR is not set")
+			}
+
+			// Create a client with pool size 10
+			client, err := mg.NewClient(tc.uri, mg.WithPoolSize(10))
+			require.NoError(t, err)
+			client.Close()
+			client.Close()
+		})
+	}
+
+	// Shutdown at the end of the test to ensure the next test can start fresh
+	mg.Shutdown()
+}

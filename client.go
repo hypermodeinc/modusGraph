@@ -415,7 +415,10 @@ func (c client) QueryRaw(ctx context.Context, q string, vars map[string]string) 
 
 // Close releases resources used by the client.
 func (c client) Close() {
-	c.pool.close()
+	// Add nil check to prevent panic if pool is nil
+	if c.pool != nil {
+		c.pool.close()
+	}
 	if c.engine != nil {
 		c.engine.Close()
 	}
