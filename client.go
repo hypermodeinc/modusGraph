@@ -416,6 +416,9 @@ func (c client) QueryRaw(ctx context.Context, q string, vars map[string]string) 
 // Close releases resources used by the client.
 func (c client) Close() {
 	c.pool.close()
+	if c.engine != nil {
+		c.engine.Close()
+	}
 }
 
 // DgraphClient returns a Dgraph client from the pool and a cleanup function to put it back.
