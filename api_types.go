@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hypermodeinc/dgraph/v24/x"
+	"github.com/hypermodeinc/dgraph/v25/x"
 	"github.com/hypermodeinc/modusgraph/api/apiutils"
 	"github.com/hypermodeinc/modusgraph/api/querygen"
 )

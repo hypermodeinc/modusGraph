@@ -10,8 +10,8 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/hypermodeinc/dgraph/v24/dql"
-	"github.com/hypermodeinc/dgraph/v24/schema"
+	"github.com/hypermodeinc/dgraph/v25/dql"
+	"github.com/hypermodeinc/dgraph/v25/schema"
 	"github.com/hypermodeinc/modusgraph/api/apiutils"
 	"github.com/hypermodeinc/modusgraph/api/structreflect"
 )

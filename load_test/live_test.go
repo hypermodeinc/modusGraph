@@ -15,8 +15,8 @@ import (
 
 	"github.com/cavaliergopher/grab/v3"
 	"github.com/go-logr/stdr"
-	"github.com/hypermodeinc/dgraph/v24/dgraphapi"
-	"github.com/hypermodeinc/dgraph/v24/systest/1million/common"
+	"github.com/hypermodeinc/dgraph/v25/dgraphapi"
+	"github.com/hypermodeinc/dgraph/v25/systest/1million/common"
 	"github.com/hypermodeinc/modusgraph"
 	"github.com/stretchr/testify/require"
 )

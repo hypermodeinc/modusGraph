@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dgraph-io/dgo/v240/protos/api"
-	"github.com/hypermodeinc/dgraph/v24/protos/pb"
-	"github.com/hypermodeinc/dgraph/v24/types"
+	"github.com/dgraph-io/dgo/v250/protos/api"
+	"github.com/hypermodeinc/dgraph/v25/protos/pb"
+	"github.com/hypermodeinc/dgraph/v25/types"
 	"github.com/pkg/errors"
 	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/wkb"
