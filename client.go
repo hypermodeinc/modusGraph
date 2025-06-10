@@ -92,10 +92,11 @@ var clientMap = make(map[string]Client)
 // namespace: the namespace for the client.
 // logger: the logger for the client.
 type clientOptions struct {
-	autoSchema bool
-	poolSize   int
-	namespace  string
-	logger     logr.Logger
+	autoSchema       bool
+	poolSize         int
+	namespace        string
+	logger           logr.Logger
+	maxEdgeTraversal int
 }
 
 // ClientOpt is a function that configures a client
@@ -129,6 +130,13 @@ func WithLogger(logger logr.Logger) ClientOpt {
 	}
 }
 
+// WithMaxEdgeTraversal sets the maximum number of edges to traverse when fetching an object
+func WithMaxEdgeTraversal(max int) ClientOpt {
+	return func(o *clientOptions) {
+		o.maxEdgeTraversal = max
+	}
+}
+
 // NewClient creates a new graph database client instance based on the provided URI.
 //
 // The function supports two URI schemes:
@@ -150,10 +158,11 @@ func WithLogger(logger logr.Logger) ClientOpt {
 func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 	// Default options
 	options := clientOptions{
-		autoSchema: false,
-		poolSize:   10,
-		namespace:  "",
-		logger:     logr.Discard(), // No-op logger by default
+		autoSchema:       false,
+		poolSize:         10,
+		namespace:        "",
+		maxEdgeTraversal: 10,
+		logger:           logr.Discard(), // No-op logger by default
 	}
 
 	// Apply provided options
@@ -452,7 +461,7 @@ func (c client) Get(ctx context.Context, obj any, uid string) error {
 	defer c.pool.put(client)
 
 	txn := dg.NewReadOnlyTxnContext(ctx, client)
-	return txn.Get(obj).UID(uid).Node()
+	return txn.Get(obj).UID(uid).All(c.options.maxEdgeTraversal).Node()
 }
 
 // Query implements querying similar to dgman's TxnContext.Get method.
