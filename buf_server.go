@@ -46,6 +46,8 @@ func (s *serverWrapper) Query(ctx context.Context, req *api.Request) (*api.Respo
 	s.engine.logger.V(2).Info("Query using namespace", "namespaceID", ns.ID())
 
 	if len(req.Mutations) > 0 {
+		s.engine.logger.V(3).Info("Mutating", "mutations", req.Mutations)
+
 		uids, err := ns.Mutate(ctx, req.Mutations)
 		if err != nil {
 			return nil, fmt.Errorf("engine mutation error: %w", err)
