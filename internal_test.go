@@ -1,6 +1,7 @@
 package modusgraph
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -91,7 +92,7 @@ func TestStructTagsProcessing(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			preds := getUpsertPredicates(tc.input)
+			preds := getUpsertPredicates(reflect.TypeOf(tc.input), make(map[reflect.Type]bool))
 			require.Equal(t, tc.expected, preds)
 		})
 	}

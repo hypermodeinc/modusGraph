@@ -68,3 +68,111 @@ func TestClientUpdate(t *testing.T) {
 		})
 	}
 }
+
+type EmbeddedNodeType struct {
+	Name string `json:"node.name,omitempty" dgraph:"predicate=node.name"`
+
+	UID   string   `json:"uid,omitempty"`
+	DType []string `json:"dgraph.type,omitempty"`
+}
+
+type AllTypes struct {
+	Name      string    `json:"name,omitempty" dgraph:"index=exact"`
+	Age       int       `json:"age,omitempty" dgraph:"index=int"`
+	Bool      bool      `json:"bool,omitempty"`
+	Value     float64   `json:"value,omitempty" dgraph:"index=float"`
+	CreatedAt time.Time `json:"createdAt,omitzero" dgraph:"index=day"`
+	Strings   []string  `json:"strings,omitempty" dgraph:"index=term"`
+
+	Node  *EmbeddedNodeType   `json:"node,omitempty"`
+	Nodes []*EmbeddedNodeType `json:"nodes,omitempty"`
+
+	UID   string   `json:"uid,omitempty"`
+	DType []string `json:"dgraph.type,omitempty"`
+}
+
+func TestClientUpdateAllTypes(t *testing.T) {
+
+	testCases := []struct {
+		name string
+		uri  string
+		skip bool
+	}{
+		{
+			name: "UpdateWithAllTypes",
+			uri:  "file://" + GetTempDir(t),
+		},
+		{
+			name: "UpdateWithAllTypesWithDgraph",
+			uri:  "dgraph://" + os.Getenv("MODUSGRAPH_TEST_ADDR"),
+			skip: os.Getenv("MODUSGRAPH_TEST_ADDR") == "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip {
+				t.Skipf("Skipping %s: MODUSGRAPH_TEST_ADDR not set", tc.name)
+				return
+			}
+
+			client, cleanup := CreateTestClient(t, tc.uri)
+			defer cleanup()
+
+			entity := AllTypes{
+				Name:      "Test Entity",
+				Age:       42,
+				Value:     3.14,
+				CreatedAt: time.Now(),
+				Strings:   []string{"one", "two", "three"},
+				Bool:      true,
+				Node: &EmbeddedNodeType{
+					Name: "Test Node",
+				},
+				Nodes: []*EmbeddedNodeType{
+					{
+						Name: "Node In Array, 1",
+					},
+					{
+						Name: "Node In Array, 2",
+					},
+				},
+			}
+
+			ctx := context.Background()
+			err := client.Insert(ctx, &entity)
+			require.NoError(t, err, "Insert should succeed")
+			require.NotEmpty(t, entity.UID, "UID should be assigned")
+
+			uid := entity.UID
+			entity = AllTypes{}
+			err = client.Get(ctx, &entity, uid)
+			require.NoError(t, err, "Get should succeed")
+			require.Equal(t, "Test Entity", entity.Name, "Name should match")
+			require.Equal(t, 42, entity.Age, "Age should match")
+			require.Equal(t, 3.14, entity.Value, "Value should match")
+			require.Equal(t, entity.CreatedAt, entity.CreatedAt, "CreatedAt should match")
+			require.Equal(t, []string{"one", "two", "three"}, entity.Strings, "Strings should match")
+			require.Equal(t, true, entity.Bool, "Bool should match")
+			require.Equal(t, "Test Node", entity.Node.Name, "Node Name should match")
+			require.NotEmpty(t, entity.Node.UID, "Node UID should be assigned")
+			require.Equal(t, "Node In Array, 1", entity.Nodes[0].Name, "Node In Array Name should match")
+			require.Equal(t, "Node In Array, 2", entity.Nodes[1].Name, "Node In Array Name should match")
+
+			entity.Age = 43
+			entity.Node.Name = "Updated Node"
+			entity.Nodes[0].Name = "Updated Node In Array, 1"
+			entity.Nodes[1].Name = "Updated Node In Array, 2"
+			err = client.Update(ctx, &entity)
+			require.NoError(t, err, "Update should succeed")
+
+			entity = AllTypes{}
+			err = client.Get(ctx, &entity, uid)
+			require.NoError(t, err, "Get should succeed")
+			require.Equal(t, 43, entity.Age, "Age should match")
+			require.Equal(t, "Updated Node", entity.Node.Name, "Node Name should match")
+			require.Equal(t, "Updated Node In Array, 1", entity.Nodes[0].Name, "Node In Array Name should match")
+			require.Equal(t, "Updated Node In Array, 2", entity.Nodes[1].Name, "Node In Array Name should match")
+		})
+	}
+}

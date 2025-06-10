@@ -87,6 +87,69 @@ func TestClientInsert(t *testing.T) {
 	}
 }
 
+type OuterTestEntity struct {
+	Name   string      `json:"name,omitempty" dgraph:"index=exact unique"`
+	Entity *TestEntity `json:"entity"`
+
+	UID   string   `json:"uid,omitempty"`
+	DType []string `json:"dgraph.type,omitempty"`
+}
+
+func TestEmbeddedInsert(t *testing.T) {
+	testCases := []struct {
+		name string
+		uri  string
+		skip bool
+	}{
+		{
+			name: "InsertWithFileURI",
+			uri:  "file://" + GetTempDir(t),
+		},
+		{
+			name: "InsertWithDgraphURI",
+			uri:  "dgraph://" + os.Getenv("MODUSGRAPH_TEST_ADDR"),
+			skip: os.Getenv("MODUSGRAPH_TEST_ADDR") == "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip {
+				t.Skipf("Skipping %s: MODUSGRAPH_TEST_ADDR not set", tc.name)
+				return
+			}
+
+			client, cleanup := CreateTestClient(t, tc.uri)
+			defer cleanup()
+
+			timestamp := time.Now().Truncate(time.Second)
+			entity := OuterTestEntity{
+				Name: "Test Outer Entity",
+				Entity: &TestEntity{
+					Name:        "Test Inner Entity",
+					Description: "This is a test entity for the Insert method",
+					CreatedAt:   timestamp,
+				},
+			}
+
+			ctx := context.Background()
+			err := client.Insert(ctx, &entity)
+			require.NoError(t, err, "Insert should succeed")
+			require.NotEmpty(t, entity.UID, "UID should be assigned")
+
+			uid := entity.UID
+			entity = OuterTestEntity{}
+			err = client.Get(ctx, &entity, uid)
+			require.NoError(t, err, "Get should succeed")
+			require.Equal(t, "Test Outer Entity", entity.Name, "Name should match")
+			require.Equal(t, "Test Inner Entity", entity.Entity.Name, "Entity.Name should match")
+			require.Equal(t, "This is a test entity for the Insert method",
+				entity.Entity.Description, "Entity.Description should match")
+			require.Equal(t, timestamp, entity.Entity.CreatedAt, "Entity.CreatedAt should match")
+		})
+	}
+}
+
 func TestClientInsertMultipleEntities(t *testing.T) {
 	testCases := []struct {
 		name string

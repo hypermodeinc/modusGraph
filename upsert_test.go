@@ -80,7 +80,7 @@ func TestClientUpsert(t *testing.T) {
 
 				newTime := time.Now().Truncate(time.Second)
 				entity = UpsertTestEntity{
-					Name:        "Test Entity",
+					Name:        "Test Entity", // This is the upsert field
 					Description: "Updated description",
 					CreatedAt:   newTime,
 				}
