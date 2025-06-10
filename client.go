@@ -29,7 +29,9 @@ type Client interface {
 
 	// Upsert inserts an object if it doesn't exist or updates it if it does.
 	// This operation requires a field with a unique directive in the dgraph tag.
-	// Note: This operation is not supported in file-based (local) mode.
+	// If no predicates are specified, the first predicate with the `upsert` tag will be used.
+	// If none are specified in the predicates argument, the first predicate with the `upsert` tag
+	// will be used.
 	Upsert(context.Context, any, ...string) error
 
 	// Update modifies an existing object in the database.
@@ -350,7 +352,7 @@ func (c client) upsert(ctx context.Context, obj any, upsertPredicate string) err
 		}
 	}
 
-	upsertPredicates := getUpsertPredicates(schemaObj)
+	upsertPredicates := getUpsertPredicates(reflect.TypeOf(schemaObj), make(map[reflect.Type]bool))
 	if len(upsertPredicates) == 0 {
 		return errors.New("no upsert predicates found")
 	}
@@ -361,7 +363,7 @@ func (c client) upsert(ctx context.Context, obj any, upsertPredicate string) err
 		upsertPredicate = upsertPredicates[0]
 	} else {
 		if !slices.Contains(upsertPredicates, upsertPredicate) {
-			return errors.New("upsert predicate not found")
+			return fmt.Errorf("upsert predicate %q not found", upsertPredicate)
 		}
 	}
 
@@ -391,46 +393,47 @@ func (c client) upsert(ctx context.Context, obj any, upsertPredicate string) err
 	return c.Update(ctx, objValue.Interface())
 }
 
-// getUpsertPredicates returns the Dgraph predicate names of all struct
-// fields with the 'upsert' option in the dgraph tag.
-func getUpsertPredicates(obj any) []string {
-	objType := reflect.TypeOf(obj)
+// getUpsertPredicates returns the Dgraph predicate names of all top-level struct fields
+// with the 'upsert' option in the dgraph tag. Embedded structs are ignored.
+func getUpsertPredicates(objType reflect.Type, _ map[reflect.Type]bool) []string {
+	if objType == nil {
+		return nil
+	}
 	if objType.Kind() == reflect.Ptr {
 		objType = objType.Elem()
 	}
-	upsertPreds := make([]string, 0)
+	if objType.Kind() != reflect.Struct {
+		return nil
+	}
+
+	var upsertPreds []string
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
-		dgraphTag := field.Tag.Get("dgraph")
-		if dgraphTag == "" {
+		tag := field.Tag.Get("dgraph")
+		if tag == "" || !strings.Contains(tag, "upsert") {
 			continue
 		}
-		// Split tag by space, then by comma for each part, to handle tags like 'index=exact upsert'
-		parts := strings.Fields(dgraphTag)
-		var isUpsert bool
-		var predicateName string
+
+		// Check for predicate override
+		var predName string
+		parts := strings.Split(tag, " ")
 		for _, part := range parts {
-			for _, opt := range strings.Split(part, ",") {
-				opt = strings.TrimSpace(opt)
-				if opt == "upsert" {
-					isUpsert = true
-				}
-				if strings.HasPrefix(opt, "predicate=") {
-					predicateName = strings.TrimPrefix(opt, "predicate=")
-				}
+			if strings.HasPrefix(part, "predicate=") {
+				predName = strings.TrimPrefix(part, "predicate=")
+				break
 			}
 		}
-		if isUpsert {
-			if predicateName == "" {
-				jsonTag := field.Tag.Get("json")
-				if jsonTag != "" && jsonTag != "-" {
-					predicateName = strings.Split(jsonTag, ",")[0]
-				} else {
-					predicateName = field.Name
-				}
+		if predName == "" {
+			if jsonTag := field.Tag.Get("json"); jsonTag != "" {
+				predName = strings.Split(jsonTag, ",")[0]
+			} else {
+				predName = field.Name
 			}
-			upsertPreds = append(upsertPreds, predicateName)
 		}
+		upsertPreds = append(upsertPreds, predName)
+	}
+	if upsertPreds == nil {
+		return []string{}
 	}
 	return upsertPreds
 }
