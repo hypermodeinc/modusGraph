@@ -198,30 +198,30 @@ type MyNode struct {
 
 modusGraph uses struct tags to define how each field should be handled in the graph database:
 
-| Directive   | Option   | Description                                                         | Example                                                                              |
-| ----------- | -------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **index**   | exact    | Creates an exact-match index for string fields                      | Name string &#96;json:"name" dgraph:"index=exact"&#96;                               |
-|             | hash     | Creates a hash index (same as exact)                                | Code string &#96;json:"code" dgraph:"index=hash"&#96;                                |
-|             | term     | Creates a term index for text search                                | Description string &#96;json:"description" dgraph:"index=term"&#96;                  |
-|             | fulltext | Creates a full-text search index                                    | Content string &#96;json:"content" dgraph:"index=fulltext"&#96;                      |
-|             | int      | Creates an index for integer fields                                 | Age int &#96;json:"age" dgraph:"index=int"&#96;                                      |
-|             | geo      | Creates a geolocation index                                         | Location &#96;json:"location" dgraph:"index=geo"&#96;                                |
-|             | day      | Creates a day-based index for datetime fields                       | Created time.Time &#96;json:"created" dgraph:"index=day"&#96;                        |
-|             | year     | Creates a year-based index for datetime fields                      | Birthday time.Time &#96;json:"birthday" dgraph:"index=year"&#96;                     |
-|             | month    | Creates a month-based index for datetime fields                     | Hired time.Time &#96;json:"hired" dgraph:"index=month"&#96;                          |
-|             | hour     | Creates an hour-based index for datetime fields                     | Login time.Time &#96;json:"login" dgraph:"index=hour"&#96;                           |
-|             | hnsw     | Creates a vector similarity index                                   | Vector \*dg.VectorFloat32 &#96;json:"vector" dgraph:"index=hnsw(metric:cosine)"&#96; |
-| **type**    | geo      | Specifies a geolocation field                                       | Location &#96;json:"location" dgraph:"type=geo"&#96;                                 |
-|             | datetime | Specifies a datetime field                                          | CreatedAt time.Time &#96;json:"createdAt" dgraph:"type=datetime"&#96;                |
-|             | int      | Specifies an integer field                                          | Count int &#96;json:"count" dgraph:"type=int"&#96;                                   |
-|             | float    | Specifies a floating-point field                                    | Price float64 &#96;json:"price" dgraph:"type=float"&#96;                             |
-|             | bool     | Specifies a boolean field                                           | Active bool &#96;json:"active" dgraph:"type=bool"&#96;                               |
-|             | password | Specifies a password field (stored securely)                        | Password string &#96;json:"password" dgraph:"type=password"&#96;                     |
-| **count**   |          | Creates a count index                                               | Visits int &#96;json:"visits" dgraph:"count"&#96;                                    |
-| **unique**  |          | Enforces uniqueness for the field (remote Dgraph only)              | Email string &#96;json:"email" dgraph:"index=hash unique"&#96;                       |
-| **upsert**  |          | Allows a field to be used in upsert operations (remote Dgraph only) | UserID string &#96;json:"userID" dgraph:"index=hash upsert"&#96;                     |
-| **reverse** |          | Creates a bidirectional edge                                        | Friends []\*Person &#96;json:"friends" dgraph:"reverse"&#96;                         |
-| **lang**    |          | Enables multi-language support for the field                        | Description string &#96;json:"description" dgraph:"lang"&#96;                        |
+| Directive   | Option   | Description                                            | Example                                                                              |
+| ----------- | -------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| **index**   | exact    | Creates an exact-match index for string fields         | Name string &#96;json:"name" dgraph:"index=exact"&#96;                               |
+|             | hash     | Creates a hash index (same as exact)                   | Code string &#96;json:"code" dgraph:"index=hash"&#96;                                |
+|             | term     | Creates a term index for text search                   | Description string &#96;json:"description" dgraph:"index=term"&#96;                  |
+|             | fulltext | Creates a full-text search index                       | Content string &#96;json:"content" dgraph:"index=fulltext"&#96;                      |
+|             | int      | Creates an index for integer fields                    | Age int &#96;json:"age" dgraph:"index=int"&#96;                                      |
+|             | geo      | Creates a geolocation index                            | Location &#96;json:"location" dgraph:"index=geo"&#96;                                |
+|             | day      | Creates a day-based index for datetime fields          | Created time.Time &#96;json:"created" dgraph:"index=day"&#96;                        |
+|             | year     | Creates a year-based index for datetime fields         | Birthday time.Time &#96;json:"birthday" dgraph:"index=year"&#96;                     |
+|             | month    | Creates a month-based index for datetime fields        | Hired time.Time &#96;json:"hired" dgraph:"index=month"&#96;                          |
+|             | hour     | Creates an hour-based index for datetime fields        | Login time.Time &#96;json:"login" dgraph:"index=hour"&#96;                           |
+|             | hnsw     | Creates a vector similarity index                      | Vector \*dg.VectorFloat32 &#96;json:"vector" dgraph:"index=hnsw(metric:cosine)"&#96; |
+| **type**    | geo      | Specifies a geolocation field                          | Location &#96;json:"location" dgraph:"type=geo"&#96;                                 |
+|             | datetime | Specifies a datetime field                             | CreatedAt time.Time &#96;json:"createdAt" dgraph:"type=datetime"&#96;                |
+|             | int      | Specifies an integer field                             | Count int &#96;json:"count" dgraph:"type=int"&#96;                                   |
+|             | float    | Specifies a floating-point field                       | Price float64 &#96;json:"price" dgraph:"type=float"&#96;                             |
+|             | bool     | Specifies a boolean field                              | Active bool &#96;json:"active" dgraph:"type=bool"&#96;                               |
+|             | password | Specifies a password field (stored securely)           | Password string &#96;json:"password" dgraph:"type=password"&#96;                     |
+| **count**   |          | Creates a count index                                  | Visits int &#96;json:"visits" dgraph:"count"&#96;                                    |
+| **unique**  |          | Enforces uniqueness for the field (remote Dgraph only) | Email string &#96;json:"email" dgraph:"index=hash unique"&#96;                       |
+| **upsert**  |          | Allows a field to be used in upsert operations         | UserID string &#96;json:"userID" dgraph:"index=hash upsert"&#96;                     |
+| **reverse** |          | Creates a bidirectional edge                           | Friends []\*Person &#96;json:"friends" dgraph:"reverse"&#96;                         |
+| **lang**    |          | Enables multi-language support for the field           | Description string &#96;json:"description" dgraph:"lang"&#96;                        |
 
 ### Relationships
 
@@ -229,7 +229,7 @@ Relationships between nodes are defined using struct pointers or slices of struc
 
 ```go
 type Person struct {
-    Name     string    `json:"name,omitempty" dgraph:"index=exact"`
+    Name     string    `json:"name,omitempty" dgraph:"index=exact upsert"`
     Friends  []*Person `json:"friends,omitempty"`
     Manager  *Person   `json:"manager,omitempty"`
 
@@ -290,6 +290,32 @@ if err != nil {
 
 // The UID field will be populated after insertion
 fmt.Println("Created user with UID:", user.UID)
+```
+
+### Upserting Data
+
+modusGraph provides a simple API for upserting data into the database.
+
+Note that upserts are only supported on the top-level object. Fields in embedded or lists of
+embedded objects that have upsert tags will be ignored when the top-level object is upserted.
+
+```go
+ctx := context.Background()
+
+user := User{
+    Name:  "John Doe", // this field has the `upsert` tag
+    Email: "john@example.com",
+    Role:  "Admin",
+}
+
+// Upsert the user into the database
+// If "John Doe" does not exist, it will be created
+// If "John Doe" exists, it will be updated
+err := client.Upsert(ctx, &user)
+if err != nil {
+    log.Fatalf("Failed to upsert user: %v", err)
+}
+
 ```
 
 ### Updating Data
@@ -534,10 +560,14 @@ These operations are useful for testing or when you need to reset your database 
 modusGraph has a few limitations to be aware of:
 
 - **Unique constraints in file-based mode**: Due to the intricacies of how Dgraph handles unique
-  fields and upserts in its core package, unique field checks and upsert operations are not
-  supported (yet) when using the local (file-based) mode. These operations work properly when using
-  a full Dgraph cluster, but the simplified file-based mode does not support the constraint
-  enforcement mechanisms required for uniqueness guarantees.
+  fields in its core package, unique field checks are not supported (yet) when using the local
+  (file-based) mode. These operations work properly when using a full Dgraph cluster, but the
+  simplified file-based mode does not support the constraint enforcement mechanisms required for
+  uniqueness guarantees.
+
+- **Upsert operations**: Upsert operations are only supported on the top-level object. Fields in
+  embedded or lists of embedded objects that have upsert tags will be ignored when the top-level
+  object is upserted.
 
 - **Schema evolution**: While modusGraph supports schema inference through tags, evolving an
   existing schema with new fields requires careful consideration to avoid data inconsistencies.
