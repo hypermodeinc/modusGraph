@@ -7,9 +7,12 @@ package modusgraph
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/dgraph-io/dgo/v250"
@@ -27,7 +30,7 @@ type Client interface {
 	// Upsert inserts an object if it doesn't exist or updates it if it does.
 	// This operation requires a field with a unique directive in the dgraph tag.
 	// Note: This operation is not supported in file-based (local) mode.
-	Upsert(context.Context, any) error
+	Upsert(context.Context, any, ...string) error
 
 	// Update modifies an existing object in the database.
 	// The object must be a pointer to a struct and must have a UID field set.
@@ -229,13 +232,25 @@ func (c client) Insert(ctx context.Context, obj any) error {
 }
 
 // Upsert implements inserting or updating an object or slice of objects in the database.
-// Note for local file clients, this is not currently implemented.
-func (c client) Upsert(ctx context.Context, obj any) error {
+// Note that the struct tag `upsert` must be used. One or more predicates can be specified
+// to be used for upserting. If none are specified, the first predicate with the `upsert` tag
+// will be used.
+// Note for local file clients, only the first struct field marked with `upsert` will be used
+// if none are specified in the predicates argument.
+func (c client) Upsert(ctx context.Context, obj any, predicates ...string) error {
 	if c.engine != nil {
-		return errors.New("not implemented")
+		var upsertPredicate string
+		if len(predicates) > 0 {
+			upsertPredicate = predicates[0]
+			if len(predicates) > 1 {
+				c.logger.V(1).Info("Multiple upsert predicates specified, local mode only supports one, using first of this list",
+					"predicates", predicates)
+			}
+		}
+		return c.upsert(ctx, obj, upsertPredicate)
 	}
 	return c.process(ctx, obj, "Upsert", func(tx *dg.TxnContext, obj any) ([]string, error) {
-		return tx.Upsert(obj)
+		return tx.Upsert(obj, predicates...)
 	})
 }
 
@@ -257,8 +272,7 @@ func (c client) process(ctx context.Context,
 	if objKind == reflect.Slice {
 		sliceValue := reflect.Indirect(reflect.ValueOf(obj))
 		if sliceValue.Len() == 0 {
-			err := errors.New("slice cannot be empty")
-			return err
+			return errors.New("slice cannot be empty")
 		}
 		schemaObj = sliceValue.Index(0).Interface()
 	} else {
@@ -294,6 +308,122 @@ func (c client) process(ctx context.Context,
 	}
 	c.logger.V(2).Info(operation+" successful", "uidCount", len(uids))
 	return nil
+}
+
+func (c client) upsert(ctx context.Context, obj any, upsertPredicate string) error {
+	objType := reflect.TypeOf(obj)
+	objKind := objType.Kind()
+	var schemaObj any
+
+	if objKind == reflect.Slice {
+		sliceValue := reflect.Indirect(reflect.ValueOf(obj))
+		if sliceValue.Len() == 0 {
+			err := errors.New("slice cannot be empty")
+			return err
+		}
+		schemaObj = sliceValue.Index(0).Interface()
+	} else {
+		schemaObj = obj
+	}
+
+	err := checkPointer(schemaObj)
+	if err != nil {
+		if objKind == reflect.Slice {
+			err = errors.Join(err, errors.New("slice elements must be pointers"))
+		}
+		return err
+	}
+
+	if c.options.autoSchema {
+		err := c.UpdateSchema(ctx, schemaObj)
+		if err != nil {
+			return err
+		}
+	}
+
+	upsertPredicates := getUpsertPredicates(schemaObj)
+	if len(upsertPredicates) == 0 {
+		return errors.New("no upsert predicates found")
+	}
+	if len(upsertPredicates) > 1 {
+		c.logger.V(1).Info("Multiple upsert predicates found, using first", "predicates", upsertPredicates)
+	}
+	if upsertPredicate == "" {
+		upsertPredicate = upsertPredicates[0]
+	} else {
+		if !slices.Contains(upsertPredicates, upsertPredicate) {
+			return errors.New("upsert predicate not found")
+		}
+	}
+
+	query := fmt.Sprintf(`{
+		q(func: eq(%s, "%s")) {
+			uid
+		}
+	}`, upsertPredicate, obj)
+
+	resp, err := c.QueryRaw(ctx, query, nil)
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return err
+	}
+
+	qSlice, ok := result["q"].([]any)
+	if !ok || len(qSlice) == 0 {
+		return c.Insert(ctx, obj)
+	}
+	uid := qSlice[0].(string)
+	objValue := reflect.ValueOf(schemaObj)
+	objValue.Elem().FieldByName("uid").SetString(uid)
+	return c.Update(ctx, objValue.Interface())
+}
+
+// getUpsertPredicates returns the Dgraph predicate names of all struct
+// fields with the 'upsert' option in the dgraph tag.
+func getUpsertPredicates(obj any) []string {
+	objType := reflect.TypeOf(obj)
+	if objType.Kind() == reflect.Ptr {
+		objType = objType.Elem()
+	}
+	upsertPreds := make([]string, 0)
+	for i := 0; i < objType.NumField(); i++ {
+		field := objType.Field(i)
+		dgraphTag := field.Tag.Get("dgraph")
+		if dgraphTag == "" {
+			continue
+		}
+		// Split tag by space, then by comma for each part, to handle tags like 'index=exact upsert'
+		parts := strings.Fields(dgraphTag)
+		var isUpsert bool
+		var predicateName string
+		for _, part := range parts {
+			for _, opt := range strings.Split(part, ",") {
+				opt = strings.TrimSpace(opt)
+				if opt == "upsert" {
+					isUpsert = true
+				}
+				if strings.HasPrefix(opt, "predicate=") {
+					predicateName = strings.TrimPrefix(opt, "predicate=")
+				}
+			}
+		}
+		if isUpsert {
+			if predicateName == "" {
+				jsonTag := field.Tag.Get("json")
+				if jsonTag != "" && jsonTag != "-" {
+					predicateName = strings.Split(jsonTag, ",")[0]
+				} else {
+					predicateName = field.Name
+				}
+			}
+			upsertPreds = append(upsertPreds, predicateName)
+		}
+	}
+	return upsertPreds
 }
 
 // Delete implements removing objects with the specified UIDs.
