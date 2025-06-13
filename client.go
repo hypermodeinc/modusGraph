@@ -7,12 +7,9 @@ package modusgraph
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"reflect"
-	"slices"
 	"strings"
 
 	"github.com/dgraph-io/dgo/v250"
@@ -91,14 +88,15 @@ var clientMap = make(map[string]Client)
 //
 // autoSchema: whether to automatically manage the schema.
 // poolSize: the size of the dgo client connection pool.
+// maxEdgeTraversal: the maximum number of edges to traverse when querying.
 // namespace: the namespace for the client.
 // logger: the logger for the client.
 type clientOptions struct {
 	autoSchema       bool
 	poolSize         int
+	maxEdgeTraversal int
 	namespace        string
 	logger           logr.Logger
-	maxEdgeTraversal int
 }
 
 // ClientOpt is a function that configures a client
@@ -148,6 +146,7 @@ func WithMaxEdgeTraversal(max int) ClientOpt {
 // Optional configuration can be provided via the opts parameter:
 //   - WithAutoSchema(bool) - Enable/disable automatic schema creation for inserted objects
 //   - WithPoolSize(int) - Set the connection pool size for better performance under load
+//   - WithMaxEdgeTraversal(int) - Set the maximum number of edges to traverse when fetching an object
 //   - WithNamespace(string) - Set the database namespace for multi-tenant installations
 //   - WithLogger(logr.Logger) - Configure structured logging with custom verbosity levels
 //
@@ -228,6 +227,10 @@ type client struct {
 	logger  logr.Logger
 }
 
+func (c client) isLocal() bool {
+	return strings.HasPrefix(c.uri, FileURIPrefix)
+}
+
 func checkPointer(obj any) error {
 	if reflect.TypeOf(obj).Kind() != reflect.Ptr {
 		return errors.New("object must be a pointer")
@@ -237,6 +240,9 @@ func checkPointer(obj any) error {
 
 // Insert implements inserting an object or slice of objects in the database.
 func (c client) Insert(ctx context.Context, obj any) error {
+	if c.isLocal() {
+		return c.mutate(ctx, obj, true)
+	}
 	return c.process(ctx, obj, "Insert", func(tx *dg.TxnContext, obj any) ([]string, error) {
 		return tx.MutateBasic(obj)
 	})
@@ -249,7 +255,7 @@ func (c client) Insert(ctx context.Context, obj any) error {
 // Note for local file clients, only the first struct field marked with `upsert` will be used
 // if none are specified in the predicates argument.
 func (c client) Upsert(ctx context.Context, obj any, predicates ...string) error {
-	if c.engine != nil {
+	if c.isLocal() {
 		var upsertPredicate string
 		if len(predicates) > 0 {
 			upsertPredicate = predicates[0]
@@ -267,175 +273,13 @@ func (c client) Upsert(ctx context.Context, obj any, predicates ...string) error
 
 // Update implements updating an existing object in the database.
 func (c client) Update(ctx context.Context, obj any) error {
+	if c.isLocal() {
+		return c.mutate(ctx, obj, false)
+	}
+
 	return c.process(ctx, obj, "Update", func(tx *dg.TxnContext, obj any) ([]string, error) {
 		return tx.MutateBasic(obj)
 	})
-}
-
-func (c client) process(ctx context.Context,
-	obj any, operation string,
-	txFunc func(*dg.TxnContext, any) ([]string, error)) error {
-
-	objType := reflect.TypeOf(obj)
-	objKind := objType.Kind()
-	var schemaObj any
-
-	if objKind == reflect.Slice {
-		sliceValue := reflect.Indirect(reflect.ValueOf(obj))
-		if sliceValue.Len() == 0 {
-			return errors.New("slice cannot be empty")
-		}
-		schemaObj = sliceValue.Index(0).Interface()
-	} else {
-		schemaObj = obj
-	}
-
-	err := checkPointer(schemaObj)
-	if err != nil {
-		if objKind == reflect.Slice {
-			err = errors.Join(err, errors.New("slice elements must be pointers"))
-		}
-		return err
-	}
-
-	if c.options.autoSchema {
-		err := c.UpdateSchema(ctx, schemaObj)
-		if err != nil {
-			return err
-		}
-	}
-
-	client, err := c.pool.get()
-	if err != nil {
-		c.logger.Error(err, "Failed to get client from pool")
-		return err
-	}
-	defer c.pool.put(client)
-
-	tx := dg.NewTxnContext(ctx, client).SetCommitNow()
-	uids, err := txFunc(tx, obj)
-	if err != nil {
-		return err
-	}
-	c.logger.V(2).Info(operation+" successful", "uidCount", len(uids))
-	return nil
-}
-
-func (c client) upsert(ctx context.Context, obj any, upsertPredicate string) error {
-	objType := reflect.TypeOf(obj)
-	objKind := objType.Kind()
-	var schemaObj any
-
-	if objKind == reflect.Slice {
-		sliceValue := reflect.Indirect(reflect.ValueOf(obj))
-		if sliceValue.Len() == 0 {
-			err := errors.New("slice cannot be empty")
-			return err
-		}
-		schemaObj = sliceValue.Index(0).Interface()
-	} else {
-		schemaObj = obj
-	}
-
-	err := checkPointer(schemaObj)
-	if err != nil {
-		if objKind == reflect.Slice {
-			err = errors.Join(err, errors.New("slice elements must be pointers"))
-		}
-		return err
-	}
-
-	if c.options.autoSchema {
-		err := c.UpdateSchema(ctx, schemaObj)
-		if err != nil {
-			return err
-		}
-	}
-
-	upsertPredicates := getUpsertPredicates(reflect.TypeOf(schemaObj), make(map[reflect.Type]bool))
-	if len(upsertPredicates) == 0 {
-		return errors.New("no upsert predicates found")
-	}
-	if len(upsertPredicates) > 1 {
-		c.logger.V(1).Info("Multiple upsert predicates found, using first", "predicates", upsertPredicates)
-	}
-	if upsertPredicate == "" {
-		upsertPredicate = upsertPredicates[0]
-	} else {
-		if !slices.Contains(upsertPredicates, upsertPredicate) {
-			return fmt.Errorf("upsert predicate %q not found", upsertPredicate)
-		}
-	}
-
-	query := fmt.Sprintf(`{
-		q(func: eq(%s, "%s")) {
-			uid
-		}
-	}`, upsertPredicate, obj)
-
-	resp, err := c.QueryRaw(ctx, query, nil)
-	if err != nil {
-		return err
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return err
-	}
-
-	qSlice, ok := result["q"].([]any)
-	if !ok || len(qSlice) == 0 {
-		return c.Insert(ctx, obj)
-	}
-	uid := qSlice[0].(string)
-	objValue := reflect.ValueOf(schemaObj)
-	objValue.Elem().FieldByName("uid").SetString(uid)
-	return c.Update(ctx, objValue.Interface())
-}
-
-// getUpsertPredicates returns the Dgraph predicate names of all top-level struct fields
-// with the 'upsert' option in the dgraph tag. Embedded structs are ignored.
-func getUpsertPredicates(objType reflect.Type, _ map[reflect.Type]bool) []string {
-	if objType == nil {
-		return nil
-	}
-	if objType.Kind() == reflect.Ptr {
-		objType = objType.Elem()
-	}
-	if objType.Kind() != reflect.Struct {
-		return nil
-	}
-
-	var upsertPreds []string
-	for i := 0; i < objType.NumField(); i++ {
-		field := objType.Field(i)
-		tag := field.Tag.Get("dgraph")
-		if tag == "" || !strings.Contains(tag, "upsert") {
-			continue
-		}
-
-		// Check for predicate override
-		var predName string
-		parts := strings.Split(tag, " ")
-		for _, part := range parts {
-			if strings.HasPrefix(part, "predicate=") {
-				predName = strings.TrimPrefix(part, "predicate=")
-				break
-			}
-		}
-		if predName == "" {
-			if jsonTag := field.Tag.Get("json"); jsonTag != "" {
-				predName = strings.Split(jsonTag, ",")[0]
-			} else {
-				predName = field.Name
-			}
-		}
-		upsertPreds = append(upsertPreds, predName)
-	}
-	if upsertPreds == nil {
-		return []string{}
-	}
-	return upsertPreds
 }
 
 // Delete implements removing objects with the specified UIDs.
@@ -467,7 +311,8 @@ func (c client) Get(ctx context.Context, obj any, uid string) error {
 	return txn.Get(obj).UID(uid).All(c.options.maxEdgeTraversal).Node()
 }
 
-// Query implements querying similar to dgman's TxnContext.Get method.
+// Returns a *dg.Query that can be further refined with filters, pagination, etc.
+// The returned query will be limited to the maximum number of edges specified in the options.
 func (c client) Query(ctx context.Context, model any) *dg.Query {
 	client, err := c.pool.get()
 	if err != nil {
@@ -476,7 +321,7 @@ func (c client) Query(ctx context.Context, model any) *dg.Query {
 	defer c.pool.put(client)
 
 	txn := dg.NewReadOnlyTxnContext(ctx, client)
-	return txn.Get(model)
+	return txn.Get(model).All(c.options.maxEdgeTraversal)
 }
 
 // UpdateSchema implements updating the Dgraph schema. Pass one or more
@@ -531,7 +376,7 @@ func (c client) DropData(ctx context.Context) error {
 
 // QueryRaw implements raw querying (DQL syntax) and optional variables.
 func (c client) QueryRaw(ctx context.Context, q string, vars map[string]string) ([]byte, error) {
-	if c.engine != nil {
+	if c.isLocal() {
 		ns := c.engine.GetDefaultNamespace()
 		resp, err := ns.QueryWithVars(ctx, q, vars)
 		if err != nil {

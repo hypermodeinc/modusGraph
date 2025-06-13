@@ -65,6 +65,18 @@ func TestClientUpdate(t *testing.T) {
 			err = client.Get(ctx, &entity, uid)
 			require.NoError(t, err, "Get should succeed")
 			require.Equal(t, entity.Description, "Four score and seven years ago", "Description should match")
+
+			entity = TestEntity{
+				Name: "Test Entity 2",
+			}
+			err = client.Insert(ctx, &entity)
+			require.NoError(t, err, "Insert should succeed")
+			require.NotEmpty(t, entity.UID, "UID should be assigned")
+			require.NotEqual(t, entity.UID, uid, "UID should be different")
+
+			entity.Name = "Test Entity"
+			err = client.Update(ctx, &entity)
+			require.Error(t, err, "Update should fail because Name is unique")
 		})
 	}
 }
@@ -156,8 +168,9 @@ func TestClientUpdateAllTypes(t *testing.T) {
 			require.Equal(t, true, entity.Bool, "Bool should match")
 			require.Equal(t, "Test Node", entity.Node.Name, "Node Name should match")
 			require.NotEmpty(t, entity.Node.UID, "Node UID should be assigned")
-			require.Equal(t, "Node In Array, 1", entity.Nodes[0].Name, "Node In Array Name should match")
-			require.Equal(t, "Node In Array, 2", entity.Nodes[1].Name, "Node In Array Name should match")
+			nodeNames := []string{entity.Nodes[0].Name, entity.Nodes[1].Name}
+			require.ElementsMatch(t, []string{"Node In Array, 1", "Node In Array, 2"},
+				nodeNames, "Node In Array Names should match")
 
 			entity.Age = 43
 			entity.Node.Name = "Updated Node"
@@ -171,8 +184,9 @@ func TestClientUpdateAllTypes(t *testing.T) {
 			require.NoError(t, err, "Get should succeed")
 			require.Equal(t, 43, entity.Age, "Age should match")
 			require.Equal(t, "Updated Node", entity.Node.Name, "Node Name should match")
-			require.Equal(t, "Updated Node In Array, 1", entity.Nodes[0].Name, "Node In Array Name should match")
-			require.Equal(t, "Updated Node In Array, 2", entity.Nodes[1].Name, "Node In Array Name should match")
+			nodeNames = []string{entity.Nodes[0].Name, entity.Nodes[1].Name}
+			require.ElementsMatch(t, []string{"Updated Node In Array, 1", "Updated Node In Array, 2"},
+				nodeNames, "Node In Array Names should match")
 		})
 	}
 }

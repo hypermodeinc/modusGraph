@@ -7,12 +7,10 @@ package modusgraph_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 	"time"
 
-	dg "github.com/dolan-in/dgman/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,12 +25,6 @@ type UpsertTestEntity struct {
 }
 
 func TestClientUpsert(t *testing.T) {
-
-	os.Setenv("MODUSGRAPH_TEST_ADDR", "localhost:9080")
-
-	typeSchema := dg.NewTypeSchema()
-	typeSchema.Marshal("", UpsertTestEntity{})
-	fmt.Println(typeSchema)
 
 	testCases := []struct {
 		name string
@@ -94,8 +86,16 @@ func TestClientUpsert(t *testing.T) {
 				require.Equal(t, "Test Entity", entity.Name, "Name should match")
 				require.Equal(t, "Updated description", entity.Description, "Description should match")
 				require.Equal(t, newTime, entity.CreatedAt, "CreatedAt should match")
+
+				var entities []UpsertTestEntity
+				err = client.Query(ctx, UpsertTestEntity{}).Nodes(&entities)
+				require.NoError(t, err, "Query should succeed")
+				require.Len(t, entities, 1, "There should only be one entity")
 			})
 			t.Run("upsert with predicate", func(t *testing.T) {
+
+				ctx := context.Background()
+				require.NoError(t, client.DropAll(ctx), "Drop all should succeed")
 
 				entity := UpsertTestEntity{
 					AnotherName: "Test Entity", // This is another upsert field, we have to define it to the call to upsert
@@ -103,7 +103,6 @@ func TestClientUpsert(t *testing.T) {
 					CreatedAt:   time.Date(2021, 6, 9, 17, 22, 33, 0, time.UTC),
 				}
 
-				ctx := context.Background()
 				err := client.Upsert(ctx, &entity, "anotherName")
 				require.NoError(t, err, "Upsert should succeed")
 				require.NotEmpty(t, entity.UID, "UID should be assigned")
@@ -130,6 +129,11 @@ func TestClientUpsert(t *testing.T) {
 				require.Equal(t, "Test Entity", entity.AnotherName, "AnotherName should match")
 				require.Equal(t, "Updated description", entity.Description, "Description should match")
 				require.Equal(t, newTime, entity.CreatedAt, "CreatedAt should match")
+
+				var entities []UpsertTestEntity
+				err = client.Query(ctx, UpsertTestEntity{}).Nodes(&entities)
+				require.NoError(t, err, "Query should succeed")
+				require.Len(t, entities, 1, "There should only be one entity")
 			})
 		})
 	}
