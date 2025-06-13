@@ -70,7 +70,7 @@ func TestClientUpsert(t *testing.T) {
 				require.Equal(t, "Test Entity", entity.Name, "Name should match")
 				require.Equal(t, "This is a test entity for the Upsert method", entity.Description, "Description should match")
 
-				newTime := time.Now().Truncate(time.Second)
+				newTime := time.Now().UTC().Truncate(time.Second)
 				entity = UpsertTestEntity{
 					Name:        "Test Entity", // This is the upsert field
 					Description: "Updated description",
@@ -113,7 +113,7 @@ func TestClientUpsert(t *testing.T) {
 				require.Equal(t, "Test Entity", entity.AnotherName, "AnotherName should match")
 				require.Equal(t, "This is a test entity for the Upsert method", entity.Description, "Description should match")
 
-				newTime := time.Now().Truncate(time.Second)
+				newTime := time.Now().UTC().Truncate(time.Second)
 				entity = UpsertTestEntity{
 					AnotherName: "Test Entity",
 					Description: "Updated description",

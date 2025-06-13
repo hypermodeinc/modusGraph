@@ -127,7 +127,7 @@ func TestEmbeddedInsert(t *testing.T) {
 			client, cleanup := CreateTestClient(t, tc.uri)
 			defer cleanup()
 
-			timestamp := time.Now().Truncate(time.Second)
+			timestamp := time.Now().UTC().Truncate(time.Second)
 			entity := OuterTestEntity{
 				Name: "Test Outer Entity",
 				Entity: &TestEntity{
