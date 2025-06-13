@@ -79,6 +79,7 @@ func NewEngine(conf Config) (*Engine, error) {
 	// setup data directories
 	worker.Config.PostingDir = path.Join(conf.dataDir, "p")
 	worker.Config.WALDir = path.Join(conf.dataDir, "w")
+	worker.Config.TypeFilterUidLimit = 100000
 	x.WorkerConfig.TmpDir = path.Join(conf.dataDir, "t")
 
 	// TODO: optimize these and more options
