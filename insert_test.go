@@ -12,9 +12,10 @@ import (
 	"testing"
 	"time"
 
-	dg "github.com/dolan-in/dgman/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hypermodeinc/modusgraph"
 )
 
 // TestEntity is a test struct used for Insert tests
@@ -78,10 +79,10 @@ func TestClientInsert(t *testing.T) {
 				CreatedAt:   time.Now(),
 			}
 			err = client.Insert(ctx, &entity)
-			require.Error(t, err, "Insert should fail because Name is unique")
+			require.Error(t, err, "Insert should fail")
 			if strings.HasPrefix(tc.uri, "file://") {
-				require.IsType(t, &dg.UniqueError{}, err, "Error should be a UniqueError")
-				require.Equal(t, uid, err.(*dg.UniqueError).UID, "UID should match")
+				require.IsType(t, &modusgraph.UniqueError{}, err, "Error should be a UniqueError")
+				require.Equal(t, uid, err.(*modusgraph.UniqueError).UID, "UID should match")
 			}
 
 			var entities []TestEntity
