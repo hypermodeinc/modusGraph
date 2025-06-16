@@ -18,7 +18,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// Client provides an interface for Dgraph operations
+// Client provides an interface for ModusGraph operations
 type Client interface {
 	// Insert adds a new object or slice of objects to the database.
 	// The object must be a pointer to a struct with appropriate dgraph tags.
@@ -75,11 +75,11 @@ type Client interface {
 }
 
 const (
-	// DgraphURIPrefix is the prefix for Dgraph server connections
-	DgraphURIPrefix = "dgraph://"
+	// dgraphURIPrefix is the prefix for Dgraph server connections
+	dgraphURIPrefix = "dgraph://"
 
-	// FileURIPrefix is the prefix for file-based local connections
-	FileURIPrefix = "file://"
+	// fileURIPrefix is the prefix for file-based local connections
+	fileURIPrefix = "file://"
 )
 
 var clientMap = make(map[string]Client)
@@ -183,16 +183,16 @@ func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 	}
 
 	switch {
-	case strings.HasPrefix(uri, DgraphURIPrefix):
+	case strings.HasPrefix(uri, dgraphURIPrefix):
 		client.pool = newClientPool(options.poolSize, func() (*dgo.Dgraph, error) {
 			client.logger.V(2).Info("Opening new Dgraph connection", "uri", uri)
 			return dgo.Open(uri)
 		}, client.logger)
 		dg.SetLogger(client.logger)
 		return client, nil
-	case strings.HasPrefix(uri, FileURIPrefix):
+	case strings.HasPrefix(uri, fileURIPrefix):
 		// parse off the file:// prefix
-		uri = uri[len(FileURIPrefix):]
+		uri = uri[len(fileURIPrefix):]
 		if _, err := os.Stat(uri); err != nil {
 			return nil, err
 		}
@@ -228,7 +228,7 @@ type client struct {
 }
 
 func (c client) isLocal() bool {
-	return strings.HasPrefix(c.uri, FileURIPrefix)
+	return strings.HasPrefix(c.uri, fileURIPrefix)
 }
 
 func checkPointer(obj any) error {
@@ -239,9 +239,10 @@ func checkPointer(obj any) error {
 }
 
 // Insert implements inserting an object or slice of objects in the database.
+// Passed object must be a pointer to a struct.
 func (c client) Insert(ctx context.Context, obj any) error {
 	if c.isLocal() {
-		return c.mutate(ctx, obj, true)
+		return c.mutateWithUniqueVerification(ctx, obj, true)
 	}
 	return c.process(ctx, obj, "Insert", func(tx *dg.TxnContext, obj any) ([]string, error) {
 		return tx.MutateBasic(obj)
@@ -272,9 +273,10 @@ func (c client) Upsert(ctx context.Context, obj any, predicates ...string) error
 }
 
 // Update implements updating an existing object in the database.
+// Passed object must be a pointer to a struct.
 func (c client) Update(ctx context.Context, obj any) error {
 	if c.isLocal() {
-		return c.mutate(ctx, obj, false)
+		return c.mutateWithUniqueVerification(ctx, obj, false)
 	}
 
 	return c.process(ctx, obj, "Update", func(tx *dg.TxnContext, obj any) ([]string, error) {
@@ -296,6 +298,7 @@ func (c client) Delete(ctx context.Context, uids []string) error {
 }
 
 // Get implements retrieving a single object by its UID.
+// Passed object must be a pointer to a struct.
 func (c client) Get(ctx context.Context, obj any, uid string) error {
 	err := checkPointer(obj)
 	if err != nil {

@@ -17,32 +17,57 @@ import (
 	dg "github.com/dolan-in/dgman/v2"
 )
 
+func checkObject(obj any) (any, error) {
+	val := reflect.ValueOf(obj)
+
+	// Handle pointer to slice case
+	if val.Kind() == reflect.Ptr && val.Elem().Kind() == reflect.Slice {
+		sliceVal := val.Elem()
+		if sliceVal.Len() == 0 {
+			return nil, errors.New("slice cannot be empty")
+		}
+
+		// Check that elements are pointers
+		firstElem := sliceVal.Index(0)
+		if firstElem.Kind() != reflect.Ptr {
+			return nil, errors.New("slice elements must be pointers")
+		}
+
+		return firstElem.Interface(), nil
+	}
+
+	// Handle direct slice case
+	if val.Kind() == reflect.Slice {
+		if val.Len() == 0 {
+			return nil, errors.New("slice cannot be empty")
+		}
+
+		// Check that elements are pointers
+		firstElem := val.Index(0)
+		if firstElem.Kind() != reflect.Ptr {
+			return nil, errors.New("slice elements must be pointers")
+		}
+
+		return firstElem.Interface(), nil
+	}
+
+	// Handle single object case
+	if val.Kind() != reflect.Ptr {
+		return obj, errors.New("object must be a pointer")
+	}
+
+	// It's a pointer to a non-slice object
+	return obj, nil
+}
+
 func (c client) process(ctx context.Context,
 	obj any, operation string,
 	txFunc func(*dg.TxnContext, any) ([]string, error)) error {
 
-	objType := reflect.TypeOf(obj)
-	objKind := objType.Kind()
-	var schemaObj any
-
-	if objKind == reflect.Slice {
-		sliceValue := reflect.Indirect(reflect.ValueOf(obj))
-		if sliceValue.Len() == 0 {
-			return errors.New("slice cannot be empty")
-		}
-		schemaObj = sliceValue.Index(0).Interface()
-	} else {
-		schemaObj = obj
-	}
-
-	err := checkPointer(schemaObj)
+	schemaObj, err := checkObject(obj)
 	if err != nil {
-		if objKind == reflect.Slice {
-			err = errors.Join(err, errors.New("slice elements must be pointers"))
-		}
 		return err
 	}
-
 	if c.options.autoSchema {
 		err := c.UpdateSchema(ctx, schemaObj)
 		if err != nil {
@@ -66,41 +91,58 @@ func (c client) process(ctx context.Context,
 	return nil
 }
 
-func (c client) mutate(ctx context.Context, obj any, insert bool) error {
-	objType := reflect.TypeOf(obj)
-	objKind := objType.Kind()
-	var schemaObj any
+func (c client) mutateWithUniqueVerification(ctx context.Context, obj any, insert bool) error {
 
-	if objKind == reflect.Slice {
-		sliceValue := reflect.Indirect(reflect.ValueOf(obj))
-		if sliceValue.Len() == 0 {
-			err := errors.New("slice cannot be empty")
-			return err
-		}
-		schemaObj = sliceValue.Index(0).Interface()
-	} else {
-		schemaObj = obj
-	}
-
-	err := checkPointer(schemaObj)
+	schemaObj, err := checkObject(obj)
 	if err != nil {
-		if objKind == reflect.Slice {
-			err = errors.Join(err, errors.New("slice elements must be pointers"))
-		}
 		return err
 	}
-
 	if c.options.autoSchema {
-		err := c.UpdateSchema(ctx, schemaObj)
-		if err != nil {
+		if err := c.UpdateSchema(ctx, schemaObj); err != nil {
 			return err
 		}
 	}
 
-	uniquePredicates := getUniquePredicates(schemaObj)
-	if len(uniquePredicates) > 0 {
-		nodeType := getNodeType(schemaObj)
-		query, vars := generateUniquePredicateQuery(uniquePredicates, nodeType)
+	// Get the value and prepare for unified slice processing
+	val := reflect.ValueOf(obj)
+	var sliceValue reflect.Value
+
+	// Handle pointer to slice
+	if val.Kind() == reflect.Ptr && val.Elem().Kind() == reflect.Slice {
+		sliceValue = val.Elem()
+	} else if val.Kind() == reflect.Slice {
+		// Direct slice
+		sliceValue = val
+	} else {
+		// Single object - create a slice with one element
+		valElem := val
+		for valElem.Kind() == reflect.Ptr {
+			valElem = valElem.Elem()
+		}
+		sliceType := reflect.SliceOf(valElem.Type())
+		sliceValue = reflect.MakeSlice(sliceType, 1, 1)
+		sliceValue.Index(0).Set(valElem)
+	}
+
+	seen := make(map[string]int)
+	for i := 0; i < sliceValue.Len(); i++ {
+		elem := sliceValue.Index(i).Interface()
+		preds := getUniquePredicates(elem)
+		if len(preds) == 0 {
+			continue
+		}
+		// In-memory duplicate check
+		sig := ""
+		for k, v := range preds {
+			sig += fmt.Sprintf("%s=%v;", k, v)
+		}
+		if prev, ok := seen[sig]; ok {
+			return fmt.Errorf("duplicate unique predicates in slice at indices %d and %d", prev, i)
+		}
+		seen[sig] = i
+		// Persistent uniqueness check
+		nodeType := getNodeType(elem)
+		query, vars := generateUniquePredicateQuery(preds, nodeType)
 		resp, err := c.QueryRaw(ctx, query, vars)
 		if err != nil {
 			return err
@@ -109,7 +151,7 @@ func (c client) mutate(ctx context.Context, obj any, insert bool) error {
 		if err != nil {
 			return err
 		}
-		if uid != "" && (insert || uid != getUIDValue(schemaObj)) {
+		if uid != "" && (insert || uid != getUIDValue(elem)) {
 			return &dg.UniqueError{NodeType: nodeType, UID: uid}
 		}
 	}
@@ -131,29 +173,11 @@ func (c client) mutate(ctx context.Context, obj any, insert bool) error {
 }
 
 func (c client) upsert(ctx context.Context, obj any, upsertPredicate string) error {
-	objType := reflect.TypeOf(obj)
-	objKind := objType.Kind()
-	var schemaObj any
 
-	if objKind == reflect.Slice {
-		sliceValue := reflect.Indirect(reflect.ValueOf(obj))
-		if sliceValue.Len() == 0 {
-			err := errors.New("slice cannot be empty")
-			return err
-		}
-		schemaObj = sliceValue.Index(0).Interface()
-	} else {
-		schemaObj = obj
-	}
-
-	err := checkPointer(schemaObj)
+	schemaObj, err := checkObject(obj)
 	if err != nil {
-		if objKind == reflect.Slice {
-			err = errors.Join(err, errors.New("slice elements must be pointers"))
-		}
 		return err
 	}
-
 	if c.options.autoSchema {
 		err := c.UpdateSchema(ctx, schemaObj)
 		if err != nil {

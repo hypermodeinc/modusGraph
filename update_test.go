@@ -7,6 +7,7 @@ package modusgraph_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -77,6 +78,101 @@ func TestClientUpdate(t *testing.T) {
 			entity.Name = "Test Entity"
 			err = client.Update(ctx, &entity)
 			require.Error(t, err, "Update should fail because Name is unique")
+		})
+	}
+}
+
+func TestClientUpdateWithSlices(t *testing.T) {
+	os.Setenv("MODUSGRAPH_TEST_ADDR", "localhost:9080")
+
+	testCases := []struct {
+		name string
+		uri  string
+		skip bool
+	}{
+		{
+			name: "UpdateWithSlicesWithFileURI",
+			uri:  "file://" + GetTempDir(t),
+		},
+		{
+			name: "UpdateWithSlicesWithDgraph",
+			uri:  "dgraph://" + os.Getenv("MODUSGRAPH_TEST_ADDR"),
+			skip: os.Getenv("MODUSGRAPH_TEST_ADDR") == "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip {
+				t.Skipf("Skipping %s: MODUSGRAPH_TEST_ADDR not set", tc.name)
+				return
+			}
+
+			client, cleanup := CreateTestClient(t, tc.uri)
+			defer cleanup()
+
+			ctx := context.Background()
+			err := client.DropAll(ctx)
+			require.NoError(t, err, "DropAll should succeed")
+
+			// 1. Test successful batch update
+			entitiesToInsert := []*TestEntity{
+				{Name: "Batch Entity 1", Description: "Initial description 1"},
+				{Name: "Batch Entity 2", Description: "Initial description 2"},
+				{Name: "Batch Entity 3", Description: "Initial description 3"},
+			}
+
+			err = client.Insert(ctx, entitiesToInsert)
+			require.NoError(t, err, "Batch insert should succeed")
+			for i, entity := range entitiesToInsert {
+				require.NotEmpty(t, entity.UID, "Entity %d should have a UID", i)
+			}
+
+			for i := range entitiesToInsert {
+				entitiesToInsert[i].Description = fmt.Sprintf("Updated description %d", i+1)
+			}
+
+			err = client.Update(ctx, entitiesToInsert)
+			require.NoError(t, err, "Batch update should succeed")
+
+			for i, entity := range entitiesToInsert {
+				var fetched TestEntity
+				err = client.Get(ctx, &fetched, entity.UID)
+				require.NoError(t, err, "Get should succeed for entity %d", i)
+				require.Equal(t, fmt.Sprintf("Updated description %d", i+1), fetched.Description,
+					"Description should be updated for entity %d", i)
+			}
+
+			// 2. Test in-memory duplicate detection in slice
+			duplicateEntities := []*TestEntity{
+				{UID: entitiesToInsert[0].UID, Name: "Duplicate Name"},
+				{UID: entitiesToInsert[1].UID, Name: "Duplicate Name"}, // Same name as first entity
+			}
+
+			err = client.Update(ctx, &duplicateEntities)
+			require.Error(t, err, "Update should fail due to duplicate names in the slice")
+
+			// 3. Test database-level unique constraint violation
+			uniqueName := "Unique Entity Name"
+			newEntity := TestEntity{Name: uniqueName}
+			err = client.Insert(ctx, &newEntity)
+			require.NoError(t, err, "Insert should succeed for new entity")
+
+			conflictEntity := TestEntity{
+				UID:  entitiesToInsert[0].UID,
+				Name: uniqueName, // This will conflict with newEntity
+			}
+			err = client.Update(ctx, &conflictEntity)
+			require.Error(t, err, "Update should fail due to unique constraint violation")
+
+			// 4. Test mixed batch with some valid and some invalid updates
+			mixedEntities := []*TestEntity{
+				{UID: entitiesToInsert[0].UID, Description: "This update would be valid"}, // Valid
+				{UID: entitiesToInsert[1].UID, Name: uniqueName},                          // Invalid - name conflict
+			}
+
+			err = client.Update(ctx, mixedEntities)
+			require.Error(t, err, "Update should fail due to unique constraint violation in batch")
 		})
 	}
 }
