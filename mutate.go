@@ -17,32 +17,17 @@ import (
 	dg "github.com/dolan-in/dgman/v2"
 )
 
+// checkObject validates the passed obj. If it's a slice or a pointer
+// to a slice, it returns the first element of the slice. Ultimately,
+// the object discovered must be pointer.
 func checkObject(obj any) (any, error) {
 	val := reflect.ValueOf(obj)
 
-	// Handle pointer to slice case
-	if val.Kind() == reflect.Ptr && val.Elem().Kind() == reflect.Slice {
-		sliceVal := val.Elem()
-		if sliceVal.Len() == 0 {
-			return nil, errors.New("slice cannot be empty")
-		}
-
-		// Check that elements are pointers
-		firstElem := sliceVal.Index(0)
-		if firstElem.Kind() != reflect.Ptr {
-			return nil, errors.New("slice elements must be pointers")
-		}
-
-		return firstElem.Interface(), nil
-	}
-
-	// Handle direct slice case
-	if val.Kind() == reflect.Slice {
+	validateSlice := func(val reflect.Value) (interface{}, error) {
 		if val.Len() == 0 {
 			return nil, errors.New("slice cannot be empty")
 		}
 
-		// Check that elements are pointers
 		firstElem := val.Index(0)
 		if firstElem.Kind() != reflect.Ptr {
 			return nil, errors.New("slice elements must be pointers")
@@ -51,12 +36,17 @@ func checkObject(obj any) (any, error) {
 		return firstElem.Interface(), nil
 	}
 
-	// Handle single object case
+	if val.Kind() == reflect.Ptr && val.Elem().Kind() == reflect.Slice {
+		return validateSlice(val.Elem())
+	}
+
+	if val.Kind() == reflect.Slice {
+		return validateSlice(val)
+	}
+
 	if val.Kind() != reflect.Ptr {
 		return obj, errors.New("object must be a pointer")
 	}
-
-	// It's a pointer to a non-slice object
 	return obj, nil
 }
 
@@ -178,10 +168,33 @@ func (c client) upsert(ctx context.Context, obj any, upsertPredicate string) err
 	if err != nil {
 		return err
 	}
-	if c.options.autoSchema {
-		err := c.UpdateSchema(ctx, schemaObj)
-		if err != nil {
-			return err
+
+	// users can pass slices, so check for that
+	val := reflect.ValueOf(obj)
+	var sliceValue reflect.Value
+
+	// Handle pointer to slice
+	if val.Kind() == reflect.Ptr && val.Elem().Kind() == reflect.Slice {
+		sliceValue = val.Elem()
+	} else if val.Kind() == reflect.Slice {
+		// Direct slice
+		sliceValue = val
+	}
+	if sliceValue.IsValid() && sliceValue.Len() > 0 {
+		for i := 0; i < sliceValue.Len(); i++ {
+			elem := sliceValue.Index(i).Interface()
+			err := c.upsert(ctx, elem, upsertPredicate)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	} else {
+		if c.options.autoSchema {
+			err := c.UpdateSchema(ctx, schemaObj)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

@@ -8,6 +8,7 @@ package modusgraph_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,7 +53,7 @@ func TestClientUpsert(t *testing.T) {
 			client, cleanup := CreateTestClient(t, tc.uri)
 			defer cleanup()
 
-			t.Run("basic test", func(t *testing.T) {
+			t.Run("basic upsert", func(t *testing.T) {
 				entity := UpsertTestEntity{
 					Name:        "Test Entity", // This is the upsert field
 					Description: "This is a test entity for the Upsert method",
@@ -135,6 +136,108 @@ func TestClientUpsert(t *testing.T) {
 				require.NoError(t, err, "Query should succeed")
 				require.Len(t, entities, 1, "There should only be one entity")
 			})
+		})
+	}
+}
+
+func TestClientUpsertSlice(t *testing.T) {
+
+	testCases := []struct {
+		name string
+		uri  string
+		skip bool
+	}{
+		{
+			name: "UpsertSliceWithFileURI",
+			uri:  "file://" + GetTempDir(t),
+		},
+		{
+			name: "UpsertSliceWithDgraphURI",
+			uri:  "dgraph://" + os.Getenv("MODUSGRAPH_TEST_ADDR"),
+			skip: os.Getenv("MODUSGRAPH_TEST_ADDR") == "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip {
+				t.Skipf("Skipping %s: MODUSGRAPH_TEST_ADDR not set", tc.name)
+				return
+			}
+			if strings.HasPrefix(tc.uri, "dgraph://") {
+				t.Skipf("Skipping %s: Dgraph URI not supported for upserting slices", tc.name)
+				return
+			}
+
+			client, cleanup := CreateTestClient(t, tc.uri)
+			defer cleanup()
+
+			ctx := context.Background()
+			require.NoError(t, client.DropAll(ctx), "Drop all should succeed")
+
+			entities := []*UpsertTestEntity{
+				{
+					Name:        "Test Entity 1",
+					Description: "This is a test entity for the Upsert method 1",
+					CreatedAt:   time.Date(2021, 6, 9, 17, 22, 33, 0, time.UTC),
+				},
+				{
+					Name:        "Test Entity 2",
+					Description: "This is a test entity for the Upsert method 2",
+					CreatedAt:   time.Date(2021, 6, 9, 17, 22, 34, 0, time.UTC),
+				},
+			}
+
+			err := client.Upsert(ctx, &entities) // Here, no need to pass address of entities, but we handle it
+			require.NoError(t, err, "Upsert should succeed")
+
+			var entities2 []UpsertTestEntity
+			err = client.Query(ctx, UpsertTestEntity{}).Nodes(&entities2)
+			require.NoError(t, err, "Query should succeed")
+			require.Len(t, entities2, 2, "There should be two entities")
+
+			findMatchingEntity := func(entities []UpsertTestEntity, name string) *UpsertTestEntity {
+				for i := range entities {
+					if entities[i].Name == name {
+						return &entities[i]
+					}
+				}
+				return nil
+			}
+
+			// Check first entity
+			entity1 := findMatchingEntity(entities2, entities[0].Name)
+			require.NotNil(t, entity1, "Should find entity with name %s", entities[0].Name)
+			require.Equal(t, entities[0].Description, entity1.Description, "Description should match")
+			require.Equal(t, entities[0].CreatedAt, entity1.CreatedAt, "CreatedAt should match")
+
+			// Check second entity
+			entity2 := findMatchingEntity(entities2, entities[1].Name)
+			require.NotNil(t, entity2, "Should find entity with name %s", entities[1].Name)
+			require.Equal(t, entities[1].Description, entity2.Description, "Description should match")
+			require.Equal(t, entities[1].CreatedAt, entity2.CreatedAt, "CreatedAt should match")
+
+			entities[0].Name = "Test Entity 1"
+			entities[0].Description = "Updated description"
+			entities[1].Name = "Test Entity 2"
+			entities[1].Description = "Updated description"
+			err = client.Upsert(ctx, entities)
+			require.NoError(t, err, "Upsert should succeed")
+
+			var entities3 []UpsertTestEntity
+			err = client.Query(ctx, UpsertTestEntity{}).Nodes(&entities3)
+			require.NoError(t, err, "Query should succeed")
+			require.Len(t, entities3, 2, "There should be two entities")
+
+			entity1 = findMatchingEntity(entities3, entities[0].Name)
+			require.NotNil(t, entity1, "Should find entity with name %s", entities[0].Name)
+			require.Equal(t, entities[0].Description, entity1.Description, "Description should match")
+			require.Equal(t, entities[0].CreatedAt, entity1.CreatedAt, "CreatedAt should match")
+
+			entity2 = findMatchingEntity(entities3, entities[1].Name)
+			require.NotNil(t, entity2, "Should find entity with name %s", entities[1].Name)
+			require.Equal(t, entities[1].Description, entity2.Description, "Description should match")
+			require.Equal(t, entities[1].CreatedAt, entity2.CreatedAt, "CreatedAt should match")
 		})
 	}
 }
