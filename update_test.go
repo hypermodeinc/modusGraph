@@ -83,7 +83,6 @@ func TestClientUpdate(t *testing.T) {
 }
 
 func TestClientUpdateWithSlices(t *testing.T) {
-	os.Setenv("MODUSGRAPH_TEST_ADDR", "localhost:9080")
 
 	testCases := []struct {
 		name string
