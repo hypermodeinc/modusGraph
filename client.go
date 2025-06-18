@@ -8,9 +8,11 @@ package modusgraph
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/dgraph-io/dgo/v250"
 	"github.com/dgraph-io/dgo/v250/protos/api"
@@ -82,7 +84,10 @@ const (
 	fileURIPrefix = "file://"
 )
 
-var clientMap = make(map[string]Client)
+var (
+	clientMap     = make(map[string]Client)
+	clientMapLock sync.RWMutex
+)
 
 // clientOptions holds configuration options for the client.
 //
@@ -182,6 +187,13 @@ func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 		logger:  options.logger,
 	}
 
+	clientMapLock.Lock()
+	defer clientMapLock.Unlock()
+	key := client.key()
+	if _, ok := clientMap[key]; ok {
+		return clientMap[key], nil
+	}
+
 	switch {
 	case strings.HasPrefix(uri, dgraphURIPrefix):
 		client.pool = newClientPool(options.poolSize, func() (*dgo.Dgraph, error) {
@@ -189,15 +201,13 @@ func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 			return dgo.Open(uri)
 		}, client.logger)
 		dg.SetLogger(client.logger)
+		clientMap[key] = client
 		return client, nil
 	case strings.HasPrefix(uri, fileURIPrefix):
 		// parse off the file:// prefix
 		uri = uri[len(fileURIPrefix):]
 		if _, err := os.Stat(uri); err != nil {
 			return nil, err
-		}
-		if c, ok := clientMap[uri]; ok {
-			return c, nil
 		}
 		engine, err := NewEngine(Config{
 			dataDir: uri,
@@ -207,12 +217,12 @@ func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 			return nil, err
 		}
 		client.engine = engine
-		clientMap[uri] = client
 		client.pool = newClientPool(options.poolSize, func() (*dgo.Dgraph, error) {
 			client.logger.V(2).Info("Getting Dgraph client from engine", "location", uri)
 			return engine.GetClient()
 		}, client.logger)
 		dg.SetLogger(client.logger)
+		clientMap[key] = client
 		return client, nil
 	}
 	return nil, errors.New("invalid uri")
@@ -229,6 +239,11 @@ type client struct {
 
 func (c client) isLocal() bool {
 	return strings.HasPrefix(c.uri, fileURIPrefix)
+}
+
+func (c client) key() string {
+	return fmt.Sprintf("%s:%t:%d:%d:%s", c.uri, c.options.autoSchema, c.options.poolSize,
+		c.options.maxEdgeTraversal, c.options.namespace)
 }
 
 func checkPointer(obj any) error {
