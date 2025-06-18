@@ -144,8 +144,8 @@ github.com/docker/go-connections v0.5.0 h1:USnMq7hx7gwdVZq1L49hLXaFtUdTADjXGp+uj
 github.com/docker/go-connections v0.5.0/go.mod h1:ov60Kzw0kKElRwhNs9UlUHAE/F9Fe6GLaXnqyDdmEXc=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
-github.com/dolan-in/dgman/v2 v2.1.0-preview1 h1:NQXhHGuwja7saHOivmBobj+JtyvcxXtEUjt0wRkFGHU=
-github.com/dolan-in/dgman/v2 v2.1.0-preview1/go.mod h1:5OqMqJelDvhvdxgKc4CXkb7FApSJHhTxm79xZJsblOE=
+github.com/dolan-in/dgman/v2 v2.1.0-preview2 h1:txflVWSbjgu6Q5Lhf4kImT4tM61Pu6JLjbifu9RauhE=
+github.com/dolan-in/dgman/v2 v2.1.0-preview2/go.mod h1:5OqMqJelDvhvdxgKc4CXkb7FApSJHhTxm79xZJsblOE=
 github.com/dolan-in/reflectwalk v1.0.2-0.20210101124621-dc2073a29d71 h1:v3bErDrPApxsyBlz8/8nFTCb7Ai0wecA8TokfEHIQ80=
 github.com/dolan-in/reflectwalk v1.0.2-0.20210101124621-dc2073a29d71/go.mod h1:Y9TyDkSL5jQ18ZnDaSxOdCUhbb5SCeamqYFQ7LYxxFs=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
