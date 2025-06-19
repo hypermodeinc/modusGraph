@@ -243,3 +243,63 @@ func TestClientPoolMisuse(t *testing.T) {
 	// Shutdown at the end of the test to ensure the next test can start fresh
 	mg.Shutdown()
 }
+
+func TestLocalClientSingleton(t *testing.T) {
+	path := GetTempDir(t)
+	client, err := mg.NewClient("file://" + path)
+	require.NoError(t, err)
+	defer client.Close()
+
+	client2, err := mg.NewClient("file://" + path)
+	require.NoError(t, err)
+	require.Equal(t, client, client2, "Expected the same client instance")
+	defer client2.Close()
+
+	_, err = mg.NewClient("file://"+path, mg.WithAutoSchema(true)) // will create a new client "key"
+	require.Error(t, err, "Expected an error when creating a new client with different options")
+	require.ErrorIs(t, err, mg.ErrSingletonOnly)
+}
+
+func TestRemoteClientAccess(t *testing.T) {
+
+	if os.Getenv("MODUSGRAPH_TEST_ADDR") == "" {
+		t.Skip("Skipping test as MODUSGRAPH_TEST_ADDR is not set")
+	}
+
+	client, err := mg.NewClient("dgraph://" + os.Getenv("MODUSGRAPH_TEST_ADDR"))
+	require.NoError(t, err)
+	defer client.Close()
+
+	client2, err := mg.NewClient("dgraph://" + os.Getenv("MODUSGRAPH_TEST_ADDR"))
+	require.NoError(t, err)
+	require.Equal(t, client, client2, "Expected the same client instance")
+	defer client2.Close()
+
+	client3, err := mg.NewClient("dgraph://"+os.Getenv("MODUSGRAPH_TEST_ADDR"), mg.WithAutoSchema(true))
+	require.NoError(t, err)
+	require.NotEqual(t, client, client3, "Expected a different client instance")
+	defer client3.Close()
+
+	query := "query { q(func: uid(1)) { uid } }"
+	ctx := context.Background()
+
+	// run the three clients in go routines to test concurrency
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		_, err := client.QueryRaw(ctx, query, nil)
+		require.NoError(t, err)
+	}()
+	go func() {
+		defer wg.Done()
+		_, err := client2.QueryRaw(ctx, query, nil)
+		require.NoError(t, err)
+	}()
+	go func() {
+		defer wg.Done()
+		_, err := client3.QueryRaw(ctx, query, nil)
+		require.NoError(t, err)
+	}()
+	wg.Wait()
+}

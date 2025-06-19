@@ -7,7 +7,6 @@ package modusgraph_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -15,6 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hypermodeinc/modusgraph"
 )
 
 // TestEntity is a test struct used for Insert tests
@@ -72,22 +73,91 @@ func TestClientInsert(t *testing.T) {
 			require.Equal(t, entity.Description, "This is a test entity for the Insert method", "Description should match")
 
 			// Try to insert the same entity again, should fail due to unique constraint
-			// Note this doesn't work for local file clients at this time (planned improvement)
-			if !strings.HasPrefix(tc.uri, "file://") {
-				entity = TestEntity{
-					Name:        "Test Entity",
-					Description: "This is a test entity for the Insert method 2",
-					CreatedAt:   time.Now(),
-				}
-				err = client.Insert(ctx, &entity)
-				fmt.Println(err)
-				require.Error(t, err, "Insert should fail because Name is unique")
+			entity = TestEntity{
+				Name:        "Test Entity",
+				Description: "This is a test entity for the Insert method 2",
+				CreatedAt:   time.Now(),
 			}
+			err = client.Insert(ctx, &entity)
+			require.Error(t, err, "Insert should fail")
+			if strings.HasPrefix(tc.uri, "file://") {
+				require.IsType(t, &modusgraph.UniqueError{}, err, "Error should be a UniqueError")
+				require.Equal(t, uid, err.(*modusgraph.UniqueError).UID, "UID should match")
+			}
+
+			var entities []TestEntity
+			err = client.Query(ctx, TestEntity{}).Nodes(&entities)
+			require.NoError(t, err, "Query should succeed")
+			require.Len(t, entities, 1, "There should only be one entity")
+		})
+	}
+}
+
+type OuterTestEntity struct {
+	Name   string      `json:"name,omitempty" dgraph:"index=exact unique"`
+	Entity *TestEntity `json:"entity"`
+
+	UID   string   `json:"uid,omitempty"`
+	DType []string `json:"dgraph.type,omitempty"`
+}
+
+func TestEmbeddedInsert(t *testing.T) {
+	testCases := []struct {
+		name string
+		uri  string
+		skip bool
+	}{
+		{
+			name: "InsertWithFileURI",
+			uri:  "file://" + GetTempDir(t),
+		},
+		{
+			name: "InsertWithDgraphURI",
+			uri:  "dgraph://" + os.Getenv("MODUSGRAPH_TEST_ADDR"),
+			skip: os.Getenv("MODUSGRAPH_TEST_ADDR") == "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip {
+				t.Skipf("Skipping %s: MODUSGRAPH_TEST_ADDR not set", tc.name)
+				return
+			}
+
+			client, cleanup := CreateTestClient(t, tc.uri)
+			defer cleanup()
+
+			timestamp := time.Now().UTC().Truncate(time.Second)
+			entity := OuterTestEntity{
+				Name: "Test Outer Entity",
+				Entity: &TestEntity{
+					Name:        "Test Inner Entity",
+					Description: "This is a test entity for the Insert method",
+					CreatedAt:   timestamp,
+				},
+			}
+
+			ctx := context.Background()
+			err := client.Insert(ctx, &entity)
+			require.NoError(t, err, "Insert should succeed")
+			require.NotEmpty(t, entity.UID, "UID should be assigned")
+
+			uid := entity.UID
+			entity = OuterTestEntity{}
+			err = client.Get(ctx, &entity, uid)
+			require.NoError(t, err, "Get should succeed")
+			require.Equal(t, "Test Outer Entity", entity.Name, "Name should match")
+			require.Equal(t, "Test Inner Entity", entity.Entity.Name, "Entity.Name should match")
+			require.Equal(t, "This is a test entity for the Insert method",
+				entity.Entity.Description, "Entity.Description should match")
+			require.Equal(t, timestamp, entity.Entity.CreatedAt, "Entity.CreatedAt should match")
 		})
 	}
 }
 
 func TestClientInsertMultipleEntities(t *testing.T) {
+
 	testCases := []struct {
 		name string
 		uri  string
@@ -142,14 +212,15 @@ func TestClientInsertMultipleEntities(t *testing.T) {
 }
 
 type Person struct {
-	UID     string    `json:"uid,omitempty"`
 	Name    string    `json:"name,omitempty" dgraph:"index=term"`
 	Friends []*Person `json:"friends,omitempty"`
 
+	UID   string   `json:"uid,omitempty"`
 	DType []string `json:"dgraph.type,omitempty"`
 }
 
 func TestDepthQuery(t *testing.T) {
+
 	testCases := []struct {
 		name string
 		uri  string
@@ -214,7 +285,7 @@ func TestDepthQuery(t *testing.T) {
 			require.NoError(t, err, "Insert should succeed")
 
 			var result []Person
-			err = client.Query(ctx, Person{}).Filter(`eq(name, "Alice")`).All(10).Nodes(&result)
+			err = client.Query(ctx, Person{}).Filter(`eq(name, "Alice")`).Nodes(&result)
 			require.NoError(t, err, "Query should succeed")
 			assert.Equal(t, person.Name, result[0].Name, "Name should match")
 

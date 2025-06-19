@@ -8,9 +8,11 @@ package modusgraph
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/dgraph-io/dgo/v250"
 	"github.com/dgraph-io/dgo/v250/protos/api"
@@ -18,7 +20,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// Client provides an interface for Dgraph operations
+// Client provides an interface for ModusGraph operations
 type Client interface {
 	// Insert adds a new object or slice of objects to the database.
 	// The object must be a pointer to a struct with appropriate dgraph tags.
@@ -26,8 +28,10 @@ type Client interface {
 
 	// Upsert inserts an object if it doesn't exist or updates it if it does.
 	// This operation requires a field with a unique directive in the dgraph tag.
-	// Note: This operation is not supported in file-based (local) mode.
-	Upsert(context.Context, any) error
+	// If no predicates are specified, the first predicate with the `upsert` tag will be used.
+	// If none are specified in the predicates argument, the first predicate with the `upsert` tag
+	// will be used.
+	Upsert(context.Context, any, ...string) error
 
 	// Update modifies an existing object in the database.
 	// The object must be a pointer to a struct and must have a UID field set.
@@ -73,26 +77,31 @@ type Client interface {
 }
 
 const (
-	// DgraphURIPrefix is the prefix for Dgraph server connections
-	DgraphURIPrefix = "dgraph://"
+	// dgraphURIPrefix is the prefix for Dgraph server connections
+	dgraphURIPrefix = "dgraph://"
 
-	// FileURIPrefix is the prefix for file-based local connections
-	FileURIPrefix = "file://"
+	// fileURIPrefix is the prefix for file-based local connections
+	fileURIPrefix = "file://"
 )
 
-var clientMap = make(map[string]Client)
+var (
+	clientMap     = make(map[string]Client)
+	clientMapLock sync.RWMutex
+)
 
 // clientOptions holds configuration options for the client.
 //
 // autoSchema: whether to automatically manage the schema.
 // poolSize: the size of the dgo client connection pool.
+// maxEdgeTraversal: the maximum number of edges to traverse when querying.
 // namespace: the namespace for the client.
 // logger: the logger for the client.
 type clientOptions struct {
-	autoSchema bool
-	poolSize   int
-	namespace  string
-	logger     logr.Logger
+	autoSchema       bool
+	poolSize         int
+	maxEdgeTraversal int
+	namespace        string
+	logger           logr.Logger
 }
 
 // ClientOpt is a function that configures a client
@@ -126,6 +135,13 @@ func WithLogger(logger logr.Logger) ClientOpt {
 	}
 }
 
+// WithMaxEdgeTraversal sets the maximum number of edges to traverse when fetching an object
+func WithMaxEdgeTraversal(max int) ClientOpt {
+	return func(o *clientOptions) {
+		o.maxEdgeTraversal = max
+	}
+}
+
 // NewClient creates a new graph database client instance based on the provided URI.
 //
 // The function supports two URI schemes:
@@ -135,6 +151,7 @@ func WithLogger(logger logr.Logger) ClientOpt {
 // Optional configuration can be provided via the opts parameter:
 //   - WithAutoSchema(bool) - Enable/disable automatic schema creation for inserted objects
 //   - WithPoolSize(int) - Set the connection pool size for better performance under load
+//   - WithMaxEdgeTraversal(int) - Set the maximum number of edges to traverse when fetching an object
 //   - WithNamespace(string) - Set the database namespace for multi-tenant installations
 //   - WithLogger(logr.Logger) - Configure structured logging with custom verbosity levels
 //
@@ -147,10 +164,11 @@ func WithLogger(logger logr.Logger) ClientOpt {
 func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 	// Default options
 	options := clientOptions{
-		autoSchema: false,
-		poolSize:   10,
-		namespace:  "",
-		logger:     logr.Discard(), // No-op logger by default
+		autoSchema:       false,
+		poolSize:         10,
+		namespace:        "",
+		maxEdgeTraversal: 10,
+		logger:           logr.Discard(), // No-op logger by default
 	}
 
 	// Apply provided options
@@ -169,22 +187,27 @@ func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 		logger:  options.logger,
 	}
 
+	clientMapLock.Lock()
+	defer clientMapLock.Unlock()
+	key := client.key()
+	if _, ok := clientMap[key]; ok {
+		return clientMap[key], nil
+	}
+
 	switch {
-	case strings.HasPrefix(uri, DgraphURIPrefix):
+	case strings.HasPrefix(uri, dgraphURIPrefix):
 		client.pool = newClientPool(options.poolSize, func() (*dgo.Dgraph, error) {
 			client.logger.V(2).Info("Opening new Dgraph connection", "uri", uri)
 			return dgo.Open(uri)
 		}, client.logger)
 		dg.SetLogger(client.logger)
+		clientMap[key] = client
 		return client, nil
-	case strings.HasPrefix(uri, FileURIPrefix):
+	case strings.HasPrefix(uri, fileURIPrefix):
 		// parse off the file:// prefix
-		uri = uri[len(FileURIPrefix):]
+		uri = uri[len(fileURIPrefix):]
 		if _, err := os.Stat(uri); err != nil {
 			return nil, err
-		}
-		if c, ok := clientMap[uri]; ok {
-			return c, nil
 		}
 		engine, err := NewEngine(Config{
 			dataDir: uri,
@@ -194,12 +217,12 @@ func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 			return nil, err
 		}
 		client.engine = engine
-		clientMap[uri] = client
 		client.pool = newClientPool(options.poolSize, func() (*dgo.Dgraph, error) {
 			client.logger.V(2).Info("Getting Dgraph client from engine", "location", uri)
 			return engine.GetClient()
 		}, client.logger)
 		dg.SetLogger(client.logger)
+		clientMap[key] = client
 		return client, nil
 	}
 	return nil, errors.New("invalid uri")
@@ -214,6 +237,15 @@ type client struct {
 	logger  logr.Logger
 }
 
+func (c client) isLocal() bool {
+	return strings.HasPrefix(c.uri, fileURIPrefix)
+}
+
+func (c client) key() string {
+	return fmt.Sprintf("%s:%t:%d:%d:%s", c.uri, c.options.autoSchema, c.options.poolSize,
+		c.options.maxEdgeTraversal, c.options.namespace)
+}
+
 func checkPointer(obj any) error {
 	if reflect.TypeOf(obj).Kind() != reflect.Ptr {
 		return errors.New("object must be a pointer")
@@ -222,78 +254,49 @@ func checkPointer(obj any) error {
 }
 
 // Insert implements inserting an object or slice of objects in the database.
+// Passed object must be a pointer to a struct.
 func (c client) Insert(ctx context.Context, obj any) error {
+	if c.isLocal() {
+		return c.mutateWithUniqueVerification(ctx, obj, true)
+	}
 	return c.process(ctx, obj, "Insert", func(tx *dg.TxnContext, obj any) ([]string, error) {
 		return tx.MutateBasic(obj)
 	})
 }
 
 // Upsert implements inserting or updating an object or slice of objects in the database.
-// Note for local file clients, this is not currently implemented.
-func (c client) Upsert(ctx context.Context, obj any) error {
-	if c.engine != nil {
-		return errors.New("not implemented")
+// Note that the struct tag `upsert` must be used. One or more predicates can be specified
+// to be used for upserting. If none are specified, the first predicate with the `upsert` tag
+// will be used.
+// Note for local file clients, only the first struct field marked with `upsert` will be used
+// if none are specified in the predicates argument.
+func (c client) Upsert(ctx context.Context, obj any, predicates ...string) error {
+	if c.isLocal() {
+		var upsertPredicate string
+		if len(predicates) > 0 {
+			upsertPredicate = predicates[0]
+			if len(predicates) > 1 {
+				c.logger.V(1).Info("Multiple upsert predicates specified, local mode only supports one, using first of this list",
+					"predicates", predicates)
+			}
+		}
+		return c.upsert(ctx, obj, upsertPredicate)
 	}
 	return c.process(ctx, obj, "Upsert", func(tx *dg.TxnContext, obj any) ([]string, error) {
-		return tx.Upsert(obj)
+		return tx.Upsert(obj, predicates...)
 	})
 }
 
 // Update implements updating an existing object in the database.
+// Passed object must be a pointer to a struct.
 func (c client) Update(ctx context.Context, obj any) error {
+	if c.isLocal() {
+		return c.mutateWithUniqueVerification(ctx, obj, false)
+	}
+
 	return c.process(ctx, obj, "Update", func(tx *dg.TxnContext, obj any) ([]string, error) {
 		return tx.MutateBasic(obj)
 	})
-}
-
-func (c client) process(ctx context.Context,
-	obj any, operation string,
-	txFunc func(*dg.TxnContext, any) ([]string, error)) error {
-
-	objType := reflect.TypeOf(obj)
-	objKind := objType.Kind()
-	var schemaObj any
-
-	if objKind == reflect.Slice {
-		sliceValue := reflect.Indirect(reflect.ValueOf(obj))
-		if sliceValue.Len() == 0 {
-			err := errors.New("slice cannot be empty")
-			return err
-		}
-		schemaObj = sliceValue.Index(0).Interface()
-	} else {
-		schemaObj = obj
-	}
-
-	err := checkPointer(schemaObj)
-	if err != nil {
-		if objKind == reflect.Slice {
-			err = errors.Join(err, errors.New("slice elements must be pointers"))
-		}
-		return err
-	}
-
-	if c.options.autoSchema {
-		err := c.UpdateSchema(ctx, schemaObj)
-		if err != nil {
-			return err
-		}
-	}
-
-	client, err := c.pool.get()
-	if err != nil {
-		c.logger.Error(err, "Failed to get client from pool")
-		return err
-	}
-	defer c.pool.put(client)
-
-	tx := dg.NewTxnContext(ctx, client).SetCommitNow()
-	uids, err := txFunc(tx, obj)
-	if err != nil {
-		return err
-	}
-	c.logger.V(2).Info(operation+" successful", "uidCount", len(uids))
-	return nil
 }
 
 // Delete implements removing objects with the specified UIDs.
@@ -310,6 +313,7 @@ func (c client) Delete(ctx context.Context, uids []string) error {
 }
 
 // Get implements retrieving a single object by its UID.
+// Passed object must be a pointer to a struct.
 func (c client) Get(ctx context.Context, obj any, uid string) error {
 	err := checkPointer(obj)
 	if err != nil {
@@ -322,10 +326,11 @@ func (c client) Get(ctx context.Context, obj any, uid string) error {
 	defer c.pool.put(client)
 
 	txn := dg.NewReadOnlyTxnContext(ctx, client)
-	return txn.Get(obj).UID(uid).Node()
+	return txn.Get(obj).UID(uid).All(c.options.maxEdgeTraversal).Node()
 }
 
-// Query implements querying similar to dgman's TxnContext.Get method.
+// Returns a *dg.Query that can be further refined with filters, pagination, etc.
+// The returned query will be limited to the maximum number of edges specified in the options.
 func (c client) Query(ctx context.Context, model any) *dg.Query {
 	client, err := c.pool.get()
 	if err != nil {
@@ -334,7 +339,7 @@ func (c client) Query(ctx context.Context, model any) *dg.Query {
 	defer c.pool.put(client)
 
 	txn := dg.NewReadOnlyTxnContext(ctx, client)
-	return txn.Get(model)
+	return txn.Get(model).All(c.options.maxEdgeTraversal)
 }
 
 // UpdateSchema implements updating the Dgraph schema. Pass one or more
@@ -389,7 +394,7 @@ func (c client) DropData(ctx context.Context) error {
 
 // QueryRaw implements raw querying (DQL syntax) and optional variables.
 func (c client) QueryRaw(ctx context.Context, q string, vars map[string]string) ([]byte, error) {
-	if c.engine != nil {
+	if c.isLocal() {
 		ns := c.engine.GetDefaultNamespace()
 		resp, err := ns.QueryWithVars(ctx, q, vars)
 		if err != nil {

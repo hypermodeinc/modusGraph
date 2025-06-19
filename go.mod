@@ -7,7 +7,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.7.0
 	github.com/dgraph-io/dgo/v250 v250.0.0-preview4
 	github.com/dgraph-io/ristretto/v2 v2.2.0
-	github.com/dolan-in/dgman/v2 v2.1.0-preview1
+	github.com/dolan-in/dgman/v2 v2.1.0-preview2
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/stdr v1.2.2
 	github.com/hypermodeinc/dgraph/v25 v25.0.0-preview4
