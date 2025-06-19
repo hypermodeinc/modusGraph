@@ -261,7 +261,6 @@ func TestLocalClientSingleton(t *testing.T) {
 }
 
 func TestRemoteClientAccess(t *testing.T) {
-	os.Setenv("MODUSGRAPH_TEST_ADDR", "localhost:9080")
 
 	if os.Getenv("MODUSGRAPH_TEST_ADDR") == "" {
 		t.Skip("Skipping test as MODUSGRAPH_TEST_ADDR is not set")
