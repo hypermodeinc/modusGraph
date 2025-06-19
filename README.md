@@ -114,7 +114,8 @@ Connects to a database stored locally on the filesystem. This mode doesn't requi
 database server and is perfect for development, testing, or embedded applications. The directory
 must exist before connecting.
 
-File-based databases do not support concurrent access from separate processes.
+File-based databases do not support concurrent access from separate processes. Further, there can
+only be one file-based client per process.
 
 ```go
 // Connect to a local file-based database
@@ -130,6 +131,8 @@ Connects to a Dgraph cluster. For more details on the Dgraph URI format, see the
 // Connect to a remote Dgraph server
 client, err := mg.NewClient("dgraph://hostname:9080")
 ```
+
+You can have multiple remote clients per process provided the URIs are distinct.
 
 ### Configuration Options
 
@@ -153,6 +156,15 @@ connections.
 ```go
 // Set pool size to 20 connections
 client, err := mg.NewClient(uri, mg.WithPoolSize(20))
+```
+
+#### WithMaxEdgeTraversal(int)
+
+Sets the maximum number of edges to traverse when querying. The default is 10 edges.
+
+```go
+// Set max edge traversal to 20 edges
+client, err := mg.NewClient(uri, mg.WithMaxEdgeTraversal(20))
 ```
 
 #### WithLogger(logr.Logger)
@@ -187,6 +199,9 @@ Every struct that represents a node in your graph should include:
 ```go
 type MyNode struct {
     // Your fields here with appropriate tags
+    Name string `json:"name,omitempty" dgraph:"index=exact"`
+    Description string `json:"description,omitempty" dgraph:"index=term"`
+    CreatedAt time.Time `json:"createdAt,omitempty" dgraph:"index=day"`
 
     // These fields are required for Dgraph integration
     UID   string   `json:"uid,omitempty"`
@@ -569,10 +584,10 @@ These operations are useful for testing or when you need to reset your database 
 modusGraph has a few limitations to be aware of:
 
 - **Unique constraints in file-based mode**: Due to the intricacies of how Dgraph handles unique
-  fields in its core package, unique field checks are not supported (yet) when using the local
-  (file-based) mode. These operations work properly when using a full Dgraph cluster, but the
-  simplified file-based mode does not support the constraint enforcement mechanisms required for
-  uniqueness guarantees.
+  fields in its core package, when using file-based mode, unique field checks are only supported at
+  the top level object that is being in/upserted or updated. Embedded or lists of embedded objects
+  that have unique tags will NOT be checked for uniqueness when the top-level object is in/upserted
+  or updated.
 
 - **Upsert operations**: Upsert operations are only supported on the top-level object. Fields in
   embedded or lists of embedded objects that have upsert tags will be ignored when the top-level
