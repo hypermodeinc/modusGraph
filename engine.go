@@ -39,14 +39,15 @@ var (
 	// activeEngine tracks the current Engine instance for global access
 	activeEngine *Engine
 
-	ErrSingletonOnly = errors.New("only one instance of modusDB can exist in a process")
-	ErrEmptyDataDir  = errors.New("data directory is required")
-	ErrClosedEngine  = errors.New("modusDB engine is closed")
-	ErrNonExistentDB = errors.New("namespace does not exist")
+	ErrSingletonOnly    = errors.New("only one instance of modusGraph can exist in a process")
+	ErrEmptyDataDir     = errors.New("data directory is required")
+	ErrClosedEngine     = errors.New("modusGraph engine is closed")
+	ErrNonExistentDB    = errors.New("namespace does not exist")
+	ErrInvalidCacheSize = errors.New("cache size must be zero or positive")
 )
 
-// Engine is an instance of modusDB.
-// For now, we only support one instance of modusDB per process.
+// Engine is an instance of modusGraph.
+// For now, we only support one instance of modusGraph per process.
 type Engine struct {
 	mutex  sync.RWMutex
 	isOpen atomic.Bool
@@ -61,15 +62,15 @@ type Engine struct {
 	logger   logr.Logger
 }
 
-// NewEngine returns a new modusDB instance.
+// NewEngine returns a new modusGraph instance.
 func NewEngine(conf Config) (*Engine, error) {
-	// Ensure that we do not create another instance of modusDB in the same process
+	// Ensure that we do not create another instance of modusGraph in the same process
 	if !singleton.CompareAndSwap(false, true) {
 		conf.logger.Error(ErrSingletonOnly, "Failed to create engine")
 		return nil, ErrSingletonOnly
 	}
 
-	conf.logger.V(1).Info("Creating new modusDB engine", "dataDir", conf.dataDir)
+	conf.logger.V(1).Info("Creating new modusGraph engine", "dataDir", conf.dataDir)
 
 	if err := conf.validate(); err != nil {
 		conf.logger.Error(err, "Invalid configuration")
@@ -93,7 +94,8 @@ func NewEngine(conf Config) (*Engine, error) {
 	worker.State.InitStorage()
 	worker.InitForLite(worker.State.Pstore)
 	schema.Init(worker.State.Pstore)
-	posting.Init(worker.State.Pstore, 0, false) // TODO: set cache size
+	cacheSizeBytes := conf.cacheSizeMB * 1024 * 1024
+	posting.Init(worker.State.Pstore, int64(cacheSizeBytes), false)
 
 	engine := &Engine{
 		logger: conf.logger,

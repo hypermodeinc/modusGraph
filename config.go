@@ -10,9 +10,8 @@ import (
 )
 
 type Config struct {
-	dataDir string
-
-	// optional params
+	dataDir            string
+	cacheSizeMB        int
 	limitNormalizeNode int
 
 	// logger is used for structured logging
@@ -20,9 +19,15 @@ type Config struct {
 }
 
 func NewDefaultConfig(dir string) Config {
-	return Config{dataDir: dir, limitNormalizeNode: 10000, logger: logr.Discard()}
+	return Config{
+		dataDir:            dir,
+		limitNormalizeNode: 10000,
+		logger:             logr.Discard(),
+		cacheSizeMB:        1024, // 1 GB
+	}
 }
 
+// WithLimitNormalizeNode sets the limit for the number of nodes to normalize
 func (cc Config) WithLimitNormalizeNode(d int) Config {
 	cc.limitNormalizeNode = d
 	return cc
@@ -34,9 +39,19 @@ func (cc Config) WithLogger(logger logr.Logger) Config {
 	return cc
 }
 
+// WithCacheSizeMB sets the memory cache size in MB
+func (cc Config) WithCacheSizeMB(size int) Config {
+	cc.cacheSizeMB = size
+	return cc
+}
+
 func (cc Config) validate() error {
 	if cc.dataDir == "" {
 		return ErrEmptyDataDir
+	}
+
+	if cc.cacheSizeMB < 0 {
+		return ErrInvalidCacheSize
 	}
 
 	return nil
