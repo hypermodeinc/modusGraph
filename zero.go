@@ -96,14 +96,6 @@ func (z *zero) readTs() uint64 {
 	return z.minLeasedTs - 1
 }
 
-func (z *zero) nextUID() (uint64, error) {
-	uids, err := z.nextUIDs(&pb.Num{Val: 1, Type: pb.Num_UID})
-	if err != nil {
-		return 0, err
-	}
-	return uids.StartId, nil
-}
-
 func (z *zero) nextUIDs(num *pb.Num) (*pb.AssignedIds, error) {
 	var resp *pb.AssignedIds
 	if num.Bump {
