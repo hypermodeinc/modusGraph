@@ -89,7 +89,7 @@ func TestLiveLoaderSmall(t *testing.T) {
 func TestLiveLoader1Million(t *testing.T) {
 	stdLogger := log.New(os.Stdout, "", log.LstdFlags)
 	logger := stdr.NewWithOptions(stdLogger, stdr.Options{LogCaller: stdr.All}).WithName("mg")
-	conf := modusgraph.NewDefaultConfig(t.TempDir()).WithLogger(logger)
+	conf := modusgraph.NewDefaultConfig(t.TempDir()).WithLogger(logger).WithCacheSizeMB(0)
 	engine, err := modusgraph.NewEngine(conf)
 	require.NoError(t, err)
 	defer engine.Close()
