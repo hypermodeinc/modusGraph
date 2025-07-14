@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   ci-go-tests:
+    timeout-minutes: 2
     name: Test ${{ matrix.os }}
     runs-on:
       "${{ matrix.os == 'linux' && 'warp-ubuntu-latest-x64-4x' || matrix.os == 'macos' &&
