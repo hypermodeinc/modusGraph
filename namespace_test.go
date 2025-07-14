@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package unit_test
+package modusgraph_test
 
 import (
 	"context"
@@ -49,7 +49,7 @@ func TestNonGalaxyDB(t *testing.T) {
 
 }
 
-func TestDropData(t *testing.T) {
+func TestDropDataNamespace(t *testing.T) {
 	engine, err := modusgraph.NewEngine(modusgraph.NewDefaultConfig(t.TempDir()))
 	require.NoError(t, err)
 	defer engine.Close()
