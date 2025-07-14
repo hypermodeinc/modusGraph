@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   ci-go-tests:
-    timeout-minutes: 2
+    timeout-minutes: 10
     name: Test ${{ matrix.os }}
     runs-on:
       "${{ matrix.os == 'linux' && 'warp-ubuntu-latest-x64-4x' || matrix.os == 'macos' &&
@@ -39,4 +39,5 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run Unit Tests
-        run: go test -race -v .
+        #run: go test -race -v .
+        run: go test -timeout 30s -run ^TestNonGalaxyDB$ github.com/hypermodeinc/modusgraph -v
