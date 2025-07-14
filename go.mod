@@ -5,12 +5,12 @@ go 1.24.4
 require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/dgraph-io/badger/v4 v4.7.0
-	github.com/dgraph-io/dgo/v250 v250.0.0-preview4.0.20250619041351-4a519e53fb9d
+	github.com/dgraph-io/dgo/v250 v250.0.0-preview4
 	github.com/dgraph-io/ristretto/v2 v2.2.0
 	github.com/dolan-in/dgman/v2 v2.1.0-preview2
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/stdr v1.2.2
-	github.com/hypermodeinc/dgraph/v25 v25.0.0-preview6
+	github.com/hypermodeinc/dgraph/v25 v25.0.0-preview4
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.16.0
@@ -20,20 +20,15 @@ require (
 require (
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/dolan-in/reflectwalk v1.0.2-0.20210101124621-dc2073a29d71 // indirect
-	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
-	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3 // indirect
-	github.com/minio/crc64nvme v1.0.1 // indirect
-	github.com/minio/minio-go/v7 v7.0.94 // indirect
+	github.com/minio/minio-go/v6 v6.0.57 // indirect
+	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
-	github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c // indirect
-	github.com/rs/xid v1.6.0 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/tinylib/msgp v1.3.0 // indirect
 	github.com/twpayne/go-geom v1.6.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0 // indirect
@@ -46,6 +41,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.6.0 // indirect
 	gonum.org/v1/gonum v0.12.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250519155744-55703ea1f237 // indirect
+	gopkg.in/ini.v1 v1.67.0 // indirect
 )
 
 require (
