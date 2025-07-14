@@ -178,7 +178,7 @@ func (s *serverWrapper) Alter(ctx context.Context, op *api.Operation) (*api.Payl
 func (s *serverWrapper) CheckVersion(ctx context.Context, check *api.Check) (*api.Version, error) {
 	// Return a version that matches what the client expects (TODO)
 	return &api.Version{
-		Tag: "v24.0.0", // Must match major version expected by client
+		Tag: "v25.0.0", // Must match major version expected by client
 	}, nil
 }
 
