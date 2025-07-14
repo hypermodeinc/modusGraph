@@ -82,8 +82,8 @@ func (n *Namespace) LoadData(inCtx context.Context, dataDir string) error {
 				elapsed := time.Since(start).Round(time.Second)
 				rate := float64(nqudsProcessed-last) / progressFrequency.Seconds()
 				n.engine.logger.Info("Data loading progress", "elapsed", x.FixedDuration(elapsed),
-					"quads", nqudsProcessed,
-					"rate", fmt.Sprintf("%5.0f", rate))
+					"nquadsProcessed", nqudsProcessed,
+					"writesPerSecond", fmt.Sprintf("%5.0f", rate))
 				last = nqudsProcessed
 
 			case nqs, ok := <-nqch:
