@@ -143,7 +143,10 @@ func WithMaxEdgeTraversal(max int) ClientOpt {
 	}
 }
 
-// WithCacheSizeMB sets the memory cache size in MB (only applicable for embedded databases)
+// WithCacheSizeMB sets the memory cache size in MB (only applicable for embedded databases).
+// A good starting point for a system with a moderate amount of RAM (e.g., 8-16GB) would be
+// between 256 MB and 1 GB. Dgraph itself often defaults to a 1GB cache. In order to minimize
+// resource usage sans configuration, the default is set to 64 MB.
 func WithCacheSizeMB(size int) ClientOpt {
 	return func(o *clientOptions) {
 		o.cacheSizeMB = size
