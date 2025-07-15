@@ -177,7 +177,7 @@ func NewClient(uri string, opts ...ClientOpt) (Client, error) {
 		poolSize:         10,
 		namespace:        "",
 		maxEdgeTraversal: 10,
-		cacheSizeMB:      1024,           // 1 GB
+		cacheSizeMB:      64,             // 64 MB
 		logger:           logr.Discard(), // No-op logger by default
 	}
 

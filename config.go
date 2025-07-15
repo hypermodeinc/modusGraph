@@ -23,7 +23,7 @@ func NewDefaultConfig(dir string) Config {
 		dataDir:            dir,
 		limitNormalizeNode: 10000,
 		logger:             logr.Discard(),
-		cacheSizeMB:        0, // 0 MB
+		cacheSizeMB:        64, // 64 MB
 	}
 }
 
