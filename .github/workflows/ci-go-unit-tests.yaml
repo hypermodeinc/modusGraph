@@ -10,6 +10,8 @@ on:
     paths:
       - "**/*.go"
       - "**/go.mod"
+      - "**/go.sum"
+      - "**/*.md"
       - .github/workflows/*
 
 permissions:
